@@ -1,0 +1,12 @@
+"filename", "language", "Rust", "comment", "blank", "total"
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/BespokeFunctions/step.rs", "Rust", 0, 0, 1, 1
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/Collisions/definition.rs", "Rust", 8, 0, 2, 10
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/Collisions/detection.rs", "Rust", 4, 2, 4, 10
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/DataStructures/LinearQueue.rs", "Rust", 14, 0, 3, 17
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/Math/vectortransform.rs", "Rust", 9, 8, 7, 24
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/Motion/linear.rs", "Rust", 10, 0, 3, 13
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/RigidBodies/ball.rs", "Rust", 14, 0, 2, 16
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/environment.rs", "Rust", 17, 7, 8, 32
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/main.rs", "Rust", 15, 13, 12, 40
+"/Users/anshmendiratta/Desktop/Code/School/nea/src/rigidbody.rs", "Rust", 11, 0, 2, 13
+"Total", "-", 102, 30, 44, 176
