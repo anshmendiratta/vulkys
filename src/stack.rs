@@ -10,7 +10,7 @@ impl Stack {
     pub fn new() -> Self {
         Self {
             elements: LinearQueue::new(),
-            pointer: Result<u32, _>,
+            pointer: 0,
         }
     }
 
@@ -19,6 +19,10 @@ impl Stack {
     }
 
     pub fn pop(mut self) {
-        &self.elements.dequeue()
+        if &self.elements.length() == 0 {
+            panic!("Stack Underflow: Attempted to pop from a stack of length 0")
+        } else {
+            &self.elements.dequeue()
+        }
     }
 }
