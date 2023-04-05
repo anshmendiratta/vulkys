@@ -1,7 +1,8 @@
+// pub mod LinearQueue;
 use std::collections::LinkedList;
 
-pub struct LinearQueue {
-    elements: LinkedList<Collision>,
+pub struct LinearQueue<T> {
+    elements: LinkedList<T>,
 }
 
 #[derive()]
@@ -14,7 +15,7 @@ impl LinearQueue {
     }
 
     pub fn dequeue(&self, item: Collision) -> Collision {
-        &self.pop()
+        &self.pop().unwrap()
     }
 
     pub fn peek(&self) -> Collision {

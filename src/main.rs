@@ -5,8 +5,16 @@ use eframe::egui;
 use crate::rigidbodyobjects::rigidbodies::rigid::*;
 
 mod boundary;
+mod stack;
 pub mod rigidbodyobjects {
     pub mod rigidbodies;
+    pub mod motion {
+        pub mod collisions {
+            pub mod dataStructures {
+                pub mod linearqueue;
+            }
+        }
+    }
 }
 
 fn main() -> Result<(), eframe::Error> {
@@ -50,13 +58,13 @@ impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.add(egui::ComboBox::from_label("Select object type to add to simulation")
-                       .selected_text(format!("{:?}", &self.selected))
-                       .show_ui(ui, |ui| {
-                           ui.selectable_value(&mut self.selected, RigidBody::Ball, "Ball")
-                      }
-                      )
-                )            
+                ui.add(
+                    egui::ComboBox::from_label("Select object type to add to simulation")
+                        .selected_text(format!("{:?}", &self.selected))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.selected, RigidBody::Ball, "Ball")
+                        }),
+                )
             });
 
             ui.horizontal(|ui| {
@@ -71,7 +79,7 @@ impl eframe::App for Content {
 
             ui.horizontal(|ui| {
                 // let mut velocity_x: f32 = 0.0;
-                ui.add(egui::Slider::new(&mut self.velocity_x, 0.0..=5.0));
+                ui.add(egui::ComboBox::new(&mut self.velocity_x, 0.0..=5.0));
                 ui.label("STARTING X-VELOCITY");
 
                 // let mut velocity_y: f32 = 0.0;
@@ -81,10 +89,10 @@ impl eframe::App for Content {
 
             ui.horizontal(|ui| {
                 if ui.button("ADD OBJECT").clicked() {
-                    self.objects.push(selected { 
-                        radius: 1.0, 
-                        position: vec![self.position_x, self.position_y], 
-                        velocity: vec![self.velocity_x, self.velocity_y] 
+                    self.objects.push(selected {
+                        radius: 1.0,
+                        position: vec![self.position_x, self.position_y],
+                        velocity: vec![self.velocity_x, self.velocity_y],
                     });
 
                     self.position_x = 0.0;
@@ -97,4 +105,3 @@ impl eframe::App for Content {
         });
     }
 }
-

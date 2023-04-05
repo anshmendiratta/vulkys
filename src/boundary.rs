@@ -13,4 +13,3 @@ impl Boundary {
         &self.rangey
     }
 }
-
