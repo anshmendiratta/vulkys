@@ -1,7 +1,15 @@
+use crate::rigidbodyobjects::rigidbodies::RigidBody;
+use crate::world::World;
+
+#[derive(Debug)]
 pub struct Collision {
-    axis: &str.to_lower(),
-    object: RigidBody,
+    objects: Vec<2, RigidBody, BodyOrWorld>, 
     time: f32,
+}
+
+enum BodyOrWorld {
+    RigidBody,
+    World
 }
 
 impl Collision {

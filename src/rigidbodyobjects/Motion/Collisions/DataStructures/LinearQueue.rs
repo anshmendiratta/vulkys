@@ -1,15 +1,16 @@
-// pub mod LinearQueue;
+pub mod LinearQueue;
+use crate::rigidbodyobjects::motion::collisions::definition::Collision;
 use std::collections::LinkedList;
 
 pub struct LinearQueue<T> {
     elements: LinkedList<T>,
 }
 
-#[derive(length)]
+#[derive(length, Default)]
 impl LinearQueue {
-    pub fn new() -> Self {
-        LinkedList::new()
-    }
+    // pub fn new() -> Self {
+    //     LinkedList::new()
+    // }
     pub fn enqueue(&self, item: Collision) {
         &self.push(item)
     }

@@ -1,10 +1,12 @@
-fn resolve_collision(collision: Collision, object: RigidBody) {
-    let object = collision.get_object();
-    let velocity = &object.get_velocity();
-
-    if collision.get_axis() == "x" {
-        velocity[0] *= -1
-    } else {
-        velocity[1] *= -1
+fn resolve_collision(collisions: LinearQueue<Collision>) {
+    for collision in collisions {
+        match collision.get_kind() {
+            boundary => resolve_boundary_collision(),
+            object => resolve_object_collision()
+        }
     }
+}
+
+fn resolve_boundary_collision(collision: Collision) {
+    (xord, yord) = collision.get;
 }
