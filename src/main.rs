@@ -1,17 +1,18 @@
-// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-
 use eframe::egui;
-// use egui::*;
-use crate::rigidbodyobjects::rigidbodies::rigid::*;
+use crate::rigidbodyobjects::rigidbodies::RigidBody;
 
 mod boundary;
 mod stack;
 pub mod rigidbodyobjects {
     pub mod rigidbodies;
     pub mod motion {
+        pub mod angular;
+
         pub mod collisions {
+            mod definition;
+
             pub mod dataStructures {
-                pub mod linearqueue;
+                pub mod LinearQueue;
             }
         }
     }
@@ -49,7 +50,7 @@ impl Default for Content {
             position_y: 0.0,
             velocity_x: 0.0,
             velocity_y: 0.0,
-            selected: RigidBody::Ball::default(),
+            selected: RigidBody::Ball::Default::default(),
         }
     }
 }
