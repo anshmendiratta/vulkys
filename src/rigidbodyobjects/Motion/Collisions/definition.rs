@@ -1,24 +1,20 @@
 use crate::rigidbodyobjects::rigidbodies::RigidBody;
 use crate::world::World;
 
+enum Collision {
+    ObjObj(RigidBody, RigidBody),
+    ObjWorld(RigidBody, World)
+}
+
 #[derive(Debug)]
-pub struct Collision {
-    objects: (RigidBody, Either<RigidBody, World>), 
+pub struct CollisionData {
+    objects: Collision,
     time: f32,
 }
 
-enum Either<A, B> {
-    Left(A),
-    Right(B)
-}
-
-impl Collision {
+impl CollisionData {
     pub fn get_time(&self) -> f32 {
         &self.time
-    }
-
-    pub fn get_axis(&self) -> &str {
-        &self.axis
     }
 
     pub fn get_object(&self) -> RigidBody {
