@@ -8,16 +8,20 @@ enum Collision {
 
 #[derive(Debug)]
 pub struct CollisionData {
-    objects: Collision,
+    object: Collision,
     time: f32,
 }
 
 impl CollisionData {
-    pub fn get_time(&self) -> f32 {
+    pub fn get_time(&self) -> &f32 {
         &self.time
     }
 
-    pub fn get_object(&self) -> RigidBody {
-        &self.object
+    pub fn get_objects<T>(&self) -> Vec<T> {
+        if let Collision::ObjObj(body1, body2) = self.object {
+            vec![body1, body2]
+        } else if let Collision::ObjWorld(body, world) = self.object {
+            vec![body, world]
+        } 
     }
 }
