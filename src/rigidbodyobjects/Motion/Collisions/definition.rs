@@ -3,13 +3,13 @@ use crate::world::World;
 
 #[derive(Debug)]
 pub struct Collision {
-    objects: Vec<2, RigidBody, BodyOrWorld>, 
+    objects: (RigidBody, Either<RigidBody, World>), 
     time: f32,
 }
 
-enum BodyOrWorld {
-    RigidBody,
-    World
+enum Either<A, B> {
+    Left(A),
+    Right(B)
 }
 
 impl Collision {

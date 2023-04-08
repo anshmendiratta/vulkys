@@ -1,10 +1,10 @@
-//mod RigidBodyObjects {}
-pub mod RigidbodyObjects {
+pub mod world;
+pub mod rigidbodyobjects {
     // mod rigidbody;
 }
 
 pub struct World {
-    gravity: Vec<f32>,
+    gravity: f32, 
     objects: Vec<RigidBody>,
     restitution: f32,
 }
@@ -19,7 +19,7 @@ impl World {
         &self.objects.push(object)
     }
 
-    pub fn get_gravity(self) -> &'static Vec<f32> {
+    pub fn get_gravity(self) -> &'static f32 {
         &self.gravity
     }
 

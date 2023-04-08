@@ -16,11 +16,11 @@ impl Stack {
     //     }
     // }
 
-    pub fn push(mut &self, item: RigidBody) {
+    pub fn push(&mut self, item: RigidBody) {
         &self.elements.enqueue(item)
     }
 
-    pub fn pop(mut &self) -> Result<RigidBody, E> {
+    pub fn pop(&mut self) -> Result<RigidBody, E> {
         &self.elements.pop().unwrap()
     }
 }

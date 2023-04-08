@@ -1,5 +1,5 @@
-use eframe::egui;
 use crate::rigidbodyobjects::rigidbodies::RigidBody;
+use eframe::egui;
 
 mod boundary;
 mod stack;
