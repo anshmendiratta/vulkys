@@ -1,20 +1,19 @@
-use crate::rigidbodyobjects::motion::collisions::dataStructures::linearqueue::LinearQueue;
+use crate::rigidbodyobjects::motion::collisions::datastructures::linearqueue::LinearQueue;
 use crate::rigidbodyobjects::rigidbodies::RigidBody;
 
-#[derive(Default)]
+#[derive(Debug)]
 pub struct Stack {
     elements: LinearQueue<RigidBody>,
     pointer: u32,
 }
 
 impl Stack {
-    // The below code does something similar to Default::default();
-    // pub fn new() -> Self {
-    //     Self {
-    //         elements: LinearQueue::new(),
-    //         pointer: 0,
-    //     }
-    // }
+    pub fn new() -> Self {
+        Self {
+            elements: LinearQueue::new(),
+            pointer: 0,
+        }
+    }
 
     pub fn push(&mut self, item: RigidBody) {
         &self.elements.enqueue(item)

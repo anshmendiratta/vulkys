@@ -1,8 +1,7 @@
-use std::os::unix::ucred::impl_mac;
-
 #[derive(Debug)]
 pub enum RigidBody {
     Ball {
+        mass: f32,
         radius: f32,
         position: Vec<f32>,
         velocity: Vec<f32>,
@@ -11,24 +10,31 @@ pub enum RigidBody {
 
 #[derive(Debug)]
 pub struct Ball {
+    pub mass: f32, 
     pub radius: f32,
     pub position: Vec<f32>,
     pub velocity: Vec<f32>,
 }
 
-impl Ball {
-    pub fn get_position(&self) -> &Vec<f32> {
-        &self.position
+trait GetData {
+    fn get_radius(&self) -> &f32 { &0.0 }
+    fn get_mass(&self) -> &f32 { &0.0 }
+}
+
+impl GetData for Ball {
+    fn get_radius(&self) -> &f32 {
+        &self.radius
     }
 
-    pub fn get_velocity(&self) -> &Vec<f32> {
-        &self.velocity
+    fn get_mass(&self) -> &f32 {
+        &self.mass
     }
 }
 
 impl Default for Ball {
     fn default() -> Self {
         Self {
+            mass: 1.0,
             radius: 1.0,
             position: vec![0.0, 0.0],
             velocity: vec![0.0, 0.0],

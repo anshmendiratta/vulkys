@@ -1,22 +1,7 @@
-use crate::rigidbodyobjects::rigidbodies::RigidBody;
 use eframe::egui;
 
 mod boundary;
-mod stack;
-pub mod rigidbodyobjects {
-    pub mod rigidbodies;
-    pub mod motion {
-        pub mod angular;
-
-        pub mod collisions {
-            mod definition;
-
-            pub mod dataStructures {
-                pub mod LinearQueue;
-            }
-        }
-    }
-}
+mod rigidbodies;
 
 fn main() -> Result<(), eframe::Error> {
     // Log to stdout (if you run with `RUST_LOG=debug`).
