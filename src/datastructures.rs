@@ -1,12 +1,13 @@
-pub mod LinearQueue;
-use crate::rigidbodyobjects::motion::collisions::definition::Collision;
 use std::collections::LinkedList;
+use crate::rigidbodyobjects::rigidbodies::RigidBody;
+use crate::rigidbodyobjects::motion::collisions::{definition::Collision, datastructures::linearqueue::LinearQueue};
+// use crate::rigidbodyobjects::motion::collisions::datastructures::linearqueue::LinearQueue;
 
-mod LinearQueue { 
+pub mod LinearQueue { 
     pub struct LinearQueue<T> {
         elements: LinkedList<T>,
     }
-
+    
     #[derive(length)]
     impl LinearQueue {
         pub fn new() -> Self {
@@ -27,16 +28,15 @@ mod LinearQueue {
     }
 }
 
-use crate::rigidbodyobjects::motion::collisions::datastructures::linearqueue::LinearQueue;
-use crate::rigidbodyobjects::rigidbodies::RigidBody;
 
-#[derive(Debug)]
-pub struct Stack {
-    elements: LinearQueue<RigidBody>,
-    pointer: u32,
-}
+pub mod Stack {
+    #[derive(Debug)]
+    pub struct Stack {
+        elements: LinearQueue<T>,
+        pointer: usize,
+    }
 
-mod Stack {
+    impl Stack {
         pub fn new() -> Self {
             Self {
                 elements: LinearQueue::new(),
@@ -52,3 +52,4 @@ mod Stack {
             &self.elements.pop().unwrap()
         }
     }
+}

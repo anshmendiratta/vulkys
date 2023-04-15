@@ -7,7 +7,7 @@ pub struct LinearQueue<T> {
 }
 
 #[derive(length)]
-impl LinearQueue {
+impl LinearQueue<T> {
     pub fn new() -> Self {
         LinkedList::new()
     }

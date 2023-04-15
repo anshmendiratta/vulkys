@@ -13,8 +13,10 @@ pub struct CollisionData {
     time: f32,
 }
 
-enum RigidWorldVec {
-    
+impl Collision {
+    fn get_participants(&self) -> (T, Y) {
+        
+    }
 }
 
 impl CollisionData {
@@ -29,7 +31,7 @@ impl CollisionData {
         }
     } 
 
-    // pub fn match_collision_objects(&self, collision: &Collision) {
+    // pub fn match_collision_objects*&self, collision: &Collision) {
     //     match collision {
             
     //     }
