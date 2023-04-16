@@ -36,7 +36,7 @@ pub mod PhysicsMath {
    pub fn calculate_distance_for_torque(object1: RigidBody, object2: RigidBody, contact_point: Coordinate) -> f64 {
       let obj1_position: Coordinate = object1.get_position();
       let obj2_position: Coordinate = object2.get_position();
-      let angle: Radians = atan2()
+      let angle: Radians = atan2();
    }
    
    pub fn get_tangential_velocity<RigidBody>(object: RigidBody) -> f32 {

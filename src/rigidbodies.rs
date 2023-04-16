@@ -1,10 +1,23 @@
 use std::str::FromStr;
-use strum_macros::{EnumCount, EnumString};
-// use crate::datastructures::LinearQueue;
+use strum_macros::{Display, EnumCount, EnumString};
+// use crate::datastructures::linearqueue;
 
-#[derive(Debug, EnumCount, EnumString, PartialEq, Clone, Copy)]
+#[derive(Debug, EnumCount, EnumString, PartialEq, Clone, Display)]
 pub enum RigidBody {
-    Ball,
+    None,
+    Ball {
+        mass: f64,
+        radius: f64,
+        position: Vec<f64>,
+        velocity: Vec<f64>,
+        angular_velocity: f64,
+    },
+}
+
+#[derive(Debug, EnumCount, EnumString, PartialEq, Clone, Display)]
+pub enum RigidBodyMatch {
+    None,
+    Ball
 }
 
 // impl RigidBody {
@@ -43,6 +56,25 @@ impl GetData for Ball {
 
     fn get_mass(&self) -> &f64 {
         &self.mass
+    }
+}
+
+impl Ball {
+    pub fn make_from_function(
+        &self,
+        mass: f64,
+        radius: f64,
+        position: Vec<f64>,
+        velocity: Vec<f64>,
+        angular_velocity: f64,
+    ) -> Ball {
+        Ball {
+            mass: mass,
+            radius: radius,
+            position: position,
+            velocity: velocity,
+            angular_velocity: angular_velocity,
+        }
     }
 }
 

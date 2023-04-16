@@ -14,7 +14,7 @@ fn resolve_boundary_collision(collision: Collision) {
 }
 
 fn update_velocity<T: VectorMethods>(mut object1: &RigidBody, mut object2: &RigidBody) {
-    object1.velocity = (2 * object2.get_velocity().scale_vector(object2.get_mass()) + object1.get_velocity().scale(object1.get_mass() - object2.get_mass())).scale(object1.get_mass() + object2.get_mass())
+    object1.velocity = (2 * object2.get_velocity().scale_vector(object2.get_mass()) + object1.get_velocity().scale(object1.get_mass() - object2.get_mass())).scale(object1.get_mass() + object2.get_mass());
     object2.velocity = (2 * object1.get_velocity().scale_vector(object1.get_mass()) + object2.get_velocity().scale(object2.get_mass() - object1.get_mass())).scale(object1.get_mass() + object2.get_mass())
 }
 

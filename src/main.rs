@@ -26,11 +26,14 @@ fn main() -> Result<(), eframe::Error> {
 #[derive()]
 struct Content {
     objects: Vec<RigidBody>,
-    position_x: f32,
-    position_y: f32,
-    velocity_x: f32,
-    velocity_y: f32,
-    selected: RigidBody,
+    mass: f64,
+    radius: f64,
+    position_x: f64,
+    position_y: f64,
+    velocity_x: f64,
+    velocity_y: f64,
+    angular_velocity: f64,
+    selected: RigidBodyMatch,
 }
 
 // impl Default for RigidBody {}
@@ -39,11 +42,14 @@ impl Default for Content {
     fn default() -> Self {
         Self {
             objects: Vec::new(),
+            mass: 1.0,
+            radius: 1.0,
             position_x: 0.0,
             position_y: 0.0,
             velocity_x: 0.0,
             velocity_y: 0.0,
-            selected: RigidBody::Ball,
+            angular_velocity: 0.0,
+            selected: RigidBodyMatch::None,
         }
     }
 }
@@ -61,9 +67,11 @@ impl eframe::App for Content {
             //     )
             // });
 
-            egui::ComboBox::from_label("Select object to add").show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.selected, RigidBody::Ball, "Ball")
-            });
+            egui::ComboBox::from_label("Select object to add")
+                .selected_text(self.selected.to_string())
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.selected, RigidBodyMatch::Ball, "Ball")
+                });
 
             ui.horizontal(|ui| {
                 // let mut position_x: f32 = 0.0;
@@ -87,15 +95,24 @@ impl eframe::App for Content {
 
             ui.horizontal(|ui| {
                 if ui.button("ADD OBJECT").clicked() {
-                    self.objects.push(self.selected);
+                    match self.selected {
+                        RigidBodyMatch::Ball => self.objects.push(RigidBody::Ball {
+                            mass: self.mass,
+                            radius: self.radius,
+                            position: vec![self.position_x, self.position_y],
+                            velocity: vec![self.velocity_x, self.velocity_y],
+                            angular_velocity: self.angular_velocity,
+                        }),
+                        RigidBodyMatch::None => (),
+                    }
 
                     self.position_x = 0.0;
                     self.position_y = 0.0;
                     self.velocity_x = 0.0;
                     self.velocity_y = 0.0;
                 }
-                ui.label(format!("{:?}", self.objects))
             });
+            ui.label(format!("{:?}", self.objects))
         });
     }
 }
