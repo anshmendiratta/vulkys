@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "libm",
  "strum",
  "strum_macros",
  "tracing-subscriber",
@@ -1159,6 +1160,12 @@ dependencies = [
  "cfg-if",
  "winapi",
 ]
+
+[[package]]
+name = "libm"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "348108ab3fba42ec82ff6e9564fc4ca0247bdccdc68dd8af9764bbc79c3c8ffb"
 
 [[package]]
 name = "linux-raw-sys"

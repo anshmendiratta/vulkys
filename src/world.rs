@@ -1,38 +1,42 @@
-pub mod rigidbodyobjects {
-    // mod rigidbody;
+use crate::rigidbodies::*;
+// use crate::resolve;
+use crate::step;
+
+#[derive(Debug)]
+pub struct World {
+    gravity: Vec<f64>, 
+    objects: Vec<RigidBody>,
+    // restitution: f64,
+    boundary: Vec<Vec<f64>>,
+    time: f64,
 }
 
-mod world {
-    pub struct World {
-        gravity: f32, 
-        objects: Vec<RigidBody>,
-        restitution: f32,
+pub struct Plane {
+    y: f64,
+    angle: f64,
+}
+
+impl World {
+    pub fn new() -> Self {
+        Self
+    }
+    pub fn add(&self, object: RigidBody) {
+        &self.objects.push(object)
     }
 
-    pub struct Plane {
-        y: f32,
-        angle: f32,
+    pub fn get_gravity(self) -> &'static f64 {
+        &self.gravity
     }
 
-    impl World {
-        pub fn add(&self, object: RigidBody) {
-            &self.objects.push(object)
-        }
+    pub fn get_objects(&self) -> Vec<RigidBody> {
+        &self.objects
+    }
 
-        pub fn get_gravity(self) -> &'static f32 {
-            &self.gravity
-        }
+    pub fn get_restitution(&self) -> f64 {
+        &self.restitution
+    }
 
-        pub fn get_objects(&self) -> Vec<RigidBody> {
-            &self.objects
-        }
-
-        pub fn get_restitution(&self) -> f32 {
-            &self.restitution
-        }
-
-        pub fn step(&self, dt: f32) {
-            calculate_state(dt)
-        }
+    pub fn world_step(&self, dt: f64) {
+        step::step(&self, dt)
     }
 }

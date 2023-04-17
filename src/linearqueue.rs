@@ -1,5 +1,5 @@
-pub mod LinearQueue;
-use crate::rigidbodyobjects::motion::collisions::definition::Collision;
+// pub mod LinearQueue;
+use crate::definition::Collision;
 use std::collections::LinkedList;
 
 pub struct LinearQueue<T> {

@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, fmt::Display};
 use strum_macros::{Display, EnumCount, EnumString};
 // use crate::datastructures::linearqueue;
 
@@ -39,6 +39,12 @@ pub struct Ball {
     pub velocity: Vec<f64>,
     pub angular_velocity: f64,
 }
+
+// impl std::fmt::Display for Ball {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "Ball: ", )
+//     }
+// }
 
 trait GetData {
     fn get_radius(&self) -> &f64 {
