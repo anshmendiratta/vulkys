@@ -6,40 +6,38 @@ pub mod linearqueue {
     use crate::collision_definition::Collision;
     use std::collections::LinkedList;
     
-
+    #[derive(Debug, Clone)]
     pub struct LinearQueue<T> {
         elements: LinkedList<T>,
     }
-    
+
     impl<T> LinearQueue<T> {
         pub fn new() -> Self {
             Self {
                 elements: LinkedList::new()
             }
         }
-        
+
         pub fn enqueue(&mut self, item: T) {
-            *&self.elements.push_back(item)
+            self.elements.push_back(item)
         }
-        
-        pub fn dequeue(&mut self, item: T) -> T {
-            *&self.elements.pop_front().unwrap()
+
+        pub fn dequeue(&mut self) -> Option<T> {
+            self.elements.pop_front()
         }
-        
-        pub fn peek(&self) -> &Option<&T> {
-            &self.elements.back()
+
+        pub fn peek(&self) -> Option<&T> {
+            self.elements.back()
         }
     }
 
     impl<T> Iterator for LinearQueue<T> {
         type Item = T;
-        
+
         fn next(&mut self) -> Option<Self::Item> {
-            Some(*(*&self.elements.iter().next()).unwrap())
+            self.dequeue()
         }
     }
-
-    // impl<T> IntoIterator for LinearQueue<T> {}
 }
 
 // TEST!
