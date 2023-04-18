@@ -1,5 +1,6 @@
 use libm::{atan2, acos};
 // use std::f64::consts;
+use crate::type_traits::VectorMethods;
 
 // fn eq(one: &Vec<f64>, other: &Vec<f64>) -> bool {
 //     let mut counter: usize = 0;
@@ -40,8 +41,8 @@ fn dot_product(vec1: &Vec<f64>, vec2: &Vec<f64>) -> f64 {
     vec1[0] * vec2[0] + vec1[1] * vec2[1]
 }
 
-fn get_angle_between_vectors(vec1: &Vec<f64>, vec2: &Vec<f64>) -> f64 {
-    acos(dot_product(vec1, vec2) / (vec1.norm() * vec2.norm()))
+fn get_angle_between_vectors(vec1: Vec<f64>, vec2: Vec<f64>) -> f64 {
+    acos(dot_product(&vec1, &vec2) / (vec1.magnitude() * vec2.magnitude()))
 }
 
   

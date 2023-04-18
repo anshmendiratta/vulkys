@@ -1,4 +1,4 @@
-use std::{str::FromStr, fmt::Display};
+// use std::{str::FromStr, fmt::Display};
 use strum_macros::{Display, EnumCount, EnumString};
 // use crate::datastructures::linearqueue;
 
@@ -20,12 +20,21 @@ pub enum RigidBodyMatch {
     Ball
 }
 
-// impl RigidBody {
-//     fn get_variants(&self) -> usize {
-//         let counter = 0;
+impl RigidBody {
+    fn get_velocity(&self) -> &Vec<f64> {
+        &vec![0.0, 0.0]
+    }
 
-//     }
-// }
+    fn get_position(&self) -> &Vec<f64> {
+        &vec![0.0, 0.0]
+    }
+
+    fn get_angular_velocity(&self) -> &f64 {
+        &0.0
+    }
+}
+
+impl GetData for RigidBody {}
 
 // struct RigidBodyHistory<RigidBody> {
 // velocity: LinearQueue<Vec<f64>>,
@@ -37,6 +46,7 @@ pub struct Ball {
     pub radius: f64,
     pub position: Vec<f64>,
     pub velocity: Vec<f64>,
+    pub acceleration: Vec<f64>,
     pub angular_velocity: f64,
 }
 
@@ -46,12 +56,29 @@ pub struct Ball {
 //     }
 // }
 
-trait GetData {
+pub trait GetData {
     fn get_radius(&self) -> &f64 {
         &0.0
     }
+
+    fn get_position(&self) -> &Vec<f64> {
+        &vec![0.0, 0.0]
+    }
+    
+    fn get_velocity(&self) -> &Vec<f64> {
+        &vec![0.0, 0.0]
+    }
+
     fn get_mass(&self) -> &f64 {
         &0.0
+    }
+
+    fn get_angular_velocity(&self) -> &f64 {
+        &0.0
+    }
+
+    fn get_acceleration(&self) -> Vec<f64> {
+        &vec![0.0, 0.0]
     }
 }
 
@@ -59,9 +86,25 @@ impl GetData for Ball {
     fn get_radius(&self) -> &f64 {
         &self.radius
     }
-
+    
     fn get_mass(&self) -> &f64 {
         &self.mass
+    }
+    
+    fn get_position(&self) -> &Vec<f64> {
+        &self.position
+    }
+    
+    fn get_velocity(&self) -> &Vec<f64> {
+        &self.velocity
+    }
+    
+    fn get_angular_velocity(&self) -> &f64 {
+        &self.angular_velocity
+    }
+
+    fn get_acceleration(&self) -> Vec<f64> {
+        &self.acceleration
     }
 }
 
@@ -72,6 +115,7 @@ impl Ball {
         radius: f64,
         position: Vec<f64>,
         velocity: Vec<f64>,
+        acceleration: Vec<f64>,
         angular_velocity: f64,
     ) -> Ball {
         Ball {
@@ -79,6 +123,7 @@ impl Ball {
             radius: radius,
             position: position,
             velocity: velocity,
+            acceleration: self.acceleration,
             angular_velocity: angular_velocity,
         }
     }
@@ -87,11 +132,7 @@ impl Ball {
 impl Default for Ball {
     fn default() -> Self {
         Self {
-            mass: 1.0,
-            radius: 1.0,
-            position: vec![0.0, 0.0],
-            velocity: vec![0.0, 0.0],
-            angular_velocity: 0.0,
+            ..Default::default()
         }
     }
 }

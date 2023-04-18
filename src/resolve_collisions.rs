@@ -1,5 +1,5 @@
-use crate::type_traits;
-use crate::vector_transform; 
+use crate::type_traits::*;
+// use crate::vector_transform; 
 use crate::rigidbodies::*;
 use crate::data_structures::linearqueue::*;
 use crate::collision_definition::*;

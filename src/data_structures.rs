@@ -26,8 +26,8 @@ pub mod linearqueue {
             *&self.elements.pop_front().unwrap()
         }
         
-        pub fn peek(&self) -> Collision {
-            &self.last()
+        pub fn peek(&self) -> &Option<&T> {
+            &self.elements.back()
         }
     }
 }
@@ -42,7 +42,7 @@ pub mod Stack {
         pointer: usize,
     }
 
-    impl Stack<T> {
+    impl<T> Stack<T> {
         pub fn new() -> Self {
             Self {
                 elements: Vec::new(),
@@ -50,13 +50,13 @@ pub mod Stack {
             }
         }
 
-        pub fn push(&mut self, item: RigidBody) {
+        pub fn push(&mut self, item: T) {
             self.pointer += 1;
-            &self.elements.push(item)
+            self.elements.push(item)
         }
 
-        pub fn pop(&mut self) -> RigidBody {
-            &self.elements.remove(&self.pointer)
+        pub fn pop(&mut self) -> T {
+            self.elements.remove(self.pointer)
         }
     }
 }
