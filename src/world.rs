@@ -41,6 +41,6 @@ impl World {
     }
 
     pub fn world_step(self, dt: f64) {
-        step::step(self, dt)
+        step::step::<RigidBody>(self, dt)
     }
 }
