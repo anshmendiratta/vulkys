@@ -12,7 +12,7 @@ fn resolve_collision(collisions: LinearQueue<Collision>) {
         }
     }
 }
-
+  
 fn resolve_boundary_collision(collision: Collision) {
     // (xord, yord) = collision.get;
 }
