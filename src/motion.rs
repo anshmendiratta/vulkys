@@ -31,13 +31,13 @@ pub mod PhysicsMath {
 }
 
 pub mod Physics {
-   use crate::rigidbodies::{*, self};
+   use crate::rigidbodies::*;
    
    use libm::atan2;
    const CONTACT_TIME: f64 = 0.01;
    type Force = Vec<f64>;
 
-   pub fn update_velocity<RigidBody: GetData>(object: RigidBody, dt: f64) {
+   pub fn update_velocity<RigidBody: HandleData>(object: RigidBody, dt: f64) {
       let velocity = object.get_velocity();
       let acceleration = object.get_acceleration();
       velocity[0] += acceleration[0] * dt;

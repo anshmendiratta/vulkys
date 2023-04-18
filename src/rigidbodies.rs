@@ -1,5 +1,6 @@
 // use std::{str::FromStr, fmt::Display};
 use strum_macros::{Display, EnumCount, EnumString};
+use tracing_subscriber::reload::Handle;
 // use crate::datastructures::linearqueue;
 
 #[derive(Debug, EnumCount, EnumString, PartialEq, Clone, Display)]
@@ -19,27 +20,6 @@ pub enum RigidBodyMatch {
     None,
     Ball
 }
-
-impl RigidBody {
-    fn get_velocity(&self) -> &Vec<f64> {
-        &vec![0.0, 0.0]
-    }
-
-    fn get_position(&self) -> &Vec<f64> {
-        &vec![0.0, 0.0]
-    }
-
-    fn get_angular_velocity(&self) -> &f64 {
-        &0.0
-    }
-}
-
-impl GetData for RigidBody {}
-
-// struct RigidBodyHistory<RigidBody> {
-// velocity: LinearQueue<Vec<f64>>,
-// }
-
 #[derive(Debug)]
 pub struct Ball {
     pub mass: f64,
@@ -50,13 +30,34 @@ pub struct Ball {
     pub angular_velocity: f64,
 }
 
+impl RigidBody {
+    // fn get_velocity(&self) -> &Vec<f64> {
+    //     &vec![0.0, 0.0]
+    // }
+
+    // fn get_position(&self) -> &Vec<f64> {
+    //     &vec![0.0, 0.0]
+    // }
+
+    // fn get_angular_velocity(&self) -> &f64 {
+    //     &0.0
+    // }
+}
+
+impl HandleData for RigidBody {}
+
+// struct RigidBodyHistory<RigidBody> {
+// velocity: LinearQueue<Vec<f64>>,
+// }
+
+
 // impl std::fmt::Display for Ball {
 //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 //         write!(f, "Ball: ", )
 //     }
 // }
 
-pub trait GetData {
+pub trait HandleData {
     fn get_radius(&self) -> &f64 {
         &0.0
     }
@@ -77,12 +78,12 @@ pub trait GetData {
         &0.0
     }
 
-    fn get_acceleration(&self) -> Vec<f64> {
+    fn get_acceleration(&self) -> &Vec<f64> {
         &vec![0.0, 0.0]
     }
 }
 
-impl GetData for Ball {
+impl HandleData for Ball {
     fn get_radius(&self) -> &f64 {
         &self.radius
     }
@@ -103,7 +104,7 @@ impl GetData for Ball {
         &self.angular_velocity
     }
 
-    fn get_acceleration(&self) -> Vec<f64> {
+    fn get_acceleration(&self) -> &Vec<f64> {
         &self.acceleration
     }
 }
