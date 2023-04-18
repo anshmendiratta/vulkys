@@ -1,3 +1,5 @@
+use crate::collision_definition::*;
+
 type Radians = f64;
 
 pub trait VectorMethods {
