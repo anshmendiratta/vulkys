@@ -1,5 +1,5 @@
 // use std::{str::FromStr, fmt::Display};
-// use strum_macros::{Display, EnumCount, EnumString};
+use strum_macros::{Display, EnumCount, EnumString};
 // use crate::datastructures::linearqueue;
 use crate::type_traits::*;
 
@@ -7,7 +7,9 @@ pub trait Updateable {
     fn get_rigidbody(&self) -> RigidBody;
 }
 
-pub enum RigidBodyCollection {
+#[derive(Debug, Display, EnumCount, EnumString, PartialEq)]
+pub enum RigidBodySelection {
+    None(usize),
     RigidBody,
     Ball,
 }
@@ -20,12 +22,6 @@ pub struct RigidBody {
 
 // impl<T: Updateable> HandleData<T> for RigidBody {}
 impl MetaMethods for RigidBody {}
-
-// #[derive(Debug, EnumCount, EnumString, PartialEq, Clone, Display)]
-// pub enum RigidBodyMatch {
-//     None,
-//     Ball
-// }
 
 #[derive(Debug)]
 pub struct Ball {

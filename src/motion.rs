@@ -31,7 +31,7 @@ pub mod PhysicsMath {
 pub mod Physics {
     use crate::rigidbodies::*;
     use libm::atan2;
-    
+
     type Force = Vec<f64>;
 
     pub fn update_velocity<T: Updateable + HandleData<T>>(mut object: T, dt: f64) {
@@ -47,8 +47,10 @@ pub mod Physics {
     pub fn update_position<T: Updateable + HandleData<T>>(mut object: T, dt: f64) {
         let position: (f64, f64) = object.get_position();
         let velocity: (f64, f64) = object.get_velocity();
-        let new_position: (f64, f64) = (position.0 + velocity.0 * dt, position.1 + velocity.1 * dt);
-        object.set_position(new_position)
+
+        position.0 += velocity.0 * dt;
+        position.1 += velocity.1 * dt;
+        object.set_position(position)
     }
 
     pub fn calculate_angle(body1: RigidBody, body2: RigidBody) -> f64 {

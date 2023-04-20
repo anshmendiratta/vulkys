@@ -1,15 +1,10 @@
-use crate::rigidbodies::Ball;
-use crate::rigidbodies::RigidBody;
 use eframe::egui;
-use std::str::FromStr;
-use strum_macros::EnumString;
-// use crate::boundary::*;
+use crate::type_traits::*;
+use crate::rigidbodies;
 
-use crate::rigidbodies::*;
-
-#[derive()]
-pub struct Content {
-    objects: Vec<RigidBody>,
+#[derive(Debug)]
+pub struct Content<T> where T: rigidbodies::Updateable + rigidbodies::HandleData<T> + std::fmt::Debug {
+    objects: Vec<T>,
     mass: f64,
     radius: f64,
     position_x: f64,
@@ -17,12 +12,12 @@ pub struct Content {
     velocity_x: f64,
     velocity_y: f64,
     angular_velocity: f64,
-    selected: RigidBody,
+    selected: rigidbodies::RigidBodySelection,
 }
 
 // impl Default for RigidBody {}
 
-impl Default for Content {
+impl<T> Default for Content<T> where T: rigidbodies::Updateable + rigidbodies::HandleData<T> + std::fmt::Debug {
     fn default() -> Self {
         Self {
             objects: Vec::new(),
@@ -33,12 +28,12 @@ impl Default for Content {
             velocity_x: 0.0,
             velocity_y: 0.0,
             angular_velocity: 0.0,
-            selected: RigidBody::None,
+            selected: rigidbodies::RigidBodySelection::None(0),
         }
     }
 }
 
-impl eframe::App for Content {
+impl<T> eframe::App for Content<T> where T: rigidbodies::Updateable + rigidbodies::HandleData<T> + std::fmt::Debug {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // ui.horizontal(|ui| {
@@ -54,7 +49,7 @@ impl eframe::App for Content {
             egui::ComboBox::from_label("Select object to add")
                 .selected_text(String::from(self.selected.to_string()))
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.selected, Ball, "Ball")
+                    ui.selectable_value(&mut self.selected, rigidbodies::RigidBodySelection::Ball, "Ball")
                 });
 
             ui.horizontal(|ui| {
@@ -80,14 +75,14 @@ impl eframe::App for Content {
             ui.horizontal(|ui| {
                 if ui.button("Add object").clicked() {
                     match self.selected {
-                        Ball => self.objects.push(Ball {
+                        rigidbodies::RigidBodySelection::Ball => self.objects.push(rigidbodies::Ball {
                             mass: self.mass,
                             radius: self.radius,
-                            parent: RigidBody::default(),
-                            acceleration: (0.0, 0.0),
                             position: (self.position_x, self.position_y),
                             velocity: (self.velocity_x, self.velocity_y),
+                            acceleration: (0.0, 0.0),
                             angular_velocity: self.angular_velocity,
+                            parent: rigidbodies::RigidBody::default(),
                         }),
                         _ => (),
                     }
@@ -112,12 +107,4 @@ impl eframe::App for Content {
     }
 }
 
-trait ReturnData {
-    fn return_added_objects(&self) -> Vec<RigidBody>;
-}
 
-impl ReturnData for Content {
-    fn return_added_objects(&self) -> Vec<RigidBody> {
-        self.objects
-    }
-}
