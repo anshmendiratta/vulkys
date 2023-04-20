@@ -53,7 +53,7 @@ impl VectorMethods for &Vec<f64> {
 }
 
 pub trait MetaMethods {
-    fn to_string<T: Updateable>(&self) -> String
+    fn to_string(&self) -> String
     where
         Self: std::fmt::Debug,
     {

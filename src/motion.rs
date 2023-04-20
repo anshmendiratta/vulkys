@@ -36,7 +36,7 @@ pub mod Physics {
     const CONTACT_TIME: f64 = 0.01;
     type Force = Vec<f64>;
 
-    pub fn update_velocity<RigidBody: HandleData>(object: RigidBody, dt: f64) {
+    pub fn update_velocity<T: Updateable>(object: RigidBody, dt: f64) {
         let velocity = object.get_velocity();
         let acceleration = object.get_acceleration();
         velocity[0] += acceleration[0] * dt;
