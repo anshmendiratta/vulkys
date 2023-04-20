@@ -4,7 +4,7 @@ use crate::rigidbodies::{Updateable, HandleData};
 use crate::step::{self, step};
 
 #[derive(Debug, Default)]
-pub struct World<T: Updateable + HandleData<T>> {
+pub struct World<T> where T: Updateable + HandleData<T> + AsRef<T> {
     gravity: (f64, f64),
     objects: Vec<T>,
     restitution: f64,
@@ -18,7 +18,7 @@ pub struct Plane {
     angle: f64,
 }
 
-impl<T: Updateable + HandleData<T>> World<T> {
+impl<T: Updateable + HandleData<T> + AsRef<T>> World<T> {
     pub fn new() -> Self {
         Self {
             gravity: (0.0, -9.81),
@@ -50,8 +50,8 @@ impl<T: Updateable + HandleData<T>> World<T> {
         self.dt
     }
 
-    pub fn world_step(&self, dt: f64) {
-        step::step::<T>(*self, dt)
+    pub fn world_step(self, dt: f64) {
+        step::step::<T>(self, dt)
     }
 
 }
