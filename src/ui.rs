@@ -1,10 +1,10 @@
+// use NEA::rigidbodies::Updateable;
 use eframe::egui;
 use crate::type_traits::*;
 use crate::rigidbodies;
 
-#[derive(Debug)]
-pub struct Content<T> where T: rigidbodies::Updateable + rigidbodies::HandleData<T> + std::fmt::Debug {
-    objects: Vec<T>,
+pub struct Content {
+    objects: Vec<Box<dyn rigidbodies::Updateable>>,
     mass: f64,
     radius: f64,
     position_x: f64,
@@ -17,7 +17,7 @@ pub struct Content<T> where T: rigidbodies::Updateable + rigidbodies::HandleData
 
 // impl Default for RigidBody {}
 
-impl<T> Default for Content<T> where T: rigidbodies::Updateable + rigidbodies::HandleData<T> + std::fmt::Debug {
+impl Default for Content {
     fn default() -> Self {
         Self {
             objects: Vec::new(),
@@ -33,7 +33,7 @@ impl<T> Default for Content<T> where T: rigidbodies::Updateable + rigidbodies::H
     }
 }
 
-impl<T> eframe::App for Content<T> where T: rigidbodies::Updateable + rigidbodies::HandleData<T> + std::fmt::Debug {
+impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // ui.horizontal(|ui| {
@@ -75,7 +75,7 @@ impl<T> eframe::App for Content<T> where T: rigidbodies::Updateable + rigidbodie
             ui.horizontal(|ui| {
                 if ui.button("Add object").clicked() {
                     match self.selected {
-                        rigidbodies::RigidBodySelection::Ball => self.objects.push(rigidbodies::Ball {
+                        rigidbodies::RigidBodySelection::Ball => self.objects.push(Box::new(rigidbodies::Ball {
                             mass: self.mass,
                             radius: self.radius,
                             position: (self.position_x, self.position_y),
@@ -83,7 +83,8 @@ impl<T> eframe::App for Content<T> where T: rigidbodies::Updateable + rigidbodie
                             acceleration: (0.0, 0.0),
                             angular_velocity: self.angular_velocity,
                             parent: rigidbodies::RigidBody::default(),
-                        }),
+                        })
+                        ),
                         _ => (),
                     }
 
@@ -94,7 +95,7 @@ impl<T> eframe::App for Content<T> where T: rigidbodies::Updateable + rigidbodie
                 }
             });
 
-            ui.label(format!("{:?}", self.objects));
+            // ui.label(format!("{:?}", self.objects));
 
             ui.horizontal(|ui| {
                 if ui.button("Run simulation").clicked() {
