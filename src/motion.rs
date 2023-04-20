@@ -39,10 +39,10 @@ pub mod Physics {
 
     pub fn update_velocity<T>(object: &mut T, dt: &f64)
     where
-        T: Updateable + HandleData<T> + AsRef<T>,
+        T: Updateable + HandleData<T>,
     {
         let mut velocity = object.get_velocity();
-        let mut acceleration = object.get_acceleration();
+        let acceleration = object.get_acceleration();
         velocity.0 += acceleration.0 * dt;
         velocity.1 += acceleration.1 * dt;
 
@@ -52,10 +52,10 @@ pub mod Physics {
 
     pub fn update_position<T>(object: &mut T, dt: &f64)
     where
-        T: Updateable + HandleData<T> + AsRef<T>,
+        T: Updateable + HandleData<T>,
     {
         let mut position: (f64, f64) = object.get_position();
-        let mut velocity: (f64, f64) = object.get_velocity();
+        let velocity: (f64, f64) = object.get_velocity();
 
         position.0 += velocity.0 * dt;
         position.1 += velocity.1 * dt;
@@ -73,7 +73,7 @@ pub mod Physics {
     // force
     // }
 
-    pub fn update_angular_velocity<RigidBody>(object: RigidBody) -> f64 {
+    pub fn update_angular_velocity<RigidBody>(_object: RigidBody) -> f64 {
         // let angularmomentum: f64 = calculate_angularmomentum(object);
         // let momentofinertia: f64 = calculate_momentofinertia(object);
 

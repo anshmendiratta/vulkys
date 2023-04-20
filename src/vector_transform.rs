@@ -1,4 +1,4 @@
-use libm::{acos, atan2};
+use libm::{acos};
 // use std::f64::consts;
 use crate::type_traits::VectorMethods;
 

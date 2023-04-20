@@ -1,9 +1,9 @@
-use crate::rigidbodies::*;
-use crate::type_traits::*;
+
+
 // use crate::rigidbodyobjects::motion::collisions::datastructures::linearqueue::LinearQueue;
 
 pub mod linearqueue {
-    use crate::collision_definition::Collision;
+    
     use std::collections::LinkedList;
 
     #[derive(Debug, Clone)]
@@ -86,7 +86,7 @@ pub mod linearqueue {
 // }
 
 pub mod Stack {
-    use crate::{collision_definition::Collision, rigidbodies::RigidBody};
+    
 
     #[derive(Debug)]
     pub struct Stack<T> {

@@ -1,13 +1,16 @@
-use crate::rigidbodies::{HandleData, Updateable};
-use crate::step::step;
+// use crate::rigidbodies::{HandleData, Updateable};
 
-#[derive(Debug, Default)]
-pub struct World<T>
-where
-    T: Updateable + HandleData<T> + AsRef<T>,
-{
+// use NEA::rigidbodies::Updateable;
+
+use crate::rigidbodies::{HandleData, Updateable};
+use crate::step::world_step;
+
+// trait RigidBodyTraits: Updateable + HandleData<RigidBodyTraits> {};
+
+#[derive(Default)]
+pub struct World {
     gravity: (f64, f64),
-    objects: Vec<T>,
+    objects: Vec<Box<dyn Updateable>>,
     restitution: f64,
     boundary: ((f64, f64), (f64, f64)),
     time: f64,
@@ -19,10 +22,7 @@ pub struct Plane {
     angle: f64,
 }
 
-impl<T> World<T>
-where
-    T: Updateable + HandleData<T> + AsRef<T>,
-{
+impl World {
     pub fn new() -> Self {
         Self {
             gravity: (0.0, -9.81),
@@ -34,15 +34,15 @@ where
         }
     }
 
-    pub fn add(&mut self, object: T) {
-        self.objects.push(object)
+    pub fn add<T>(&mut self, object: T) where T: Updateable + HandleData<T> + AsRef<T> {
+        self.objects.push(Box::new(object))
     }
 
     pub fn get_gravity(self) -> (f64, f64) {
         self.gravity
     }
 
-    pub fn get_objects(self) -> Vec<T> {
+    pub fn get_objects(self) -> Vec<Box<dyn Updateable>> {
         self.objects
     }
 
@@ -54,7 +54,7 @@ where
         self.dt
     }
 
-    pub fn world_step(self, dt: f64) {
-        step::<T>(self, dt)
+    pub fn world_step<T>(self, dt: f64) where T: Updateable + HandleData<T> + AsRef<T> {
+        world_step::<T>(self, dt)
     }
 }

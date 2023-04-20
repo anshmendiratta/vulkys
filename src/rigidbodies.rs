@@ -42,6 +42,12 @@ impl Updateable for Ball {
     }
 }
 
+impl Updateable for Box<dyn Updateable> {
+    fn get_rigidbody(&self) -> RigidBody {
+        unimplemented!()
+    }
+}
+
 // struct RigidBodyHistory<RigidBody> {
 // velocity: LinearQueue<Vec<f64>>,
 // }

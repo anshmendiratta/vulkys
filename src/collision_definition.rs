@@ -1,20 +1,18 @@
-use crate::resolve_collisions;
-use crate::rigidbodies::{HandleData, RigidBody, Updateable};
+
+use crate::rigidbodies::{HandleData, Updateable};
 use crate::world::*;
 
-#[derive(Debug)]
 pub enum CollisionType<T>
 where
-    T: Updateable + HandleData<T> + AsRef<T>,
+    T: Updateable + HandleData<T>,
 {
     ObjObj(T, T),
-    ObjWorld(T, World<T>),
+    ObjWorld(T, World),
 }
 
-#[derive(Debug)]
 pub struct Collision<T>
 where
-    T: Updateable + HandleData<T> + AsRef<T>,
+    T: Updateable + HandleData<T>,
 {
     objects: CollisionType<T>,
     time: f64,
@@ -27,7 +25,7 @@ where
     fn get_participants(&self) -> (&T, Option<&T>) {
         match self {
             CollisionType::ObjObj(body1, body2) => (body1, Some(body2)),
-            CollisionType::ObjWorld(body1, world) => (body1, None),
+            CollisionType::ObjWorld(body1, _world) => (body1, None),
         }
     }
 }

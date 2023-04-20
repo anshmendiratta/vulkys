@@ -1,10 +1,10 @@
-use crate::motion::{Physics, PhysicsMath};
+use crate::motion::{Physics};
 use crate::rigidbodies::*;
 use crate::world::*;
 
-pub fn step<T>(world: World<T>, dt: f64)
+pub fn world_step<T>(world: World, _dt: f64)
 where
-    T: Updateable + HandleData<T> + AsRef<T>,
+    T: Updateable + HandleData<T>,
 {
     let dt: f64 = world.get_timestep();
 
