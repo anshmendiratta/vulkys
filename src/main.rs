@@ -1,8 +1,8 @@
 mod ui;
-use NEA::boundary::*;
-use NEA::world::World;
-use NEA::ui::*;
 use crate::ui::Content;
+use NEA::boundary::*;
+use NEA::ui::*;
+use NEA::world::World;
 mod world;
 
 fn main() -> Result<(), eframe::Error> {
@@ -11,11 +11,11 @@ fn main() -> Result<(), eframe::Error> {
     let world_boundary: Boundary = Boundary {
         rangex: vec![-1.0, 1.0],
         rangey: vec![-1.0, 1.0],
-
     };
 
     let world: World = World {
-        gravity: vec![0, -9.81], 
+        gravity: vec![0, -9.81],
+        restitution: 1.0,
         objects: Vec::new(),
         boundary: world_boundary,
         time: 0.0,

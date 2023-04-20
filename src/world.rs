@@ -6,7 +6,7 @@ use crate::step;
 
 #[derive(Debug, Default)]
 pub struct World {
-    gravity: Vec<f64>, 
+    gravity: Vec<f64>,
     objects: Vec<RigidBody>,
     restitution: f64,
     boundary: Vec<Vec<f64>>,

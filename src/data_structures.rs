@@ -2,10 +2,10 @@ use crate::rigidbodies::*;
 use crate::type_traits::*;
 // use crate::rigidbodyobjects::motion::collisions::datastructures::linearqueue::LinearQueue;
 
-pub mod linearqueue { 
+pub mod linearqueue {
     use crate::collision_definition::Collision;
     use std::collections::LinkedList;
-    
+
     #[derive(Debug, Clone)]
     pub struct LinearQueue<T> {
         elements: LinkedList<T>,
@@ -14,7 +14,7 @@ pub mod linearqueue {
     impl<T> LinearQueue<T> {
         pub fn new() -> Self {
             Self {
-                elements: LinkedList::new()
+                elements: LinkedList::new(),
             }
         }
 
@@ -53,15 +53,15 @@ pub mod linearqueue {
 //             elements: LinkedList::new()
 //         }
 //     }
-    
+
 //     pub fn enqueue(&mut self, item: T) {
 //         *&self.elements.push_back(item)
 //     }
-    
+
 //     pub fn dequeue(&mut self) -> T {
 //         *&self.elements.pop_front().unwrap()
 //     }
-    
+
 //     pub fn peek(&self) -> Option<&T> {
 //         self.elements.back()
 //     }
@@ -69,23 +69,21 @@ pub mod linearqueue {
 
 // impl<T: Copy> Iterator for LinearQueue<T> {
 //     type Item = T;
-    
+
 //     fn next(&mut self) -> Option<Self::Item> {
 //         Some(*(*&self.elements.iter().next()).unwrap())
 //     }
 // }
 
-
 // fn main() {
 //     let mut v: LinearQueue<usize> = LinearQueue::new();
 //     v.enqueue(1);
 //     v.enqueue(2);
-    
+
 //     for element in v {
 //         println!("{}", element)
 //     }
 // }
-
 
 pub mod Stack {
     use crate::{collision_definition::Collision, rigidbodies::RigidBody};

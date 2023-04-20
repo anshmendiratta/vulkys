@@ -1,11 +1,11 @@
+use crate::resolve_collisions;
 use crate::rigidbodies::RigidBody;
 use crate::world::*;
-use crate::resolve_collisions;
 
 #[derive(Debug)]
 pub enum Collision {
     ObjObj(RigidBody, RigidBody),
-    ObjWorld(RigidBody, World)
+    ObjWorld(RigidBody, World),
 }
 
 #[derive(Debug)]
@@ -18,7 +18,7 @@ impl Collision {
     fn get_participants(&self) -> (&RigidBody, Option<&RigidBody>) {
         match &self {
             Collision::ObjObj(body1, body2) => (body1, Some(body2)),
-            Collision::ObjWorld(body1, world) => (body1, None)
+            Collision::ObjWorld(body1, world) => (body1, None),
         }
     }
 }
@@ -31,10 +31,9 @@ impl CollisionData {
     pub fn get_objects(&self) -> (&RigidBody, Option<&RigidBody>) {
         *&self.objects.get_participants()
     }
-} 
+}
 
-    // pub fn match_collision_objects*&self, collision: &Collision) {
-    //     match collision {
-            
-    //     }
+// pub fn match_collision_objects*&self, collision: &Collision) {
+//     match collision {
 
+//     }

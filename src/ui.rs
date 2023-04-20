@@ -1,6 +1,8 @@
+use crate::rigidbodies::{Ball, RigidBody};
 use eframe::egui;
 use std::str::FromStr;
 use strum_macros::EnumString;
+use NEA::rigidbodies::RigidBody;
 // use crate::boundary::*;
 
 use crate::rigidbodies::*;
@@ -15,7 +17,7 @@ pub struct Content {
     velocity_x: f64,
     velocity_y: f64,
     angular_velocity: f64,
-    selected: RigidBodyMatch,
+    selected: RigidBody,
 }
 
 // impl Default for RigidBody {}
@@ -31,7 +33,7 @@ impl Default for Content {
             velocity_x: 0.0,
             velocity_y: 0.0,
             angular_velocity: 0.0,
-            selected: RigidBodyMatch::None,
+            selected: None::<()>,
         }
     }
 }
@@ -50,9 +52,9 @@ impl eframe::App for Content {
             // });
 
             egui::ComboBox::from_label("Select object to add")
-                .selected_text(self.selected.to_string())
+                .selected_text(String::from(self.selected.to_string()))
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.selected, RigidBodyMatch::Ball, "Ball")
+                    ui.selectable_value(&mut self.selected, Ball, "Ball")
                 });
 
             ui.horizontal(|ui| {
@@ -78,14 +80,16 @@ impl eframe::App for Content {
             ui.horizontal(|ui| {
                 if ui.button("Add object").clicked() {
                     match self.selected {
-                        RigidBodyMatch::Ball => self.objects.push(RigidBody::Ball {
+                        Ball => self.objects.push(Ball {
                             mass: self.mass,
                             radius: self.radius,
+                            parent: RigidBody::default(),
+                            acceleration: vec![0.0, 0.0],
                             position: vec![self.position_x, self.position_y],
                             velocity: vec![self.velocity_x, self.velocity_y],
                             angular_velocity: self.angular_velocity,
                         }),
-                        RigidBodyMatch::None => (),
+                        _ => (),
                     }
 
                     self.position_x = 0.0;
@@ -100,7 +104,7 @@ impl eframe::App for Content {
             ui.horizontal(|ui| {
                 if ui.button("Run simulation").clicked() {
                     egui::Window::new("Simulation")
-                } else { 
+                } else {
                     egui::Window::new("Simulation")
                 }
             })
@@ -114,6 +118,6 @@ trait ReturnData {
 
 impl ReturnData for Content {
     fn return_added_objects(&self) -> Vec<RigidBody> {
-        self.objects       
+        self.objects
     }
 }

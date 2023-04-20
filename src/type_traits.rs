@@ -1,4 +1,4 @@
-use crate::collision_definition::*;
+use crate::rigidbodies::*;
 
 type Radians = f64;
 
@@ -49,5 +49,21 @@ impl VectorMethods for &Vec<f64> {
             square_sum += basis.powf(2.0)
         }
         square_sum.powf(0.5)
+    }
+}
+
+pub trait MetaMethods {
+    fn to_string<T: Updateable>(&self) -> String
+    where
+        Self: std::fmt::Debug,
+    {
+        let mut raw_string = String::from(format!("{:?}", self));
+        let idx: Option<usize> =
+            raw_string.find(|x: char| x.to_string() == "(" || x.to_string() == "{");
+        match idx {
+            Some(T) => raw_string.truncate(T),
+            None => (),
+        }
+        raw_string
     }
 }
