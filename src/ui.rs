@@ -33,7 +33,7 @@ impl Default for Content {
             velocity_x: 0.0,
             velocity_y: 0.0,
             angular_velocity: 0.0,
-            selected: None::<()>,
+            selected: RigidBody::None,
         }
     }
 }
