@@ -1,8 +1,8 @@
-use crate::rigidbodies::{Ball, RigidBody};
+use crate::rigidbodies::Ball;
+use crate::rigidbodies::RigidBody;
 use eframe::egui;
 use std::str::FromStr;
 use strum_macros::EnumString;
-use NEA::rigidbodies::RigidBody;
 // use crate::boundary::*;
 
 use crate::rigidbodies::*;
@@ -84,9 +84,9 @@ impl eframe::App for Content {
                             mass: self.mass,
                             radius: self.radius,
                             parent: RigidBody::default(),
-                            acceleration: vec![0.0, 0.0],
-                            position: vec![self.position_x, self.position_y],
-                            velocity: vec![self.velocity_x, self.velocity_y],
+                            acceleration: (0.0, 0.0),
+                            position: (self.position_x, self.position_y),
+                            velocity: (self.velocity_x, self.velocity_y),
                             angular_velocity: self.angular_velocity,
                         }),
                         _ => (),

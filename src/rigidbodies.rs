@@ -1,5 +1,5 @@
 // use std::{str::FromStr, fmt::Display};
-use strum_macros::{Display, EnumCount, EnumString};
+// use strum_macros::{Display, EnumCount, EnumString};
 // use crate::datastructures::linearqueue;
 use crate::type_traits::*;
 
@@ -7,6 +7,10 @@ pub trait Updateable {
     fn get_rigidbody(&self) -> RigidBody;
 }
 
+pub enum RigidBodyCollection {
+    RigidBody,
+    Ball,
+}
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct RigidBody {
     pub position: (f64, f64),
@@ -14,7 +18,7 @@ pub struct RigidBody {
     pub mass: f64,
 }
 
-impl<T> HandleData<T> for RigidBody {}
+// impl<T: Updateable> HandleData<T> for RigidBody {}
 impl MetaMethods for RigidBody {}
 
 // #[derive(Debug, EnumCount, EnumString, PartialEq, Clone, Display)]
@@ -27,9 +31,9 @@ impl MetaMethods for RigidBody {}
 pub struct Ball {
     pub mass: f64,
     pub radius: f64,
-    pub position: Vec<f64>,
-    pub velocity: Vec<f64>,
-    pub acceleration: Vec<f64>,
+    pub position: (f64, f64),
+    pub velocity: (f64, f64),
+    pub acceleration: (f64, f64),
     pub angular_velocity: f64,
     pub parent: RigidBody,
 }
@@ -47,54 +51,80 @@ impl Updateable for Ball {
 // }
 
 pub trait HandleData<T: Updateable> {
-    fn get_radius(&self) -> &f64 {
-        &self.radius
-    }
+    fn get_mass(&self) -> f64;
 
-    fn get_mass(&self) -> &f64 {
-        &self.mass
-    }
+    fn get_position(&self) -> (f64, f64);
+    fn set_position(&mut self, new_position: (f64, f64));
 
-    fn get_position(&self) -> &Vec<f64> {
-        &self.position
-    }
+    fn get_velocity(&self) -> (f64, f64);
+    fn set_velocity(&mut self, new_velocity: (f64, f64));
 
-    fn get_velocity(&self) -> &Vec<f64> {
-        &self.velocity
-    }
+    fn get_angular_velocity(&self) -> f64;
+    fn set_angular_velocity(&mut self, new_angular_velocity: f64);
 
-    fn get_angular_velocity(&self) -> &f64 {
-        &self.angular_velocity
-    }
-
-    fn get_acceleration(&self) -> &Vec<f64> {
-        &self.acceleration
-    }
+    fn get_acceleration(&self) -> (f64, f64);
+    fn set_acceleration(&mut self, acceleration: (f64, f64));
 }
 
-impl<T> HandleData<T> for Ball {}
+impl<T: Updateable> HandleData<T> for Ball {
+    fn get_mass(&self) -> f64 {
+        self.mass
+    }
+
+    fn get_position(&self) -> (f64, f64) {
+        self.position
+    }
+    fn set_position(&mut self, new_position: (f64, f64)) {
+        self.position = new_position
+    }
+
+    fn get_velocity(&self) -> (f64, f64) {
+        self.velocity
+    }
+    fn set_velocity(&mut self, new_velocity: (f64, f64)) {
+        self.velocity = new_velocity
+    }
+
+    fn get_angular_velocity(&self) -> f64 {
+        self.angular_velocity
+    }
+    fn set_angular_velocity(&mut self, new_angular_velocity: f64) {
+        self.angular_velocity = new_angular_velocity
+    }
+
+    fn get_acceleration(&self) -> (f64, f64) {
+        self.acceleration
+    }
+    fn set_acceleration(&mut self, new_acceleration: (f64, f64)) {
+        self.acceleration = new_acceleration
+    }
+}
 
 impl Ball {
     pub fn make_from_function(
         &self,
         mass: f64,
         radius: f64,
-        position: Vec<f64>,
-        velocity: Vec<f64>,
+        position: (f64, f64),
+        velocity: (f64, f64),
     ) -> Ball {
         Ball {
             mass: mass,
             radius: radius,
             position: position,
             velocity: velocity,
-            acceleration: (),
-            angular_velocity: (),
+            acceleration: (0.0, 0.0),
+            angular_velocity: 0.0,
             parent: RigidBody {
-                position: (),
-                velocity: (),
-                mass: (),
+                position: (0.0, 0.0),
+                velocity: (0.0, 0.0),
+                mass: 0.0,
             },
         }
+    }
+
+    pub fn get_radius(&self) -> f64 {
+        self.radius
     }
 }
 
