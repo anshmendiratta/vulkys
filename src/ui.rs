@@ -1,7 +1,7 @@
 // use NEA::rigidbodies::Updateable;
-use eframe::egui;
-use crate::type_traits::*;
 use crate::rigidbodies;
+use crate::type_traits::*;
+use eframe::egui;
 
 pub struct Content {
     objects: Vec<Box<dyn rigidbodies::Updateable>>,
@@ -49,7 +49,11 @@ impl eframe::App for Content {
             egui::ComboBox::from_label("Select object to add")
                 .selected_text(String::from(self.selected.to_string()))
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.selected, rigidbodies::RigidBodySelection::Ball, "Ball")
+                    ui.selectable_value(
+                        &mut self.selected,
+                        rigidbodies::RigidBodySelection::Ball,
+                        "Ball",
+                    )
                 });
 
             ui.horizontal(|ui| {
@@ -75,16 +79,17 @@ impl eframe::App for Content {
             ui.horizontal(|ui| {
                 if ui.button("Add object").clicked() {
                     match self.selected {
-                        rigidbodies::RigidBodySelection::Ball => self.objects.push(Box::new(rigidbodies::Ball {
-                            mass: self.mass,
-                            radius: self.radius,
-                            position: (self.position_x, self.position_y),
-                            velocity: (self.velocity_x, self.velocity_y),
-                            acceleration: (0.0, 0.0),
-                            angular_velocity: self.angular_velocity,
-                            parent: rigidbodies::RigidBody::default(),
-                        })
-                        ),
+                        rigidbodies::RigidBodySelection::Ball => {
+                            self.objects.push(Box::new(rigidbodies::Ball {
+                                mass: self.mass,
+                                radius: self.radius,
+                                position: (self.position_x, self.position_y),
+                                velocity: (self.velocity_x, self.velocity_y),
+                                acceleration: (0.0, 0.0),
+                                angular_velocity: self.angular_velocity,
+                                parent: rigidbodies::RigidBody::default(),
+                            }))
+                        }
                         _ => (),
                     }
 
@@ -107,5 +112,3 @@ impl eframe::App for Content {
         });
     }
 }
-
-

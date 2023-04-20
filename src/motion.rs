@@ -11,7 +11,10 @@ pub mod PhysicsMath {
         atan2(y_diff, x_diff)
     }
 
-    pub fn get_point_of_contact<T: Updateable + HandleData<T>>(object1: T, object2: T) -> Coordinate {
+    pub fn get_point_of_contact<T: Updateable + HandleData<T>>(
+        object1: T,
+        object2: T,
+    ) -> Coordinate {
         let com1: Coordinate = object1.get_position();
         let com2: Coordinate = object2.get_position();
         ((com1.0 + com2.0) / 2.0, (com1.1 + com2.1) / 2.0)
@@ -34,9 +37,12 @@ pub mod Physics {
 
     type Force = Vec<f64>;
 
-    pub fn update_velocity<T: Updateable + HandleData<T>>(mut object: T, dt: f64) {
-        let velocity = object.get_velocity();
-        let acceleration = object.get_acceleration();
+    pub fn update_velocity<T>(object: &mut T, dt: &f64)
+    where
+        T: Updateable + HandleData<T> + AsRef<T>,
+    {
+        let mut velocity = object.get_velocity();
+        let mut acceleration = object.get_acceleration();
         velocity.0 += acceleration.0 * dt;
         velocity.1 += acceleration.1 * dt;
 
@@ -44,9 +50,12 @@ pub mod Physics {
         object.set_acceleration(acceleration)
     }
 
-    pub fn update_position<T: Updateable + HandleData<T>>(mut object: T, dt: f64) {
-        let position: (f64, f64) = object.get_position();
-        let velocity: (f64, f64) = object.get_velocity();
+    pub fn update_position<T>(object: &mut T, dt: &f64)
+    where
+        T: Updateable + HandleData<T> + AsRef<T>,
+    {
+        let mut position: (f64, f64) = object.get_position();
+        let mut velocity: (f64, f64) = object.get_velocity();
 
         position.0 += velocity.0 * dt;
         position.1 += velocity.1 * dt;

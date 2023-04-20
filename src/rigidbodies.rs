@@ -13,7 +13,7 @@ pub enum RigidBodySelection {
     RigidBody,
     Ball,
 }
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default, Copy)]
 pub struct RigidBody {
     pub position: (f64, f64),
     pub velocity: (f64, f64),

@@ -1,10 +1,11 @@
-use std::default;
-use crate::rigidbodies::*;
-use crate::rigidbodies::{Updateable, HandleData};
-use crate::step::{self, step};
+use crate::rigidbodies::{HandleData, Updateable};
+use crate::step::step;
 
 #[derive(Debug, Default)]
-pub struct World<T> where T: Updateable + HandleData<T> + AsRef<T> {
+pub struct World<T>
+where
+    T: Updateable + HandleData<T> + AsRef<T>,
+{
     gravity: (f64, f64),
     objects: Vec<T>,
     restitution: f64,
@@ -12,13 +13,16 @@ pub struct World<T> where T: Updateable + HandleData<T> + AsRef<T> {
     time: f64,
     dt: f64,
 }
-
+ 
 pub struct Plane {
     y: f64,
     angle: f64,
 }
 
-impl<T: Updateable + HandleData<T> + AsRef<T>> World<T> {
+impl<T> World<T>
+where
+    T: Updateable + HandleData<T> + AsRef<T>,
+{
     pub fn new() -> Self {
         Self {
             gravity: (0.0, -9.81),
@@ -30,7 +34,7 @@ impl<T: Updateable + HandleData<T> + AsRef<T>> World<T> {
         }
     }
 
-    pub fn add(&self, object: T) {
+    pub fn add(&mut self, object: T) {
         self.objects.push(object)
     }
 
@@ -38,20 +42,19 @@ impl<T: Updateable + HandleData<T> + AsRef<T>> World<T> {
         self.gravity
     }
 
-    pub fn get_objects(&self) -> Vec<T> {
+    pub fn get_objects(self) -> Vec<T> {
         self.objects
     }
 
     pub fn get_restitution(&self) -> f64 {
         self.restitution
     }
-    
+
     pub fn get_timestep(&self) -> f64 {
         self.dt
     }
 
     pub fn world_step(self, dt: f64) {
-        step::step::<T>(self, dt)
+        step::<T>(self, dt)
     }
-
 }
