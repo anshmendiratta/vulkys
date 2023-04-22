@@ -4,7 +4,7 @@ use crate::world::*;
 
 pub enum CollisionType<T>
 where
-    T: Updateable + HandleData<T>,
+    T: Updateable,
 {
     ObjObj(T, T),
     ObjWorld(T, World),
@@ -12,7 +12,7 @@ where
 
 pub struct Collision<T>
 where
-    T: Updateable + HandleData<T>,
+    T: Updateable,
 {
     objects: CollisionType<T>,
     time: f64,
@@ -20,7 +20,7 @@ where
 
 impl<T> CollisionType<T>
 where
-    T: Updateable + HandleData<T> + AsRef<T>,
+    T: Updateable + AsRef<T>,
 {
     fn get_participants(&self) -> (&T, Option<&T>) {
         match self {
@@ -32,7 +32,7 @@ where
 
 impl<T> Collision<T>
 where
-    T: Updateable + HandleData<T> + AsRef<T>,
+    T: Updateable + AsRef<T>,
 {
     pub fn get_time(&self) -> f64 {
         self.time

@@ -3,7 +3,7 @@ use strum_macros::{Display, EnumCount, EnumString};
 // use crate::datastructures::linearqueue;
 use crate::type_traits::*;
 
-pub trait Updateable {
+pub trait Updateable: HandleData {
     fn get_rigidbody(&self) -> RigidBody;
 }
 
@@ -42,17 +42,17 @@ impl Updateable for Ball {
     }
 }
 
-impl Updateable for Box<dyn Updateable> {
-    fn get_rigidbody(&self) -> RigidBody {
-        unimplemented!()
-    }
-}
+// impl Updateable for Box<dyn Updateable> {
+//     fn get_rigidbody(&self) -> RigidBody {
+//         unimplemented!()
+//     }
+// }
 
 // struct RigidBodyHistory<RigidBody> {
 // velocity: LinearQueue<Vec<f64>>,
 // }
 
-pub trait HandleData<T: Updateable> {
+pub trait HandleData {
     fn get_mass(&self) -> f64;
 
     fn get_position(&self) -> (f64, f64);
@@ -68,7 +68,7 @@ pub trait HandleData<T: Updateable> {
     fn set_acceleration(&mut self, acceleration: (f64, f64));
 }
 
-impl<T: Updateable> HandleData<T> for Ball {
+impl HandleData for Ball {
     fn get_mass(&self) -> f64 {
         self.mass
     }
@@ -101,6 +101,22 @@ impl<T: Updateable> HandleData<T> for Ball {
         self.acceleration = new_acceleration
     }
 }
+
+// impl<T> HandleData<T> for dyn Updateable where T: Updateable + ?Sized {
+//     fn get_mass(&self) -> f64 { 0.0 }
+
+//     fn get_position(&self) -> (f64, f64) { (0.0, 0.0) }
+//     fn set_position(&mut self, new_position: (f64, f64)) {}
+
+//     fn get_velocity(&self) -> (f64, f64) { (0.0, 0.0) }
+//     fn set_velocity(&mut self, new_velocity: (f64, f64)) {}
+
+//     fn get_angular_velocity(&self) -> f64 { 0.0 }
+//     fn set_angular_velocity(&mut self, new_angular_velocity: f64) {}
+
+//     fn get_acceleration(&self) -> (f64, f64) { (0.0, 0.0) }
+//     fn set_acceleration(&mut self, acceleration: (f64, f64)) {}
+// }
 
 impl Ball {
     pub fn make_from_function(

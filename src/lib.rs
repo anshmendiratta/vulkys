@@ -1,4 +1,4 @@
-pub mod boundary;
+// pub mod boundary;
 pub mod collision_definition;
 pub mod data_structures;
 pub mod motion;

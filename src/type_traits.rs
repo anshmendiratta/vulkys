@@ -1,4 +1,4 @@
-
+use crate::rigidbodies::*;
 
 type Radians = f64;
 
@@ -65,5 +65,41 @@ pub trait MetaMethods {
             None => (),
         }
         raw_string
+    }
+}
+
+impl<T> HandleData for Box<T> {
+    fn get_mass(&self) -> f64 {
+        0.0
+    }
+
+    fn get_position(&self) -> (f64, f64) {
+        (0.0, 0.0)
+    }
+    fn set_position(&mut self, new_position: (f64, f64)) {
+    }
+
+    fn get_velocity(&self) -> (f64, f64) {
+        (0.0, 0.0)
+    }
+    fn set_velocity(&mut self, new_velocity: (f64, f64)) {        
+    }
+
+    fn get_angular_velocity(&self) -> f64 {
+        0.0
+    }
+    fn set_angular_velocity(&mut self, new_angular_velocity: f64) {
+    }
+
+    fn get_acceleration(&self) -> (f64, f64) {
+        (0.0, 0.0)
+    }
+    fn set_acceleration(&mut self, new_acceleration: (f64, f64)) {
+    }
+}
+
+impl<T: Updateable> Updateable for Box<T> {
+    fn get_rigidbody(&self) -> RigidBody {
+        RigidBody { position: (0.0, 0.0), velocity: (0.0, 0.0), mass: 0.0 }
     }
 }

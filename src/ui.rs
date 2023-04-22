@@ -4,7 +4,7 @@ use crate::type_traits::*;
 use eframe::egui;
 
 pub struct Content {
-    objects: Vec<Box<dyn rigidbodies::Updateable>>,
+    objects: Vec<Box<dyn rigidbodies::HandleData>>,
     mass: f64,
     radius: f64,
     position_x: f64,
