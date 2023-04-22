@@ -37,8 +37,10 @@ pub mod Physics {
 
     type Force = Vec<f64>;
 
-    pub fn update_velocity<T>(object: &mut Box<dyn Updateable>, dt: &f64) where T: Updateable {
- 
+    pub fn update_velocity<T>(object: &mut Box<dyn Updateable>, dt: &f64) 
+    where 
+        T: Updateable 
+    {
         let mut velocity = object.get_velocity();
         let acceleration = object.get_acceleration();
         velocity.0 += acceleration.0 * dt;
@@ -48,15 +50,15 @@ pub mod Physics {
         object.set_acceleration(acceleration)
     }
 
-    pub fn update_position<T>(object: &mut T, dt: &f64)
+    pub fn update_position<T>(object: &mut Box<dyn Updateable>, dt: &f64)
     where
         T: Updateable,
     {
         let mut position: (f64, f64) = object.get_position();
         let velocity: (f64, f64) = object.get_velocity();
-
         position.0 += velocity.0 * dt;
         position.1 += velocity.1 * dt;
+        
         object.set_position(position)
     }
 
