@@ -1,6 +1,6 @@
 // mod ui;
 use NEA::ui::Content;
-use NEA::{ui::*, world};
+
 use NEA::world::*;
 // mod world;
 
@@ -12,7 +12,7 @@ fn main() -> Result<(), eframe::Error> {
         y_range: (-1.0, 1.0),
     };
 
-    let world: World = World {
+    let _world: World = World {
         gravity: (0.0, -9.81),
         restitution: 1.0,
         objects: Vec::new(),

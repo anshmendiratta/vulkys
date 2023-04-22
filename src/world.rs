@@ -1,4 +1,4 @@
-use crate::rigidbodies::{Updateable, HandleData};
+use crate::rigidbodies::{Updateable};
 use crate::step::world_step;
 
 #[derive(Default)]

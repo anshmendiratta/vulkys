@@ -76,25 +76,25 @@ impl<T> HandleData for Box<T> {
     fn get_position(&self) -> (f64, f64) {
         (0.0, 0.0)
     }
-    fn set_position(&mut self, new_position: (f64, f64)) {
+    fn set_position(&mut self, _new_position: (f64, f64)) {
     }
 
     fn get_velocity(&self) -> (f64, f64) {
         (0.0, 0.0)
     }
-    fn set_velocity(&mut self, new_velocity: (f64, f64)) {        
+    fn set_velocity(&mut self, _new_velocity: (f64, f64)) {        
     }
 
     fn get_angular_velocity(&self) -> f64 {
         0.0
     }
-    fn set_angular_velocity(&mut self, new_angular_velocity: f64) {
+    fn set_angular_velocity(&mut self, _new_angular_velocity: f64) {
     }
 
     fn get_acceleration(&self) -> (f64, f64) {
         (0.0, 0.0)
     }
-    fn set_acceleration(&mut self, new_acceleration: (f64, f64)) {
+    fn set_acceleration(&mut self, _new_acceleration: (f64, f64)) {
     }
 }
 

@@ -1,5 +1,5 @@
 
-use crate::rigidbodies::{HandleData, Updateable};
+use crate::rigidbodies::{Updateable};
 use crate::world::*;
 
 pub enum CollisionType<T>
