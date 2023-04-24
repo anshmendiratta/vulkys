@@ -1,6 +1,7 @@
 use crate::rigidbodies::{Updateable};
 use crate::step::world_step;
 
+/// Using Rust's derive macro to add a default state to world if it was just initialized without the relevant fields filled in.
 #[derive(Default)]
 pub struct World {
     pub gravity: (f64, f64),
@@ -11,6 +12,7 @@ pub struct World {
     pub dt: f64,
 }
 
+/// Defining methods associated with World.
 impl World {
     pub fn new() -> Self {
         Self {
@@ -23,10 +25,16 @@ impl World {
         }
     }
 
+    pub fn get_boundary(&self) -> Boundary {
+        self.boundary
+    }
+
+    /// This adds a new rigid body to world.
     pub fn add<T>(&mut self, object: T) where T: Updateable + AsRef<T> + 'static {
         self.objects.push(Box::new(object))
     }
 
+    /// The following functions are getters.
     pub fn get_gravity(self) -> (f64, f64) {
         self.gravity
     }
@@ -35,6 +43,7 @@ impl World {
         self.objects
     }
 
+    /// A constant concerning the velocities of objects when they rebound from a collision (coefficient of restitution).
     pub fn get_restitution(&self) -> f64 {
         self.restitution
     }
@@ -43,17 +52,20 @@ impl World {
         self.dt
     }
 
+    /// The primary function that advances the world by time step dt.
     pub fn world_step<T>(self, dt: f64) where T: Updateable + AsRef<T> {
         world_step::<T>(self, dt)
     }
 }
 
-#[derive(Default)]
+/// Defining the world's edges.
+#[derive(Default, Clone, Copy)]
 pub struct Boundary {
     pub x_range: (f64, f64),
     pub y_range: (f64, f64),
 }
 
+/// Defining useful methods and getters.
 impl Boundary {
     pub fn new() -> Self {
         Self {
@@ -71,8 +83,4 @@ impl Boundary {
     }
 }
 
-pub struct Plane {
-    y: f64,
-    angle: f64,
-}
 

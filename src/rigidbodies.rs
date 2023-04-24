@@ -1,18 +1,19 @@
-// use std::{str::FromStr, fmt::Display};
 use strum_macros::{Display, EnumCount, EnumString};
-// use crate::datastructures::linearqueue;
 use crate::type_traits::*;
 
+/// A Rust feature allow for inheritance-like behavior. This trait/property is applied to every rigid body and requires them to have their fields be mutated.
 pub trait Updateable: HandleData {
     fn get_rigidbody(&self) -> RigidBody;
 }
 
+/// A convenient enum (collection of types) used in ui.rs.
 #[derive(Debug, Display, EnumCount, EnumString, PartialEq)]
 pub enum RigidBodySelection {
     None(usize),
     RigidBody,
     Ball,
 }
+/// The parent struct of all rigid bodies with standard fields.
 #[derive(Debug, PartialEq, Clone, Default, Copy)]
 pub struct RigidBody {
     pub position: (f64, f64),
@@ -20,9 +21,10 @@ pub struct RigidBody {
     pub mass: f64,
 }
 
-// impl<T: Updateable> HandleData<T> for RigidBody {}
+/// Meta-programming methods from type-traits. The most useful here is to print the struct's name.
 impl MetaMethods for RigidBody {}
 
+/// The first rigidbody with parent struct RigidBody.
 #[derive(Debug)]
 pub struct Ball {
     pub mass: f64,
@@ -36,22 +38,14 @@ pub struct Ball {
 
 impl MetaMethods for Ball {}
 
+/// The aforementioned trait being implemented. This is used less for defining methods and more for filtering out specific objects that can be passed into functions.
 impl Updateable for Ball {
     fn get_rigidbody(&self) -> RigidBody {
         self.parent
     }
 }
 
-// impl Updateable for Box<dyn Updateable> {
-//     fn get_rigidbody(&self) -> RigidBody {
-//         unimplemented!()
-//     }
-// }
-
-// struct RigidBodyHistory<RigidBody> {
-// velocity: LinearQueue<Vec<f64>>,
-// }
-
+/// A subtrait of Updateable. It defines getters and setters for the rigid body.
 pub trait HandleData {
     fn get_mass(&self) -> f64;
 
@@ -68,6 +62,7 @@ pub trait HandleData {
     fn set_acceleration(&mut self, acceleration: (f64, f64));
 }
 
+/// Defining the above trait specifically for rigidbody and outputting the relevant fields.
 impl HandleData for Ball {
     fn get_mass(&self) -> f64 {
         self.mass
@@ -102,21 +97,6 @@ impl HandleData for Ball {
     }
 }
 
-// impl<T> HandleData<T> for dyn Updateable where T: Updateable + ?Sized {
-//     fn get_mass(&self) -> f64 { 0.0 }
-
-//     fn get_position(&self) -> (f64, f64) { (0.0, 0.0) }
-//     fn set_position(&mut self, new_position: (f64, f64)) {}
-
-//     fn get_velocity(&self) -> (f64, f64) { (0.0, 0.0) }
-//     fn set_velocity(&mut self, new_velocity: (f64, f64)) {}
-
-//     fn get_angular_velocity(&self) -> f64 { 0.0 }
-//     fn set_angular_velocity(&mut self, new_angular_velocity: f64) {}
-
-//     fn get_acceleration(&self) -> (f64, f64) { (0.0, 0.0) }
-//     fn set_acceleration(&mut self, acceleration: (f64, f64)) {}
-// }
 
 impl Ball {
     pub fn make_from_function(

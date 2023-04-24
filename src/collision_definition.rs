@@ -1,6 +1,13 @@
 
 use crate::rigidbodies::{Updateable};
 use crate::world::*;
+pub struct Collision<T>
+where
+    T: Updateable,
+{
+    objects: CollisionType<T>,
+    time: f64,
+}
 
 pub enum CollisionType<T>
 where
@@ -8,14 +15,6 @@ where
 {
     ObjObj(T, T),
     ObjWorld(T, World),
-}
-
-pub struct Collision<T>
-where
-    T: Updateable,
-{
-    objects: CollisionType<T>,
-    time: f64,
 }
 
 impl<T> CollisionType<T>

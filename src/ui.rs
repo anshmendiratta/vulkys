@@ -1,8 +1,9 @@
-// use NEA::rigidbodies::Updateable;
+// use crate::type_traits::*;
+// use crate::painter;
 use crate::rigidbodies;
-use crate::type_traits::*;
 use eframe::egui;
 
+/// Where all data is stored.
 pub struct Content {
     objects: Vec<Box<dyn rigidbodies::HandleData>>,
     mass: f64,
@@ -15,8 +16,7 @@ pub struct Content {
     selected: rigidbodies::RigidBodySelection,
 }
 
-// impl Default for RigidBody {}
-
+/// Obligatory default for start-up.
 impl Default for Content {
     fn default() -> Self {
         Self {
@@ -33,19 +33,11 @@ impl Default for Content {
     }
 }
 
+/// Implementing the App.
 impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            // ui.horizontal(|ui| {
-            //     ui.add(
-            //         egui::ComboBox::from_label("Select object type to add to simulation")
-            //             .selected_text(format!("{:?}", &self.selected))
-            //             .show_ui(ui, |ui| {
-            //                 ui.selectable_value(&mut self.selected, RigidBody::Ball, "Ball")
-            //             }),
-            //     )
-            // });
-
+            /// Adding the box, which when clicked on grants you the options of rigid bodies to add.
             egui::ComboBox::from_label("Select object to add")
                 .selected_text(String::from(self.selected.to_string()))
                 .show_ui(ui, |ui| {
@@ -56,6 +48,7 @@ impl eframe::App for Content {
                     )
                 });
 
+            /// Adding the sliders for the position and velocity.
             ui.horizontal(|ui| {
                 // let mut position_x: f64 = 0.0;
                 ui.add(egui::Slider::new(&mut self.position_x, 0.0..=5.0));
@@ -76,6 +69,7 @@ impl eframe::App for Content {
                 ui.label("STARTING Y-VELOCITY");
             });
 
+            /// Displaying a button to add the rigid body to the simulation.
             ui.horizontal(|ui| {
                 if ui.button("Add object").clicked() {
                     match self.selected {
@@ -93,6 +87,7 @@ impl eframe::App for Content {
                         _ => (),
                     }
 
+                    // Defaulting the chosen values to zero when the button is clicked.
                     self.position_x = 0.0;
                     self.position_y = 0.0;
                     self.velocity_x = 0.0;
@@ -100,13 +95,15 @@ impl eframe::App for Content {
                 }
             });
 
-            // ui.label(format!("{:?}", self.objects));
-
+            /// Displaying a button to run the simulation, which would primarily call the first line.
             ui.horizontal(|ui| {
                 if ui.button("Run simulation").clicked() {
-                    egui::Window::new("Simulation")
-                } else {
-                    egui::Window::new("Simulation")
+                    // painter::draw_frames();
+
+                    ui.label("Building");
+                    ui.add(egui::ProgressBar::new(0.0)
+                    .animate(true)
+                    .show_percentage());                    
                 }
             })
         });

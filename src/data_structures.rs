@@ -1,16 +1,15 @@
-
-
-// use crate::rigidbodyobjects::motion::collisions::datastructures::linearqueue::LinearQueue;
-
+/// Collating all the code for a linear queue together.
 pub mod linearqueue {
     
     use std::collections::LinkedList;
 
+    /// Using a LinkedList to define the elements because it has associated methods that are more useful than the methods for vectors.
     #[derive(Debug, Clone)]
     pub struct LinearQueue<T> {
         elements: LinkedList<T>,
     }
 
+    /// Standard operations on a queue such as enqueue, dequeue, and peek. Note that there is no `is_full()` function because the queue's possible size is unknown and can vary greatly.
     impl<T> LinearQueue<T> {
         pub fn new() -> Self {
             Self {
@@ -31,6 +30,7 @@ pub mod linearqueue {
         }
     }
 
+    /// Meta-programming allowing for the iteration through a linear queue.
     impl<T> Iterator for LinearQueue<T> {
         type Item = T;
 
@@ -40,54 +40,8 @@ pub mod linearqueue {
     }
 }
 
-// TEST!
-// use std::collections::LinkedList;
-
-// pub struct LinearQueue<T: Copy> {
-//     elements: LinkedList<T>,
-// }
-
-// impl<T: Copy> LinearQueue<T: C> {
-//     pub fn new() -> Self {
-//         Self {
-//             elements: LinkedList::new()
-//         }
-//     }
-
-//     pub fn enqueue(&mut self, item: T) {
-//         *&self.elements.push_back(item)
-//     }
-
-//     pub fn dequeue(&mut self) -> T {
-//         *&self.elements.pop_front().unwrap()
-//     }
-
-//     pub fn peek(&self) -> Option<&T> {
-//         self.elements.back()
-//     }
-// }
-
-// impl<T: Copy> Iterator for LinearQueue<T> {
-//     type Item = T;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         Some(*(*&self.elements.iter().next()).unwrap())
-//     }
-// }
-
-// fn main() {
-//     let mut v: LinearQueue<usize> = LinearQueue::new();
-//     v.enqueue(1);
-//     v.enqueue(2);
-
-//     for element in v {
-//         println!("{}", element)
-//     }
-// }
-
+// Similar definition for stacks but with a pointer.
 pub mod Stack {
-    
-
     #[derive(Debug)]
     pub struct Stack<T> {
         elements: Vec<T>,

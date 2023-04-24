@@ -1,40 +1,48 @@
 use crate::collision_definition::*;
 use crate::data_structures::linearqueue::*;
 use crate::rigidbodies::*;
+use crate::world::World;
 
-fn resolve_collision<T>(collisions: LinearQueue<Collision<T>>)
+/// A parent function that branches off into two functions depending on the collisio type.
+fn resolve_collision<T>(collisions: LinearQueue<Collision<T>>, true_world: World)
 where
-    T: Updateable + AsRef<T>,
+    T: Updateable + AsRef<T> + Copy,
 {
+    // Iterating through all detected collisions, of either type.
     for collision in collisions {
+        // Matching the collision type with the possible options.
         match collision.get_objects() {
-            (_body1, _World) => resolve_boundary_collision(collision),
-            (_body1, _body2) => resolve_object_collision(collision),
+            (body1, world) => resolve_boundary_collision(*body1, &true_world),
+            // (body1, body2) => resolve_object_collision::(body1, body2.unwrap()),
         }
     }
 }
 
-fn resolve_boundary_collision<T>(_collision: Collision<T>)
+/// The reflection of the velocity depending on the boundary collided with.
+fn resolve_boundary_collision<T>(mut object: T, world: &World)
 where
     T: Updateable + AsRef<T>,
 {
-    // (xord, yord) = collision.get;
+    let boundary = world.get_boundary();
+    let position = object.get_position();
+    let mut velocity = object.get_velocity();
+
+    // Checking if the x position is outside the vertical boundaries on the left and the right.
+    if position.0.abs() >= boundary.x_range.0.abs() {
+        velocity.0 *= -1.0
+    } 
+    
+    // Checking if the y position is outside the vertical boundaries on the top and the bottom..
+    if position.0.abs() >= boundary.y_range.0.abs() {
+        velocity.1 *= -1.0
+    } 
+
+    object.set_velocity(velocity)
 }
 
-fn resolve_object_collision<T>(_collision: Collision<T>)
+/// Dealing with two objects colliding. 
+fn resolve_object_collision<T>(body1: T, body2: T)
 where
     T: Updateable + AsRef<T>,
 {
-}
-
-fn update_velocity<T>(_object1: T, _object2: T)
-where
-    T: Updateable + AsRef<T>,
-{
-    // object1.velocity = (2 * object2.get_velocity().scale_vector(*object2.get_mass()) + *object1.get_velocity().scale(object1.get_mass() - object2.get_mass())).scale(object1.get_mass() + object2.get_mass());
-    // object2.velocity = (2 * object1.get_velocity().scale_vector(*object1.get_mass()) + *(object2.get_velocity()).scale(object2.get_mass() - object1.get_mass())).scale(object1.get_mass() + object2.get_mass());
-}
-
-fn update_angular_velocity(_object1: &RigidBody, _object2: &RigidBody) {
-    // object1.angular_velocity =
 }

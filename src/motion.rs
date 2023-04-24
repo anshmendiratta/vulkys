@@ -1,10 +1,14 @@
+/// A module (grouping of functions and other code) meant for dealing with the necessary math required.
 pub mod PhysicsMath {
     use crate::rigidbodies::*;
+    /// Useful function meant for finding the angle between the positive x-axis and the line connecting the origin to a coordinate.
     use libm::atan2;
 
+    /// Definition of new datatype consisting of a tuple with two floating points. 
     type Coordinate = (f64, f64);
     type Radians = f64;
 
+    /// To be used for defining a component required for the calculation of torque. 'com' stands for center of mass. 
     pub fn calculate_angle_between_coms(com1: Coordinate, com2: Coordinate) -> f64 {
         let x_diff: f64 = com1.0 - com2.0;
         let y_diff: f64 = com1.1 - com2.1;
@@ -58,7 +62,7 @@ pub mod Physics {
         let velocity: (f64, f64) = object.get_velocity();
         position.0 += velocity.0 * dt;
         position.1 += velocity.1 * dt;
-        
+
         object.set_position(position)
     }
 
@@ -73,13 +77,13 @@ pub mod Physics {
     // force
     // }
 
-    pub fn update_angular_velocity<RigidBody>(_object: RigidBody) -> f64 {
-        // let angularmomentum: f64 = calculate_angularmomentum(object);
-        // let momentofinertia: f64 = calculate_momentofinertia(object);
+    // pub fn update_angular_velocity<RigidBody>(_object: RigidBody) -> f64 {
+    //     let angularmomentum: f64 = calculate_angularmomentum(object);
+    //     let momentofinertia: f64 = calculate_momentofinertia(object);
 
-        // angularmomentum/momentofinertia
-        0.0
-    }
+    //     angularmomentum/momentofinertia
+    //     0.0
+    // }
 
     // pub fn calculate_angularmomentum<RigidBody>(object: RigidBody) -> f64 {
     // RigidBody.get_mass() * RigidBody.get_radius() * RigidBody.get_tangential_velocity()

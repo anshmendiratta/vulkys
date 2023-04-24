@@ -1,26 +1,11 @@
-use libm::{acos};
-// use std::f64::consts;
 use crate::type_traits::VectorMethods;
-
-// fn eq(one: &Vec<f64>, other: &Vec<f64>) -> bool {
-//     let mut counter: usize = 0;
-
-//     if &one.len() != &other.len() {
-//         return false
-//     } else {
-//         while &counter <= &one.len() {
-//             let mut idx: usize = 0;
-//             if &one[idx] == &other[idx] {
-//                 counter += 1
-//             }
-//             idx += 1
-//         }
-//     }
-//     counter == one.len()
-// }
+use libm::acos;
 
 type Radians = f64;
 
+/// Treating vectors as mathematical vectors
+
+/// Adding two vectors together term-by-term. Does not account for when the vectors are of different sizes.
 fn add(T: &Vec<f64>, J: &Vec<f64>) -> Vec<f64> {
     let mut result: Vec<f64> = Vec::with_capacity(T.len());
     for idx in 0..T.len() {
@@ -29,6 +14,7 @@ fn add(T: &Vec<f64>, J: &Vec<f64>) -> Vec<f64> {
     result
 }
 
+/// Similar operation as `add` but subtraction term-by-term.
 fn subtract(T: &Vec<f64>, J: &Vec<f64>) -> Vec<f64> {
     let mut result: Vec<f64> = Vec::with_capacity(T.len());
     for idx in 0..T.len() {
@@ -37,14 +23,17 @@ fn subtract(T: &Vec<f64>, J: &Vec<f64>) -> Vec<f64> {
     result
 }
 
+/// Dot product meant for two-dimensional vectors
 fn dot_product(vec1: &Vec<f64>, vec2: &Vec<f64>) -> f64 {
     vec1[0] * vec2[0] + vec1[1] * vec2[1]
 }
 
+/// Reverse-enginerring the angle between two vectors using an alternate definition of the dot product.
 fn get_angle_between_vectors(vec1: Vec<f64>, vec2: Vec<f64>) -> f64 {
     acos(dot_product(&vec1, &vec2) / (vec1.magnitude() * vec2.magnitude()))
 }
 
+// Unit-tests
 // #[cfg(test)]
 // mod tests {
 //     use super::*;
