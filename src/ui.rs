@@ -37,7 +37,7 @@ impl Default for Content {
 impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            /// Adding the box, which when clicked on grants you the options of rigid bodies to add.
+            // Adding the box, which when clicked on grants you the options of rigid bodies to add.
             egui::ComboBox::from_label("Select object to add")
                 .selected_text(String::from(self.selected.to_string()))
                 .show_ui(ui, |ui| {
@@ -48,7 +48,7 @@ impl eframe::App for Content {
                     )
                 });
 
-            /// Adding the sliders for the position and velocity.
+            // Adding the sliders for the position and velocity.
             ui.horizontal(|ui| {
                 // let mut position_x: f64 = 0.0;
                 ui.add(egui::Slider::new(&mut self.position_x, 0.0..=5.0));
@@ -69,7 +69,7 @@ impl eframe::App for Content {
                 ui.label("STARTING Y-VELOCITY");
             });
 
-            /// Displaying a button to add the rigid body to the simulation.
+            // Displaying a button to add the rigid body to the simulation.
             ui.horizontal(|ui| {
                 if ui.button("Add object").clicked() {
                     match self.selected {
@@ -95,7 +95,7 @@ impl eframe::App for Content {
                 }
             });
 
-            /// Displaying a button to run the simulation, which would primarily call the first line.
+            // Displaying a button to run the simulation, which would primarily call the first line.
             ui.horizontal(|ui| {
                 if ui.button("Run simulation").clicked() {
                     // painter::draw_frames();

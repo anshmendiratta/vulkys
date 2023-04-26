@@ -12,7 +12,7 @@ where
     for collision in collisions {
         // Matching the collision type with the possible options.
         match collision.get_objects() {
-            (body1, world) => resolve_boundary_collision(*body1, &true_world),
+            (body1, _world) => resolve_boundary_collision(*body1, &true_world),
             // (body1, body2) => resolve_object_collision::(body1, body2.unwrap()),
         }
     }
@@ -41,7 +41,7 @@ where
 }
 
 /// Dealing with two objects colliding. 
-fn resolve_object_collision<T>(body1: T, body2: T)
+fn resolve_object_collision<T>(_body1: T, _body2: T)
 where
     T: Updateable + AsRef<T>,
 {
