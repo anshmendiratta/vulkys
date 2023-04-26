@@ -57,7 +57,7 @@ impl VectorMethods for &Vec<f64> {
     }
 }
 
-/// Defines a method to print the name of a Struct as a String.
+/// Defines a method to print the identifier of a Struct as a String.
 pub trait MetaMethods {
     fn to_string(&self) -> String
     where
