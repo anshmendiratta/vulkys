@@ -15,6 +15,7 @@ pub mod PhysicsMath {
         atan2(y_diff, x_diff)
     }
 
+    /// Meant for calculating how objects would rebound upon collision. 
     pub fn get_point_of_contact<T: Updateable>(
         object1: T,
         object2: T,
@@ -35,13 +36,16 @@ pub mod PhysicsMath {
     // }
 }
 
+/// Module — or a grouping of functions — that deal with rigid bodies directly, namely mutating their position and velocity.
 pub mod Physics {
     use crate::rigidbodies::*;
     use libm::atan2;
 
     type Force = Vec<f64>;
 
+    /// First occurance of "Box," which is a smart pointer to an allocation of memory on the heap.
     pub fn update_velocity<T>(object: &mut Box<dyn Updateable>, dt: &f64) 
+    // This is where the Updateable trait is useful in defining what parameters can be passed in to the function.
     where 
         T: Updateable 
     {
@@ -66,6 +70,7 @@ pub mod Physics {
         object.set_position(position)
     }
 
+    /// Calculating the angle between the centers of mass of the bodies and the horizontal line passing through the body1.
     pub fn calculate_angle(body1: RigidBody, body2: RigidBody) -> f64 {
         let x_diff: f64 = body1.position.0 - body2.position.0;
         let y_diff: f64 = body1.position.0 - body2.position.1;
@@ -94,17 +99,36 @@ pub mod Physics {
     // }
 }
 
+// Unit-tests
 // #[cfg(test)]
 // mod test {
-//    #[test]
-//    fn test_tangential() {
-//       let object = RigidBody::Ball {
-//          mass: 1.0,
-//          radius: 1.0,
-//          position: vec![0.0, 0.0],
-//          velocity: vec![0.0, 0.0]
-//       };
+//     use crate::{motion::Physics::update_velocity, rigidbodies::{Ball, HandleData, Updateable}};
 
-//       assert_eq!(get_tangential_velocity(object))
-//    }
+//    #[test]
+//    fn check_velocity() {
+//         let mut object = Ball::default();
+//         let p = (0.0, 0.0);
+//         let v = (1.0, 2.0);
+//         let dt = 0.5;
+
+//         &object.set_position(p);
+//         &object.set_velocity(v);
+//         {
+//             let &mut object: &mut Box<dyn Updateable> = &mut {
+//                 let x = object;
+//                 // #[rustc_box]
+//                 Box::new(x)
+//             };
+//             let dt = &dt;
+//             let mut velocity = &object.get_velocity();
+//             let acceleration = &object.get_acceleration();
+//             velocity.0 += acceleration.0 * dt;
+//             velocity.1 += acceleration.1 * dt;
+
+//             object.set_velocity(*velocity);
+//             object.set_acceleration(*acceleration)
+//         };
+
+//         assert_eq!(object.get_velocity(), (0.5, 1.0))
+//     }
 // }

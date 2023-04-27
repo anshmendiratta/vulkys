@@ -1,4 +1,4 @@
-// pub mod boundary;
+/// No logic in here.
 pub mod collision_definition;
 pub mod data_structures;
 pub mod motion;
@@ -10,3 +10,4 @@ pub mod type_traits;
 pub mod ui;
 pub mod vector_transform;
 pub mod world;
+mod collision_detection;

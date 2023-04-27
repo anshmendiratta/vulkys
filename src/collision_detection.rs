@@ -1,6 +1,9 @@
 
 use NEA::collision_definition::*;
 use NEA::data_structures::LinearQueue;
+use NEA::world::*;
+
+use crate::world::World;
 
 /// Comparing the x and y coordinates of each object in the World with the boundary to see if any object has "crossed" it.
 fn detect_world_collision(world: &World) -> LinearQueue<Collision> {
@@ -39,10 +42,34 @@ fn detect_balls_collision(ball1: RigidBody::Ball, ball2: RigidBody::Ball) -> Opt
     }
 
     /// Satisfying the `Option` return type
-    ()
+    Some(())
 }
 
 // SAT collision detection (a known algorithm).
 // Meant for non-circular objects
 fn sat_collision_detection() {
+}
+
+#[cfg(test)]
+mod test {
+    use crate::collision_detection::detect_world_collision;
+    use crate::data_structures::linearqueue::LinearQueue;
+    use crate::rigidbodies::{Ball, RigidBody};
+    use crate::world::*;
+
+    #[test]
+    fn check_boundary_collision() {
+        let w = World {
+            gravity: (0, -9.81),
+            objects: Vec::new(),
+            restitution: 1.0,
+            boundary: crate::world::Boundary { x_range: (-1.0, 1.0), y_range: (-1.0, 1.0) },
+            time: 0,
+            dt: 0.1,
+        };
+        let ball = Ball { mass: 1.0, radius: 0.5, position: (0.0, 0.0), velocity: (1.0, 1.0), acceleration: (0.0, 0.0), angular_velocity: 0.0, parent: RigidBody };
+        w.add(ball);
+
+        assert_eq!(detect_world_collision(&w), Some(()))
+    }
 }

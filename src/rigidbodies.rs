@@ -97,7 +97,7 @@ impl HandleData for Ball {
     }
 }
 
-
+/// Defining methods for the Ball struct that otherwise can't be implemented in HandleData.
 impl Ball {
     pub fn make_from_function(
         &self,
@@ -126,6 +126,7 @@ impl Ball {
     }
 }
 
+/// Obligatory implemention of a default state.
 impl Default for Ball {
     fn default() -> Self {
         Self {

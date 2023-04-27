@@ -1,6 +1,8 @@
 
 use crate::rigidbodies::{Updateable};
 use crate::world::*;
+
+/// Defining the Collision struct between two objects of type T and the time at which it occurs.
 pub struct Collision<T>
 where
     T: Updateable,
@@ -9,6 +11,7 @@ where
     time: f64,
 }
 
+/// A useful enumeration when dealing with resolving collisions. ObjWorld collisions are much simpler to handle than ObjObj collisions.
 pub enum CollisionType<T>
 where
     T: Updateable,
@@ -17,6 +20,7 @@ where
     ObjWorld(T, World),
 }
 
+/// The implementation of CollisionType<T> defining a method that can be used as `Collision.objects.get_particapnts()` to get all offending bodies in a collision
 impl<T> CollisionType<T>
 where
     T: Updateable + AsRef<T>,
@@ -29,6 +33,7 @@ where
     }
 }
 
+/// Getters for Collision. Uses `CollisionType`'s method mentioned above.
 impl<T> Collision<T>
 where
     T: Updateable + AsRef<T>,
