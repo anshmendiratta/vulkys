@@ -82,6 +82,10 @@ impl<T> HandleData for Box<T> {
     fn get_mass(&self) -> f64 {
         0.0
     }
+
+    fn get_radius(&self) -> f64 {
+        0.0
+    }
     
     fn get_position(&self) -> (f64, f64) {
         (0.0, 0.0)
@@ -112,6 +116,23 @@ impl<T> HandleData for Box<T> {
 /// Uses dummy numbers
 impl<T: Updateable> Updateable for Box<T> {
     fn get_rigidbody(&self) -> RigidBody {
-        RigidBody { position: (0.0, 0.0), velocity: (0.0, 0.0), mass: 0.0 }
+        RigidBody { position: (0.0, 0.0), velocity: (0.0, 0.0), mass: 0.0, radius: 1.0 }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_struct_name() {
+        #[derive(Debug)]
+        struct NewStructOne(usize);
+        impl MetaMethods for NewStructOne {}
+
+        let s = NewStructOne(2);
+        assert_eq!(String::from("NewStructOne"), s.to_string())
+    }
+}
+

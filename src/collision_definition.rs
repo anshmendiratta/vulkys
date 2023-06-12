@@ -7,15 +7,12 @@ pub struct Collision<T>
 where
     T: Updateable,
 {
-    objects: CollisionType<T>,
+    pub(crate) objects: CollisionType<T>,
     time: f64,
 }
 
 /// A useful enumeration when dealing with resolving collisions. ObjWorld collisions are much simpler to handle than ObjObj collisions.
-pub enum CollisionType<T>
-where
-    T: Updateable,
-{
+pub enum CollisionType<T> where T: Updateable {
     ObjObj(T, T),
     ObjWorld(T, World),
 }
@@ -44,5 +41,24 @@ where
 
     pub fn get_objects(&self) -> (&T, Option<&T>) {
         self.objects.get_participants()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rigidbodies::*;
+
+    #[test]
+    fn check_participants() {
+        let a = Ball::default();
+        let b = Ball::default();
+
+        let c = Collision {
+            objects: CollisionType::ObjObj(a, b),
+            time: 0.0,
+        };
+
+        assert_eq!(c.objects.get_participants(), (&a, Some(&b)));
     }
 }

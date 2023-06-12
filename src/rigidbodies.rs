@@ -19,13 +19,14 @@ pub struct RigidBody {
     pub position: (f64, f64),
     pub velocity: (f64, f64),
     pub mass: f64,
+    pub radius: f64,
 }
 
 /// Meta-programming methods from type-traits. The most useful here is to print the struct's name.
 impl MetaMethods for RigidBody {}
 
 /// The first rigidbody with parent struct RigidBody.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ball {
     pub mass: f64,
     pub radius: f64,
@@ -34,6 +35,12 @@ pub struct Ball {
     pub acceleration: (f64, f64),
     pub angular_velocity: f64,
     pub parent: RigidBody,
+}
+
+impl AsRef<Ball> for Ball {
+    fn as_ref(self: &Ball) -> &Ball {
+        &self
+    }
 }
 
 impl MetaMethods for Ball {}
@@ -48,6 +55,8 @@ impl Updateable for Ball {
 /// A subtrait of Updateable. It defines getters and setters for the rigid body.
 pub trait HandleData {
     fn get_mass(&self) -> f64;
+
+    fn get_radius(&self) -> f64;
 
     fn get_position(&self) -> (f64, f64);
     fn set_position(&mut self, new_position: (f64, f64));
@@ -66,6 +75,10 @@ pub trait HandleData {
 impl HandleData for Ball {
     fn get_mass(&self) -> f64 {
         self.mass
+    }
+
+    fn get_radius(&self) -> f64 {
+        self.radius
     }
 
     fn get_position(&self) -> (f64, f64) {
@@ -117,6 +130,7 @@ impl Ball {
                 position: (0.0, 0.0),
                 velocity: (0.0, 0.0),
                 mass: 0.0,
+                radius: 1.0,
             },
         }
     }
@@ -130,7 +144,32 @@ impl Ball {
 impl Default for Ball {
     fn default() -> Self {
         Self {
-            ..Default::default()
+            mass: 1.0,
+            radius: 1.0,
+            position: (0.0, 0.0),
+            velocity: (0.0, 0.0),
+            acceleration: (0.0, 0.0),
+            angular_velocity: 0.0,
+            parent: RigidBody {
+                position: (0.0, 0.0),
+                velocity: (0.0, 0.0),
+                mass: 1.0,
+                radius: 1.0
+            },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_ball_velocity() {
+        let v: (f64, f64) = (1.0, 2.0);
+        let mut b = Ball::default();
+        b.set_velocity(v);
+
+        assert_eq!(b.get_velocity(), v)
     }
 }

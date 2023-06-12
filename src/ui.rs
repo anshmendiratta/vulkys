@@ -1,6 +1,6 @@
 // use crate::type_traits::*;
 // use crate::painter;
-use crate::rigidbodies;
+use crate::{rigidbodies};
 use eframe::egui;
 
 /// Where all data is stored.

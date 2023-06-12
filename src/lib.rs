@@ -10,4 +10,5 @@ pub mod type_traits;
 pub mod ui;
 pub mod vector_transform;
 pub mod world;
-mod collision_detection;
+pub mod collision_detection;
+pub mod merge_sort;

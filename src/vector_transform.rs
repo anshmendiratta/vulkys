@@ -29,32 +29,36 @@ fn dot_product(vec1: &Vec<f64>, vec2: &Vec<f64>) -> f64 {
 }
 
 /// Reverse-enginerring the angle between two vectors using an alternate definition of the dot product.
-fn get_angle_between_vectors(vec1: Vec<f64>, vec2: Vec<f64>) -> f64 {
+fn get_angle_between_vectors(vec1: &Vec<f64>, vec2: &Vec<f64>) -> f64 {
     acos(dot_product(&vec1, &vec2) / (vec1.magnitude() * vec2.magnitude()))
 }
 
 // Unit-tests
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-// #[test]
-// fn check_rotate_vector() {
-//     assert_eq!(rotate_vector([1, 1].to_vec(), consts::PI), [0, 1].to_vec())
-// }
-
-// #[test]
-// fn check_angle_between() {
-//     let vec1 = vec![0.0, 1.0];
-//     let vec2 = vec![1.0, 0.0];
-//     assert_eq!::<bool>(get_angle_between_vectors(&vec1, &vec2), std::f64::consts::PI / 2.0)
-// }
-
-//     #[test]
-//     fn check_rotation() {
-//         let mut vector: Vec<f64> = vec![1.0, 0.0];
-//         // let equality: bool = eq(rotate_vector(&mut vector, std::f64::consts::PI / 4.0), &vec![1.0/2_f64.powf(0.5), 1.0/2_f64.powf(0.5)]);
-//         // println!("{}", equality)
-//         assert_eq!(rotate_vector(&mut vector, std::f64::consts::PI / 4.0), vec![1.0/2_f64.powf(0.5), 1.0/2_f64.powf(0.5)])
-//     }
-// }
+    #[test]
+    fn check_add() {
+        let a = vec![1.0, 2.0, 3.0];
+        let b = vec![2.0, 3.0, 4.0];
+    
+        assert_eq!(add(&a, &b), vec![3.0, 5.0, 7.0])
+    }
+    
+    #[test]
+    fn check_subtract() {
+        let a = vec![1.0, 2.0, 3.0];
+        let b = vec![2.0, 3.0, 4.0];
+        
+        assert_eq!(subtract(&a, &b), vec![-1.0, -1.0, -1.0])
+    }
+    
+    #[test]
+    fn check_dot() {
+        let a = vec![2.0, 3.0];
+        let b = vec![6.0, -4.0];
+        println!("{}", dot_product(&a, &b));
+        assert_eq!(dot_product(&a, &b), 0.0)
+    }
+}

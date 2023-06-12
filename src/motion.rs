@@ -58,7 +58,7 @@ pub mod Physics {
         object.set_acceleration(acceleration)
     }
 
-    pub fn update_position<T>(object: &mut Box<dyn Updateable>, dt: &f64)
+    pub fn update_position<T>(mut object: Box<dyn Updateable>, dt: &f64) -> (f64, f64)
     where
         T: Updateable,
     {
@@ -67,7 +67,8 @@ pub mod Physics {
         position.0 += velocity.0 * dt;
         position.1 += velocity.1 * dt;
 
-        object.set_position(position)
+        object.set_position(position);
+        return object.get_position()
     }
 
     /// Calculating the angle between the centers of mass of the bodies and the horizontal line passing through the body1.
@@ -100,35 +101,22 @@ pub mod Physics {
 }
 
 // Unit-tests
-// #[cfg(test)]
-// mod test {
-//     use crate::{motion::Physics::update_velocity, rigidbodies::{Ball, HandleData, Updateable}};
+#[cfg(test)]
+mod test {
+    use crate::{motion::Physics::{update_position}, rigidbodies::{Ball, Updateable}};
 
-//    #[test]
-//    fn check_velocity() {
-//         let mut object = Ball::default();
-//         let p = (0.0, 0.0);
-//         let v = (1.0, 2.0);
-//         let dt = 0.5;
+   #[test]
+   fn check_velocity() {
+        let mut object: Box<dyn Updateable + 'static> = Box::new(Ball::default());
+        let p = (0.0, 0.0);
+        let v = (1.0, 2.0);
+        let dt = 0.5;
 
-//         &object.set_position(p);
-//         &object.set_velocity(v);
-//         {
-//             let &mut object: &mut Box<dyn Updateable> = &mut {
-//                 let x = object;
-//                 // #[rustc_box]
-//                 Box::new(x)
-//             };
-//             let dt = &dt;
-//             let mut velocity = &object.get_velocity();
-//             let acceleration = &object.get_acceleration();
-//             velocity.0 += acceleration.0 * dt;
-//             velocity.1 += acceleration.1 * dt;
+        let _ = &object.set_position(p);
+        let _ = &object.set_velocity(v);
 
-//             object.set_velocity(*velocity);
-//             object.set_acceleration(*acceleration)
-//         };
+        let new_velocity = update_position::<Ball>(object, &dt);
 
-//         assert_eq!(object.get_velocity(), (0.5, 1.0))
-//     }
-// }
+        assert_eq!(new_velocity, (0.5, 1.0))
+    }
+}

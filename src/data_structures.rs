@@ -4,7 +4,7 @@ pub mod linearqueue {
     use std::collections::LinkedList;
 
     /// Using a LinkedList to define the elements because it has associated methods that are more useful than the methods for vectors.
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct LinearQueue<T> {
         elements: LinkedList<T>,
     }
@@ -14,6 +14,17 @@ pub mod linearqueue {
         pub fn new() -> Self {
             Self {
                 elements: LinkedList::new(),
+            }
+        }
+
+        pub fn from(elements: Vec<T>) -> Self {
+            let mut llist: LinkedList<T> = LinkedList::new();
+            for item in elements {
+                llist.push_back(item)
+            }
+
+            Self {
+                elements: llist
             }
         }
 
@@ -27,6 +38,11 @@ pub mod linearqueue {
 
         pub fn peek(&self) -> Option<&T> {
             self.elements.back()
+        }
+
+        pub fn len<J>(&self) -> usize 
+        where J: crate::rigidbodies::Updateable {
+            self.elements.len()
         }
     }
 
@@ -64,5 +80,18 @@ pub mod Stack {
         pub fn pop(&mut self) -> T {
             self.elements.remove(self.pointer)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{*, linearqueue::LinearQueue};
+
+    #[test]
+    fn check_queue_add() {
+        let mut l: LinearQueue<usize> = linearqueue::LinearQueue::new();
+        l.enqueue(2 as usize);
+
+        assert_eq!(l, linearqueue::LinearQueue::from(vec![2 as usize]))
     }
 }

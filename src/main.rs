@@ -7,20 +7,13 @@ use NEA::world::*;
 fn main() -> Result<(), eframe::Error> {
     // Log to stdout (if you run with `RUST_LOG=debug`).
     // tracing_subscriber::fmt::init();
-    let world_boundary: Boundary = Boundary {
+    let _world_boundary: Boundary = Boundary {
         x_range: (-1.0, 1.0),
         y_range: (-1.0, 1.0),
     };
 
-    let _world: World = World {
-        gravity: (0.0, -9.81),
-        restitution: 1.0,
-        objects: Vec::new(),
-        boundary: world_boundary,
-        time: 0.0,
-        dt: 0.1,
-    };
-
+    let _world: World = World::new();
+    
     let options = eframe::NativeOptions::default();
     eframe::run_native(
         "Physics engine!",
