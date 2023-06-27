@@ -20,7 +20,7 @@ fn compile_images() -> Command {
 
     ffmpeg_command.args(["outputs/images/"]);
 
-    ffmpeg_command
+    ffmpeg
 }
 
 /// Runs both commands.`status()`executes a command and awaits for its status.
