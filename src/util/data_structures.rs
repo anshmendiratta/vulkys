@@ -40,7 +40,7 @@ pub mod linearqueue {
 
         pub fn len<J>(&self) -> usize
         where
-            J: crate::rigidbodies::Updateable,
+            J: crate::physics::rigidbodies::Updateable,
         {
             self.elements.len()
         }

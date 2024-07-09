@@ -1,4 +1,4 @@
-use crate::type_traits::*;
+use crate::util::type_traits::*;
 use strum_macros::{Display, EnumCount, EnumString};
 
 /// A Rust feature allow for inheritance-like behavior. This trait/property is applied to every rigid body and requires them to have their fields be mutated.

@@ -1,6 +1,6 @@
 /// A module (grouping of functions and other code) meant for dealing with the necessary math required.
 pub mod physics_math {
-    use crate::rigidbodies::*;
+    use crate::physics::rigidbodies::*;
     /// Useful function meant for finding the angle between the positive x-axis and the line connecting the origin to a coordinate.
     use libm::atan2;
 
@@ -35,7 +35,7 @@ pub mod physics_math {
 
 /// Module — or a grouping of functions — that deal with rigid bodies directly, namely mutating their position and velocity.
 pub mod physics {
-    use crate::rigidbodies::*;
+    use crate::physics::rigidbodies::*;
     use libm::atan2;
 
     // type Force = Vec<f64>;
@@ -101,8 +101,8 @@ pub mod physics {
 #[cfg(test)]
 mod test {
     use crate::{
-        motion::physics::update_position,
-        rigidbodies::{Ball, Updateable},
+        physics::motion::physics::update_position,
+        physics::rigidbodies::{Ball, Updateable},
     };
 
     #[test]

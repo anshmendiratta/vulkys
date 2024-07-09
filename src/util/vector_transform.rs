@@ -1,4 +1,4 @@
-use crate::type_traits::VectorMethods;
+use crate::util::type_traits::VectorMethods;
 use libm::acos;
 
 type Radians = f64;

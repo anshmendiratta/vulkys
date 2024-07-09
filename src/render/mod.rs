@@ -1,2 +1,2 @@
-mod painter;
-mod render;
+pub mod painter;
+pub mod render;

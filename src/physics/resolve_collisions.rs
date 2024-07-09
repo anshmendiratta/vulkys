@@ -1,5 +1,5 @@
-use crate::rigidbodies::*;
-use crate::world::World;
+use crate::physics::rigidbodies::*;
+use crate::physics::world::World;
 
 /// A parent function that branches off into two functions depending on the collision type.
 // fn resolve_collision<T>(collisions: LinearQueue<Collision<T>>, true_world: World)

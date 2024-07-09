@@ -1,6 +1,6 @@
 // use crate::type_traits::*;
 // use crate::painter;
-use crate::rigidbodies;
+use crate::physics::rigidbodies;
 use eframe::egui;
 
 /// Where all data is stored.
@@ -97,6 +97,7 @@ impl eframe::App for Content {
             // Displaying a button to run the simulation, which would primarily call the first line.
             ui.horizontal(|ui| {
                 if ui.button("Run simulation").clicked() {
+                    println!("run simulation button pressed");
                     // painter::draw_frames();
 
                     ui.label("Building");

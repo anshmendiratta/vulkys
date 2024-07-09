@@ -1,4 +1,4 @@
-use crate::rigidbodies::*;
+use crate::physics::rigidbodies::*;
 
 type Radians = f64;
 

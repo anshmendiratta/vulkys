@@ -1,5 +1,5 @@
-use crate::rigidbodies::Updateable;
-use crate::world::*;
+use crate::physics::rigidbodies::Updateable;
+use crate::physics::world::*;
 
 /// Defining the Collision struct between two objects of type T and the time at which it occurs.
 pub struct Collision<T>
@@ -49,7 +49,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rigidbodies::*;
+    use crate::physics::rigidbodies::*;
 
     #[test]
     fn check_participants() {

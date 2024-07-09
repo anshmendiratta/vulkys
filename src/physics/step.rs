@@ -1,6 +1,6 @@
-use crate::motion::physics;
-use crate::rigidbodies::*;
-use crate::world::*;
+use crate::physics::motion::physics;
+use crate::physics::rigidbodies::*;
+use crate::physics::world::*;
 
 pub fn world_step<T: Updateable>(world: World, _dt: f64) {
     // Getter for time step.

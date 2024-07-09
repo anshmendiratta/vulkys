@@ -1,5 +1,5 @@
-use crate::rigidbodies::Updateable;
-use crate::step::world_step;
+use crate::physics::rigidbodies::Updateable;
+use crate::physics::step::world_step;
 
 /// Using Rust's derive macro to add a default state to world if it was just initialized without the relevant fields filled in.
 pub struct World {
