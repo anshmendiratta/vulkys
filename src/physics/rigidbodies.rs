@@ -1,9 +1,25 @@
-use strum_macros::{Display, EnumCount, EnumString};
 use crate::type_traits::*;
+use strum_macros::{Display, EnumCount, EnumString};
 
 /// A Rust feature allow for inheritance-like behavior. This trait/property is applied to every rigid body and requires them to have their fields be mutated.
 pub trait Updateable: HandleData {
-    fn get_rigidbody(&self) -> RigidBody;
+    fn update_velocity(&mut self, dt: f64) {
+        let mut velocity: (f64, f64) = self.get_velocity();
+        let acceleration: (f64, f64) = self.get_acceleration();
+        velocity.0 += acceleration.0 * dt;
+        velocity.1 += acceleration.1 * dt;
+
+        self.set_velocity(velocity);
+    }
+    fn update_position(&mut self, dt: f64) {
+        let mut position: (f64, f64) = self.get_position();
+        let velocity: (f64, f64) = self.get_velocity();
+        position.0 += velocity.0 * dt;
+        position.1 += velocity.1 * dt;
+
+        self.set_position(position);
+    }
+    fn update_acceleration(&mut self);
 }
 
 /// A convenient enum (collection of types) used in ui.rs.
@@ -34,7 +50,6 @@ pub struct Ball {
     pub velocity: (f64, f64),
     pub acceleration: (f64, f64),
     pub angular_velocity: f64,
-    pub parent: RigidBody,
 }
 
 impl AsRef<Ball> for Ball {
@@ -47,9 +62,9 @@ impl MetaMethods for Ball {}
 
 /// The aforementioned trait being implemented. This is used less for defining methods and more for filtering out specific objects that can be passed into functions.
 impl Updateable for Ball {
-    fn get_rigidbody(&self) -> RigidBody {
-        self.parent
-    }
+    fn update_velocity(&mut self, dt: f64) {}
+    fn update_position(&mut self, dt: f64) {}
+    fn update_acceleration(&mut self) {}
 }
 
 /// A subtrait of Updateable. It defines getters and setters for the rigid body.
@@ -120,18 +135,12 @@ impl Ball {
         velocity: (f64, f64),
     ) -> Ball {
         Ball {
-            mass: mass,
-            radius: radius,
-            position: position,
-            velocity: velocity,
+            mass,
+            radius,
+            position,
+            velocity,
             acceleration: (0.0, 0.0),
             angular_velocity: 0.0,
-            parent: RigidBody {
-                position: (0.0, 0.0),
-                velocity: (0.0, 0.0),
-                mass: 0.0,
-                radius: 1.0,
-            },
         }
     }
 
@@ -150,12 +159,6 @@ impl Default for Ball {
             velocity: (0.0, 0.0),
             acceleration: (0.0, 0.0),
             angular_velocity: 0.0,
-            parent: RigidBody {
-                position: (0.0, 0.0),
-                velocity: (0.0, 0.0),
-                mass: 1.0,
-                radius: 1.0
-            },
         }
     }
 }

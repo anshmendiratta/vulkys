@@ -42,10 +42,10 @@
 
 // /// Incomplete: implementing the App (ui) for Data.
 // impl<T> eframe::App for Data<T> where T: Updateable {
-//     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {   
-//         let p = egui::Painter::new(*ctx, LayerId { 
-//             order: Order::Background, 
-//             id: Id::new(1) 
+//     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+//         let p = egui::Painter::new(*ctx, LayerId {
+//             order: Order::Background,
+//             id: Id::new(1)
 //         }, Rect { min: Pos2 { x: 0.0, y: 0.0 }, max: Pos2 { x: 2000.0, y: 2000.0 } });
 
 //         for object in self.objects {

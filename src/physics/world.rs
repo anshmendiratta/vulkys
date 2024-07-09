@@ -1,4 +1,4 @@
-use crate::rigidbodies::{Updateable};
+use crate::rigidbodies::Updateable;
 use crate::step::world_step;
 
 /// Using Rust's derive macro to add a default state to world if it was just initialized without the relevant fields filled in.
@@ -18,7 +18,10 @@ impl World {
             gravity: (0.0, -9.81),
             objects: Vec::new(),
             restitution: 1.0,
-            boundary: Boundary { x_range: (-1.0, 1.0), y_range: (-1.0, 1.0) },
+            boundary: Boundary {
+                x_range: (-1.0, 1.0),
+                y_range: (-1.0, 1.0),
+            },
             time: 0.0,
             dt: 0.1,
         }
@@ -29,7 +32,10 @@ impl World {
     }
 
     /// This adds a new rigid body to world.
-    pub fn add<T>(&mut self, object: T) where T: Updateable + AsRef<T> + 'static {
+    pub fn add<T>(&mut self, object: T)
+    where
+        T: Updateable + AsRef<T> + 'static,
+    {
         self.objects.push(Box::new(object))
     }
 
@@ -56,7 +62,10 @@ impl World {
     }
 
     /// The primary function that advances the world by time step dt.
-    pub fn world_step<T>(self, dt: f64) where T: Updateable + AsRef<T> + Clone {
+    pub fn world_step<T>(self, dt: f64)
+    where
+        T: Updateable + AsRef<T> + Clone,
+    {
         world_step::<T>(self, dt)
     }
 }
@@ -72,8 +81,8 @@ pub struct Boundary {
 impl Boundary {
     pub fn new() -> Self {
         Self {
-            x_range: (-1.0 ,1.0),
-            y_range: (-1.0, 1.0)
+            x_range: (-1.0, 1.0),
+            y_range: (-1.0, 1.0),
         }
     }
 
@@ -86,12 +95,11 @@ impl Boundary {
     }
 }
 
-
 // #[cfg(test)]
 // mod tests {
 //     use crate::rigidbodies::{Ball, RigidBody};
 //     use super::*;
-    
+
 //     fn check_world_add() {
 //         let mut w = World::new();
 //         let object = Ball {
@@ -106,7 +114,7 @@ impl Boundary {
 //                 velocity: (0.0, 0.0),
 //                 mass: 1.0,
 //             },
-//         }; 
+//         };
 
 //         w.add(object);
 

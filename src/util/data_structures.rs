@@ -1,6 +1,6 @@
 /// Collating all the code for a linear queue together.
 pub mod linearqueue {
-    
+
     use std::collections::LinkedList;
 
     /// Using a LinkedList to define the elements because it has associated methods that are more useful than the methods for vectors.
@@ -23,9 +23,7 @@ pub mod linearqueue {
                 llist.push_back(item)
             }
 
-            Self {
-                elements: llist
-            }
+            Self { elements: llist }
         }
 
         pub fn enqueue(&mut self, item: T) {
@@ -40,8 +38,10 @@ pub mod linearqueue {
             self.elements.back()
         }
 
-        pub fn len<J>(&self) -> usize 
-        where J: crate::rigidbodies::Updateable {
+        pub fn len<J>(&self) -> usize
+        where
+            J: crate::rigidbodies::Updateable,
+        {
             self.elements.len()
         }
     }
@@ -57,7 +57,7 @@ pub mod linearqueue {
 }
 
 // Similar definition for stacks but with a pointer.
-pub mod Stack {
+pub mod stack {
     #[derive(Debug)]
     pub struct Stack<T> {
         elements: Vec<T>,
@@ -85,7 +85,7 @@ pub mod Stack {
 
 #[cfg(test)]
 mod tests {
-    use super::{*, linearqueue::LinearQueue};
+    use super::{linearqueue::LinearQueue, *};
 
     #[test]
     fn check_queue_add() {

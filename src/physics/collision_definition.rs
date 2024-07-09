@@ -1,5 +1,4 @@
-
-use crate::rigidbodies::{Updateable};
+use crate::rigidbodies::Updateable;
 use crate::world::*;
 
 /// Defining the Collision struct between two objects of type T and the time at which it occurs.
@@ -12,7 +11,10 @@ where
 }
 
 /// A useful enumeration when dealing with resolving collisions. ObjWorld collisions are much simpler to handle than ObjObj collisions.
-pub enum CollisionType<T> where T: Updateable {
+pub enum CollisionType<T>
+where
+    T: Updateable,
+{
     ObjObj(T, T),
     ObjWorld(T, World),
 }

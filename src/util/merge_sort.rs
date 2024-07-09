@@ -40,7 +40,7 @@ pub fn merge_sort<T: Ord + Clone + Copy>(array: &mut [T]) {
 }
 
 #[cfg(test)]
-mod test {    
+mod test {
     use super::*;
 
     #[test]

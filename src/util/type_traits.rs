@@ -64,12 +64,12 @@ pub trait MetaMethods {
         Self: std::fmt::Debug,
     {
         let mut raw_string = String::from(format!("{:?}", self));
-        // idx stands for Index. The below line finds the first occurence of a "(" or "{" and stops there. 
+        // idx stands for Index. The below line finds the first occurence of a "(" or "{" and stops there.
         let idx: Option<usize> =
             raw_string.find(|x: char| x.to_string() == "(" || x.to_string() == "{");
         // If the above line is successful and returns a number (of type usize), then the string is truncated at that point, leaving just the Struct name. Otherwise, if no index is found, the the string is presumed to already have isolated the Struct name.
         match idx {
-            Some(T) => raw_string.truncate(T),
+            Some(t) => raw_string.truncate(t),
             None => (),
         }
         raw_string
@@ -86,40 +86,27 @@ impl<T> HandleData for Box<T> {
     fn get_radius(&self) -> f64 {
         0.0
     }
-    
+
     fn get_position(&self) -> (f64, f64) {
         (0.0, 0.0)
     }
-    fn set_position(&mut self, _new_position: (f64, f64)) {
-    }
-    
+    fn set_position(&mut self, _new_position: (f64, f64)) {}
+
     fn get_velocity(&self) -> (f64, f64) {
         (0.0, 0.0)
     }
-    fn set_velocity(&mut self, _new_velocity: (f64, f64)) {        
-    }
-    
+    fn set_velocity(&mut self, _new_velocity: (f64, f64)) {}
+
     fn get_angular_velocity(&self) -> f64 {
         0.0
     }
-    fn set_angular_velocity(&mut self, _new_angular_velocity: f64) {
-    }
-    
+    fn set_angular_velocity(&mut self, _new_angular_velocity: f64) {}
+
     fn get_acceleration(&self) -> (f64, f64) {
         (0.0, 0.0)
     }
-    fn set_acceleration(&mut self, _new_acceleration: (f64, f64)) {
-    }
+    fn set_acceleration(&mut self, _new_acceleration: (f64, f64)) {}
 }
-
-/// A debugging implementation meant to work around the constraints imposed by some functions (like when they pass the generic parameter `T` with `Updateable`).
-/// Uses dummy numbers
-impl<T: Updateable> Updateable for Box<T> {
-    fn get_rigidbody(&self) -> RigidBody {
-        RigidBody { position: (0.0, 0.0), velocity: (0.0, 0.0), mass: 0.0, radius: 1.0 }
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
@@ -128,11 +115,10 @@ mod tests {
     #[test]
     fn check_struct_name() {
         #[derive(Debug)]
-        struct NewStructOne(usize);
+        struct NewStructOne();
         impl MetaMethods for NewStructOne {}
 
-        let s = NewStructOne(2);
+        let s = NewStructOne();
         assert_eq!(String::from("NewStructOne"), s.to_string())
     }
 }
-

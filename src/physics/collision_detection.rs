@@ -5,7 +5,6 @@
 // use crate::type_traits::VectorMethods;
 // use crate::merge_sort::merge_sort;
 
-
 // type Coordinate = (f64, f64);
 
 // /// Comparing the x and y coordinates of each object in the World with the boundary to see if any object has "crossed" it.
@@ -33,13 +32,13 @@
 //     collisions
 // }
 
-// /// The `Option` type is an enum consisting of data, or of nothing. 
-// fn detect_balls_collision<T>(ball1: T, ball2: T) -> Option<Collision<T>> 
-//     where T: Updateable 
+// /// The `Option` type is an enum consisting of data, or of nothing.
+// fn detect_balls_collision<T>(ball1: T, ball2: T) -> Option<Collision<T>>
+//     where T: Updateable
 //     {
 //     let centers_of_masses: Vec<Coordinate> = vec![ball1.get_position(), ball2.get_position()];
 //     let position_differential: Vec<f64> = vec![centers_of_masses[0].0 - centers_of_masses[1].0, centers_of_masses[0].1 - centers_of_masses[1].1];
-    
+
 //     // Checking if the distance between the circles is less than the minimum allowed distance.
 //     if position_differential.magnitude() < ball1.get_radius() + ball2.get_radius() {
 //         return Collision::ObjObj(ball1, ball2)

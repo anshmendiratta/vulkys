@@ -1,6 +1,6 @@
 // use crate::type_traits::*;
 // use crate::painter;
-use crate::{rigidbodies};
+use crate::rigidbodies;
 use eframe::egui;
 
 /// Where all data is stored.
@@ -81,7 +81,6 @@ impl eframe::App for Content {
                                 velocity: (self.velocity_x, self.velocity_y),
                                 acceleration: (0.0, 0.0),
                                 angular_velocity: self.angular_velocity,
-                                parent: rigidbodies::RigidBody::default(),
                             }))
                         }
                         _ => (),
@@ -101,9 +100,7 @@ impl eframe::App for Content {
                     // painter::draw_frames();
 
                     ui.label("Building");
-                    ui.add(egui::ProgressBar::new(0.0)
-                    .animate(true)
-                    .show_percentage());                    
+                    ui.add(egui::ProgressBar::new(0.0).animate(true).show_percentage());
                 }
             })
         });
