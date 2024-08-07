@@ -38,7 +38,7 @@ where
     }
 
     object.set_velocity(velocity);
-    return velocity;
+    velocity
 }
 
 /// Dealing with two objects colliding.

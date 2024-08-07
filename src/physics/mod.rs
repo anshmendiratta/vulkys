@@ -1,7 +1,11 @@
-pub mod collision_definition;
-pub mod collision_detection;
-pub mod motion;
-pub mod resolve_collisions;
-pub mod rigidbodies;
-pub mod step;
-pub mod world;
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(clippy::single_match)]
+
+pub(crate) mod collision_definition;
+pub(crate) mod collision_detection;
+pub(crate) mod motion;
+pub(crate) mod resolve_collisions;
+pub(crate) mod rigidbodies;
+pub(crate) mod step;
+pub(crate) mod world;

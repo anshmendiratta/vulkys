@@ -1,7 +1,6 @@
-use crate::util::type_traits::*;
-use strum_macros::{Display, EnumCount, EnumString};
+use crate::core::type_traits::*;
+use core::fmt;
 
-/// A Rust feature allow for inheritance-like behavior. This trait/property is applied to every rigid body and requires them to have their fields be mutated.
 pub trait Updateable: HandleData {
     fn update_velocity(&mut self, dt: f64) {
         let mut velocity: (f64, f64) = self.get_velocity();
@@ -22,14 +21,23 @@ pub trait Updateable: HandleData {
     fn update_acceleration(&mut self);
 }
 
-/// A convenient enum (collection of types) used in ui.rs.
-#[derive(Debug, Display, EnumCount, EnumString, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum RigidBodySelection {
-    None(usize),
+    None,
     RigidBody,
     Ball,
 }
-/// The parent struct of all rigid bodies with standard fields.
+
+impl fmt::Display for RigidBodySelection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RigidBodySelection::RigidBody => f.write_str("RigidBody"),
+            RigidBodySelection::Ball => f.write_str("Ball"),
+            RigidBodySelection::None => f.write_str("None"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Default, Copy)]
 pub struct RigidBody {
     pub position: (f64, f64),
@@ -38,10 +46,8 @@ pub struct RigidBody {
     pub radius: f64,
 }
 
-/// Meta-programming methods from type-traits. The most useful here is to print the struct's name.
 impl MetaMethods for RigidBody {}
 
-/// The first rigidbody with parent struct RigidBody.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ball {
     pub mass: f64,
@@ -54,102 +60,82 @@ pub struct Ball {
 
 impl AsRef<Ball> for Ball {
     fn as_ref(self: &Ball) -> &Ball {
-        &self
+        self
     }
 }
 
 impl MetaMethods for Ball {}
 
-/// The aforementioned trait being implemented. This is used less for defining methods and more for filtering out specific objects that can be passed into functions.
 impl Updateable for Ball {
-    fn update_velocity(&mut self, dt: f64) {}
-    fn update_position(&mut self, dt: f64) {}
+    fn update_velocity(&mut self, _dt: f64) {}
+    fn update_position(&mut self, _dt: f64) {}
     fn update_acceleration(&mut self) {}
 }
 
-/// A subtrait of Updateable. It defines getters and setters for the rigid body.
 pub trait HandleData {
     fn get_mass(&self) -> f64;
-
     fn get_radius(&self) -> f64;
-
-    fn get_position(&self) -> (f64, f64);
     fn set_position(&mut self, new_position: (f64, f64));
-
-    fn get_velocity(&self) -> (f64, f64);
+    fn get_position(&self) -> (f64, f64);
     fn set_velocity(&mut self, new_velocity: (f64, f64));
-
-    fn get_angular_velocity(&self) -> f64;
+    fn get_velocity(&self) -> (f64, f64);
     fn set_angular_velocity(&mut self, new_angular_velocity: f64);
-
-    fn get_acceleration(&self) -> (f64, f64);
+    fn get_angular_velocity(&self) -> f64;
     fn set_acceleration(&mut self, acceleration: (f64, f64));
+    fn get_acceleration(&self) -> (f64, f64);
+    fn get_object_name(&self) -> &str;
+    fn get_debug_print(&self) -> String {
+        format!(
+            "{}: p=({},{}),v=({},{})",
+            self.get_object_name(),
+            self.get_position().0,
+            self.get_position().1,
+            self.get_velocity().0,
+            self.get_velocity().1,
+        )
+    }
+    fn get_tangential_velocity(&self) -> f64 {
+        self.get_angular_velocity() * self.get_radius()
+    }
 }
 
-/// Defining the above trait specifically for rigidbody and outputting the relevant fields.
 impl HandleData for Ball {
-    fn get_mass(&self) -> f64 {
-        self.mass
-    }
-
     fn get_radius(&self) -> f64 {
+        // NOTE: effective radius used for calculations
         self.radius
-    }
-
-    fn get_position(&self) -> (f64, f64) {
-        self.position
     }
     fn set_position(&mut self, new_position: (f64, f64)) {
         self.position = new_position
     }
-
-    fn get_velocity(&self) -> (f64, f64) {
-        self.velocity
+    fn get_position(&self) -> (f64, f64) {
+        self.position
     }
     fn set_velocity(&mut self, new_velocity: (f64, f64)) {
         self.velocity = new_velocity
     }
-
-    fn get_angular_velocity(&self) -> f64 {
-        self.angular_velocity
+    fn get_velocity(&self) -> (f64, f64) {
+        self.velocity
     }
     fn set_angular_velocity(&mut self, new_angular_velocity: f64) {
         self.angular_velocity = new_angular_velocity
     }
-
-    fn get_acceleration(&self) -> (f64, f64) {
-        self.acceleration
+    fn get_angular_velocity(&self) -> f64 {
+        self.angular_velocity
     }
     fn set_acceleration(&mut self, new_acceleration: (f64, f64)) {
         self.acceleration = new_acceleration
     }
-}
-
-/// Defining methods for the Ball struct that otherwise can't be implemented in HandleData.
-impl Ball {
-    pub fn make_from_function(
-        &self,
-        mass: f64,
-        radius: f64,
-        position: (f64, f64),
-        velocity: (f64, f64),
-    ) -> Ball {
-        Ball {
-            mass,
-            radius,
-            position,
-            velocity,
-            acceleration: (0.0, 0.0),
-            angular_velocity: 0.0,
-        }
+    fn get_acceleration(&self) -> (f64, f64) {
+        self.acceleration
     }
-
-    pub fn get_radius(&self) -> f64 {
-        self.radius
+    fn get_object_name(&self) -> &str {
+        "Ball"
+    }
+    fn get_mass(&self) -> f64 {
+        self.mass
     }
 }
 
-/// Obligatory implemention of a default state.
 impl Default for Ball {
     fn default() -> Self {
         Self {
