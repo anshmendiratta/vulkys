@@ -2,23 +2,19 @@
 #![allow(unused_variables)]
 #![allow(clippy::single_match)]
 
-use crate::render::ui::Content;
-use render::vulkano::make_vulkano_device;
-
-mod core;
-mod ffmpeg;
-mod physics;
-mod render;
+use nea::render::ui::Content;
+use nea::render::vulkano::make_vulkano_device;
 
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
-    make_vulkano_device();
+    let _ = make_vulkano_device();
 
-    let options = eframe::NativeOptions::default();
-    eframe::run_native(
-        "Physics engine!",
-        options,
-        Box::new(|_cc| Box::<Content>::default()),
-    )
+    // let options = eframe::NativeOptions::default();
+    // eframe::run_native(
+    //     "Physics engine!",
+    //     options,
+    //     Box::new(|_cc| Box::<Content>::default()),
+    // )
+    Ok(())
 }
