@@ -64,18 +64,15 @@ impl eframe::App for Content {
 
             ui.horizontal(|ui| {
                 if ui.button("Add object").clicked() {
-                    match self.selected {
-                        rigidbodies::RigidBodySelection::Ball => {
-                            self.objects.push(Box::new(rigidbodies::Ball {
-                                mass: self.mass,
-                                radius: self.radius,
-                                position: (self.position_x, self.position_y),
-                                velocity: (self.velocity_x, self.velocity_y),
-                                acceleration: (0.0, 0.0),
-                                angular_velocity: self.angular_velocity,
-                            }))
-                        }
-                        _ => (),
+                    if self.selected == rigidbodies::RigidBodySelection::Ball {
+                        self.objects.push(Box::new(rigidbodies::Ball {
+                            mass: self.mass,
+                            radius: self.radius,
+                            position: (self.position_x, self.position_y),
+                            velocity: (self.velocity_x, self.velocity_y),
+                            acceleration: (0.0, 0.0),
+                            angular_velocity: self.angular_velocity,
+                        }))
                     }
 
                     self.position_x = 0.0;

@@ -6,6 +6,12 @@ pub mod linearqueue {
         elements: LinkedList<T>,
     }
 
+    impl<T> Default for LinearQueue<T> {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl<T> LinearQueue<T> {
         pub fn new() -> Self {
             Self {
@@ -53,6 +59,12 @@ pub mod stack {
         pointer: usize,
     }
 
+    impl<T> Default for Stack<T> {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl<T> Stack<T> {
         pub fn new() -> Self {
             Self {
@@ -77,8 +89,8 @@ mod tests {
     #[test]
     fn check_queue_add() {
         let mut l: LinearQueue<usize> = linearqueue::LinearQueue::new();
-        l.enqueue(2 as usize);
+        l.enqueue(2_usize);
 
-        assert_eq!(l, linearqueue::LinearQueue::from(vec![2 as usize]))
+        assert_eq!(l, linearqueue::LinearQueue::from(vec![2_usize]))
     }
 }

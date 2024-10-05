@@ -1,12 +1,11 @@
 #![allow(unused_imports)]
 
-use std::iter::Enumerate;
 use std::sync::Arc;
 
 use image::{ImageBuffer, Rgba};
 use tracing::info;
 
-use vulkan_primitives::create_device_and_queues;
+use vulkan_primitives::{create_device_and_queues, create_instance};
 use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
@@ -29,9 +28,30 @@ use vulkano::pipeline::{ComputePipeline, Pipeline, PipelineLayout, PipelineShade
 use vulkano::sync::GpuFuture;
 use vulkano::{sync, VulkanLibrary};
 
-pub fn do_image_creation() {
-    let instance = vulkan_primitives::create_instance();
-    let memory_allocator = vulkan_primitives::create_memory_allocator(instance.clone());
+// pub struct Context {
+//     instance: Arc<Instance>,
+//     queue_family_index: u32,
+//     queues: dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>
+// }
+//
+// impl Default for Context  {
+//     fn default() -> Self {
+//         let instance = create_instance();
+//         let (device, queue_family_index, queues) = create_device_and_queues(instance);
+//         Self { instance ,  queue_family_index, queues}
+//     }
+// }
+
+pub fn do_image_creation(
+    instance: Arc<Instance>,
+    (device, mut queues): (
+        Arc<Device>,
+        impl ExactSizeIterator<Item = Arc<vulkano::device::Queue>>,
+    ),
+) {
+    // let instance = vulkan_primitives::create_instance();
+    let memory_allocator =
+        vulkan_primitives::create_memory_allocator(instance.clone(), device.clone());
 
     let image = Image::new(
         memory_allocator.clone(),
@@ -49,8 +69,9 @@ pub fn do_image_creation() {
     )
     .unwrap();
 
-    let command_buffer_allocator = vulkan_primitives::create_command_buffer_allocator();
-    let (device, queue_family_index, mut queues) = create_device_and_queues(instance.clone());
+    let command_buffer_allocator =
+        vulkan_primitives::create_command_buffer_allocator(instance, device.clone());
+    // let (device, _, mut queues) = create_device_and_queues(instance.clone());
     let queue = queues.next().unwrap();
 
     let buffer = Buffer::from_iter(
@@ -70,7 +91,7 @@ pub fn do_image_creation() {
 
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
         &command_buffer_allocator,
-        queue_family_index,
+        queue.queue_family_index(),
         command_buffer::CommandBufferUsage::OneTimeSubmit,
     )
     .unwrap();
@@ -221,7 +242,7 @@ mod compute_shaders {
     }
 }
 
-mod vulkan_primitives {
+pub mod vulkan_primitives {
     use std::iter::Enumerate;
     use std::sync::Arc;
 
@@ -250,10 +271,8 @@ mod vulkan_primitives {
 
     pub fn create_instance() -> Arc<Instance> {
         let library = VulkanLibrary::new().expect("no local Vulkan library/DLL");
-        let instance = Instance::new(library, InstanceCreateInfo::default())
-            .expect("failed to create instance");
 
-        instance
+        Instance::new(library, InstanceCreateInfo::default()).expect("failed to create instance")
     }
 
     pub fn create_device_and_queues(
@@ -297,25 +316,25 @@ mod vulkan_primitives {
 
     pub fn create_memory_allocator(
         instance: Arc<Instance>,
+        device: Arc<Device>,
     ) -> Arc<
         vulkano::memory::allocator::GenericMemoryAllocator<
             vulkano::memory::allocator::FreeListAllocator,
         >,
     > {
-        let (device, _, _) = create_device_and_queues(instance);
-        let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device));
-
-        memory_allocator
+        Arc::new(StandardMemoryAllocator::new_default(device))
     }
 
-    pub fn create_command_buffer_allocator() -> StandardCommandBufferAllocator {
-        let instance = create_instance();
-        let (device, _, _) = create_device_and_queues(instance);
-        let command_buffer_allocator = StandardCommandBufferAllocator::new(
+    pub fn create_command_buffer_allocator(
+        instance: Arc<Instance>,
+        device: Arc<Device>,
+    ) -> StandardCommandBufferAllocator {
+        // let instance = create_instance();
+        // let (device, _, _) = create_device_and_queues(instance);
+
+        StandardCommandBufferAllocator::new(
             device.clone(),
             StandardCommandBufferAllocatorCreateInfo::default(),
-        );
-
-        command_buffer_allocator
+        )
     }
 }

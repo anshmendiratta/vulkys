@@ -2,14 +2,19 @@
 #![allow(unused_variables)]
 #![allow(clippy::single_match)]
 
-use nea::render::ui::Content;
-use nea::render::vulkano::do_image_creation;
+use nea::render::vulkano::{
+    do_image_creation,
+    vulkan_primitives::{create_device_and_queues, create_instance},
+};
 use tracing::info;
 
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
-    let _ = do_image_creation();
+    let instance = create_instance();
+    let (device, _, queues) = create_device_and_queues(instance.clone());
+
+    do_image_creation(instance, (device, queues));
     info!("WORKED");
 
     // let options = eframe::NativeOptions::default();
