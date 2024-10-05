@@ -41,7 +41,8 @@ impl PhysicsVectorMethods for &(f64, f64) {
     fn magnitude(&self) -> f64 {
         let mut square_sum: f64 = 0.0;
         let (first, second) = self;
-        square_sum += first.powf(2.0) + second.powf(2.0);
+        square_sum += first.powf(2.0);
+        square_sum += second.powf(2.0);
 
         square_sum.powf(0.5)
     }

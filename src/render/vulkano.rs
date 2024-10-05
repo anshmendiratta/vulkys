@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+#![allow(dead_code)]
 
 use std::sync::Arc;
 
@@ -28,30 +29,29 @@ use vulkano::pipeline::{ComputePipeline, Pipeline, PipelineLayout, PipelineShade
 use vulkano::sync::GpuFuture;
 use vulkano::{sync, VulkanLibrary};
 
-// pub struct Context {
-//     instance: Arc<Instance>,
-//     queue_family_index: u32,
-//     queues: dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>
-// }
-//
-// impl Default for Context  {
-//     fn default() -> Self {
-//         let instance = create_instance();
-//         let (device, queue_family_index, queues) = create_device_and_queues(instance);
-//         Self { instance ,  queue_family_index, queues}
-//     }
-// }
-
-pub fn do_image_creation(
+pub struct Context {
     instance: Arc<Instance>,
-    (device, mut queues): (
-        Arc<Device>,
-        impl ExactSizeIterator<Item = Arc<vulkano::device::Queue>>,
-    ),
-) {
-    // let instance = vulkan_primitives::create_instance();
-    let memory_allocator =
-        vulkan_primitives::create_memory_allocator(instance.clone(), device.clone());
+    device: Arc<Device>,
+    queue_family_index: u32,
+    queues: Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>>,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        let instance = create_instance();
+        let (device, queue_family_index, queues) = create_device_and_queues(instance.clone());
+        Self {
+            instance,
+            device,
+            queue_family_index,
+            queues: Box::new(queues),
+        }
+    }
+}
+
+pub fn do_image_creation(ctx: Context) {
+    let (device, mut queues) = (ctx.device, ctx.queues);
+    let memory_allocator = vulkan_primitives::create_memory_allocator(device.clone());
 
     let image = Image::new(
         memory_allocator.clone(),
@@ -70,7 +70,7 @@ pub fn do_image_creation(
     .unwrap();
 
     let command_buffer_allocator =
-        vulkan_primitives::create_command_buffer_allocator(instance, device.clone());
+        vulkan_primitives::create_command_buffer_allocator(device.clone());
     // let (device, _, mut queues) = create_device_and_queues(instance.clone());
     let queue = queues.next().unwrap();
 
@@ -123,10 +123,8 @@ pub fn do_image_creation(
     image.save("image.png").unwrap();
 }
 
-pub fn do_compute_pipeline() {
-    let instance = vulkan_primitives::create_instance();
-    let (device, queue_family_index, mut queues) =
-        vulkan_primitives::create_device_and_queues(instance);
+pub fn do_compute_pipeline(ctx: Context) {
+    let (device, queue_family_index, mut queues) = (ctx.device, ctx.queue_family_index, ctx.queues);
     let queue = queues.next().unwrap();
     let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
 
@@ -315,7 +313,6 @@ pub mod vulkan_primitives {
     }
 
     pub fn create_memory_allocator(
-        instance: Arc<Instance>,
         device: Arc<Device>,
     ) -> Arc<
         vulkano::memory::allocator::GenericMemoryAllocator<
@@ -325,13 +322,7 @@ pub mod vulkan_primitives {
         Arc::new(StandardMemoryAllocator::new_default(device))
     }
 
-    pub fn create_command_buffer_allocator(
-        instance: Arc<Instance>,
-        device: Arc<Device>,
-    ) -> StandardCommandBufferAllocator {
-        // let instance = create_instance();
-        // let (device, _, _) = create_device_and_queues(instance);
-
+    pub fn create_command_buffer_allocator(device: Arc<Device>) -> StandardCommandBufferAllocator {
         StandardCommandBufferAllocator::new(
             device.clone(),
             StandardCommandBufferAllocatorCreateInfo::default(),

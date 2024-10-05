@@ -41,6 +41,9 @@ pub mod linearqueue {
         {
             self.elements.len()
         }
+        pub fn is_empty<J>(&self) -> bool {
+            self.elements.is_empty()
+        }
     }
 
     impl<T> Iterator for LinearQueue<T> {
