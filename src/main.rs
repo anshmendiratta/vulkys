@@ -2,8 +2,8 @@
 #![allow(unused_variables)]
 #![allow(clippy::single_match)]
 
-use nea::render::vulkano::{draw_mandelbrot_fractal, Context};
 use tracing::info;
+use vulkys::render::vulkano::{draw_mandelbrot_fractal, Context};
 
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
