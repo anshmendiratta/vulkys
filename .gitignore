@@ -1,1 +1,7 @@
 /target
+/.ssh
+/.repos/config
+\
+.DS_STORE
+Cargo.lock
+image.png
