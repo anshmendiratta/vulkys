@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 #![allow(clippy::single_match)]
 
-use nea::render::vulkano::{do_image_creation, Context};
+use nea::render::vulkano::{draw_mandelbrot_fractal, Context};
 use tracing::info;
 
 fn main() -> Result<(), eframe::Error> {
@@ -10,7 +10,7 @@ fn main() -> Result<(), eframe::Error> {
 
     let ctx: Context = Context::default();
 
-    do_image_creation(ctx);
+    draw_mandelbrot_fractal(ctx);
     info!("WORKED");
 
     // let options = eframe::NativeOptions::default();
