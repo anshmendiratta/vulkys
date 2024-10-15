@@ -3,14 +3,14 @@
 #![allow(clippy::single_match)]
 
 use tracing::info;
-use vulkys::render::vulkano::{draw_mandelbrot_fractal, Context};
+use vulkys::render::vulkano::{do_graphics_pipeline, Context};
 
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
     let ctx: Context = Context::default();
 
-    draw_mandelbrot_fractal(ctx);
+    do_graphics_pipeline(ctx);
     info!("WORKED");
 
     // let options = eframe::NativeOptions::default();
