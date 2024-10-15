@@ -11,6 +11,7 @@ use vulkan_primitives::{
     create_memory_allocator,
 };
 use vulkano::buffer::BufferContents;
+use vulkano::device::physical::PhysicalDeviceType;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
 use vulkano::pipeline::graphics::multisample::MultisampleState;
@@ -27,7 +28,7 @@ use vulkano::command_buffer::{
 };
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::{self, PersistentDescriptorSet, WriteDescriptorSet};
-use vulkano::device::{Device, DeviceCreateInfo, QueueCreateInfo, QueueFlags};
+use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags};
 use vulkano::format::{self, Format};
 use vulkano::image::view::ImageView;
 use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
@@ -44,14 +45,37 @@ use vulkano::pipeline::{
     PipelineShaderStageCreateInfo,
 };
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, Subpass};
+use vulkano::swapchain::Surface;
 use vulkano::sync::{GpuFuture, PipelineStages};
-use vulkano::{single_pass_renderpass, sync, VulkanLibrary};
+use vulkano::{library, single_pass_renderpass, sync, VulkanLibrary};
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::{self, ControlFlow, EventLoop};
+use winit::window::{Window, WindowBuilder};
 
 pub struct Context {
     instance: Arc<Instance>,
     device: Arc<Device>,
     queue_family_index: u32,
     queues: Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>>,
+}
+
+pub struct WindowContext {
+    library: Arc<VulkanLibrary>,
+    event_loop: EventLoop<()>,
+    window: Arc<Window>,
+}
+
+impl Default for WindowContext {
+    fn default() -> Self {
+        let library = VulkanLibrary::new().expect("could not find a vulkan dll");
+        let event_loop = EventLoop::new();
+        let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
+        Self {
+            library,
+            event_loop,
+            window,
+        }
+    }
 }
 
 impl Default for Context {
@@ -65,6 +89,32 @@ impl Default for Context {
             queues: Box::new(queues),
         }
     }
+}
+
+pub fn create_window(win_ctx: WindowContext) {
+    let (library, event_loop, window) = (win_ctx.library, win_ctx.event_loop, win_ctx.window);
+    let required_extensions = Surface::required_extensions(&event_loop);
+    let instance = Instance::new(
+        library,
+        InstanceCreateInfo {
+            enabled_extensions: required_extensions,
+            ..Default::default()
+        },
+    )
+    .expect("failed to create instance");
+
+    let surface =
+        Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
+
+    event_loop.run(|event, _, control_flow| match event {
+        Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            ..
+        } => {
+            *control_flow = ControlFlow::Exit;
+        }
+        _ => (),
+    });
 }
 
 #[derive(BufferContents, Vertex)]
@@ -649,7 +699,10 @@ pub mod vulkan_primitives {
     use vulkano::command_buffer::{self, AutoCommandBufferBuilder, CopyBufferInfo};
     use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
     use vulkano::descriptor_set::{self, PersistentDescriptorSet, WriteDescriptorSet};
-    use vulkano::device::{Device, DeviceCreateInfo, QueueCreateInfo, QueueFlags};
+    use vulkano::device::physical::PhysicalDeviceType;
+    use vulkano::device::{
+        Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags,
+    };
     use vulkano::format::Format;
     use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
     use vulkano::instance::{Instance, InstanceCreateInfo};
@@ -661,8 +714,11 @@ pub mod vulkan_primitives {
     use vulkano::pipeline::{
         ComputePipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo,
     };
+    use vulkano::swapchain::Surface;
     use vulkano::sync::GpuFuture;
     use vulkano::{sync, VulkanLibrary};
+    use winit::event_loop::EventLoop;
+    use winit::window::WindowBuilder;
 
     pub fn create_instance() -> Arc<Instance> {
         let library = VulkanLibrary::new().expect("no local Vulkan library/DLL");
@@ -677,12 +733,52 @@ pub mod vulkan_primitives {
         u32,
         impl ExactSizeIterator<Item = Arc<vulkano::device::Queue>>,
     ) {
+        let library = VulkanLibrary::new().expect("no local vulkan dll");
+        let event_loop = EventLoop::new();
+        let required_extensions = Surface::required_extensions(&event_loop);
+        let device_extensions = DeviceExtensions {
+            khr_swapchain: true,
+            ..DeviceExtensions::empty()
+        };
+
+        let instance = Instance::new(
+            library,
+            InstanceCreateInfo {
+                enabled_extensions: required_extensions,
+                ..Default::default()
+            },
+        )
+        .expect("failed to create instance");
+
+        let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
+        let surface = Surface::from_window(instance.clone(), window.clone())
+            .expect("could not create window");
+
         let physical_device = instance
             .enumerate_physical_devices()
-            .expect("could not enumerate devices")
-            .next()
-            .expect("no devices available");
+            .expect("could not enumerate physical devices")
+            .filter(|p| p.supported_extensions().contains(&device_extensions))
+            .filter_map(|p| {
+                p.queue_family_properties()
+                    .iter()
+                    .enumerate()
+                    .position(|(i, q)| {
+                        q.queue_flags.contains(QueueFlags::GRAPHICS)
+                            && p.surface_support(i as u32, &surface).unwrap_or(false)
+                    })
+                    .map(|q| (p, q as u32))
+            })
+            .min_by_key(|(p, _)| match p.properties().device_type {
+                PhysicalDeviceType::DiscreteGpu => 0,
+                PhysicalDeviceType::IntegratedGpu => 0,
+                PhysicalDeviceType::VirtualGpu => 0,
+                PhysicalDeviceType::Cpu => 0,
+                _ => 4,
+            })
+            .expect("no device available");
+
         let queue_family_index = physical_device
+            .0
             .queue_family_properties()
             .iter()
             .enumerate()
@@ -695,7 +791,7 @@ pub mod vulkan_primitives {
             as u32;
 
         let (device, queues) = Device::new(
-            physical_device,
+            physical_device.0,
             DeviceCreateInfo {
                 queue_create_infos: vec![QueueCreateInfo {
                     queue_family_index,
