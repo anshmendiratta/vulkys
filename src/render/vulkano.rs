@@ -110,7 +110,7 @@ impl Context {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
         let library = VulkanLibrary::new().expect("can't find vulkan library dll");
         let win_ctx = WindowContext::new();
-        let required_extensions = Surface::required_extensions(&event_loop);
+        let required_extensions = Surface::required_extensions(&win_ctx.event_loop);
 
         let instance = Instance::new(
             library,
