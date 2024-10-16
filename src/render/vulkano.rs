@@ -7,8 +7,7 @@ use image::{ImageBuffer, Rgba};
 use tracing::info;
 
 use vulkan_primitives::{
-    create_command_buffer_allocator, create_device_and_queues, create_instance,
-    create_memory_allocator,
+    create_command_buffer_allocator, create_device_and_queues, create_memory_allocator,
 };
 use vulkano::buffer::BufferContents;
 use vulkano::device::physical::PhysicalDeviceType;
@@ -60,28 +59,33 @@ pub struct Context {
 }
 
 pub struct WindowContext {
-    library: Arc<VulkanLibrary>,
     event_loop: EventLoop<()>,
     window: Arc<Window>,
 }
 
 impl Default for WindowContext {
     fn default() -> Self {
-        let library = VulkanLibrary::new().expect("could not find a vulkan dll");
         let event_loop = EventLoop::new();
         let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-        Self {
-            library,
-            event_loop,
-            window,
-        }
+        Self { event_loop, window }
     }
 }
 
 impl Default for Context {
     fn default() -> Self {
-        let instance = create_instance();
-        let (device, queue_family_index, queues) = create_device_and_queues(instance.clone());
+        let library = VulkanLibrary::new().expect("can't find vulkan library dll");
+        let win_ctx = WindowContext::default();
+        let required_extensions = Surface::required_extensions(&win_ctx.event_loop);
+
+        let instance = Instance::new(
+            library,
+            InstanceCreateInfo {
+                enabled_extensions: required_extensions,
+                ..Default::default()
+            },
+        )
+        .expect("failed to create instance");
+        let (device, queue_family_index, queues) = create_device_and_queues(win_ctx);
         Self {
             instance,
             device,
@@ -92,7 +96,8 @@ impl Default for Context {
 }
 
 pub fn create_window(win_ctx: WindowContext) {
-    let (library, event_loop, window) = (win_ctx.library, win_ctx.event_loop, win_ctx.window);
+    let library = VulkanLibrary::new().expect("can't find vulkan library");
+    let (event_loop, window) = (win_ctx.event_loop, win_ctx.window);
     let required_extensions = Surface::required_extensions(&event_loop);
     let instance = Instance::new(
         library,
@@ -103,7 +108,7 @@ pub fn create_window(win_ctx: WindowContext) {
     )
     .expect("failed to create instance");
 
-    let surface =
+    let _surface =
         Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
 
     event_loop.run(|event, _, control_flow| match event {
@@ -692,6 +697,7 @@ pub mod vulkan_primitives {
     use std::sync::Arc;
 
     use tracing::info;
+    use tracing_subscriber::field::VisitOutput;
     use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
     use vulkano::command_buffer::allocator::{
         StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
@@ -720,21 +726,17 @@ pub mod vulkan_primitives {
     use winit::event_loop::EventLoop;
     use winit::window::WindowBuilder;
 
-    pub fn create_instance() -> Arc<Instance> {
-        let library = VulkanLibrary::new().expect("no local Vulkan library/DLL");
-
-        Instance::new(library, InstanceCreateInfo::default()).expect("failed to create instance")
-    }
+    use super::WindowContext;
 
     pub fn create_device_and_queues(
-        instance: Arc<Instance>,
+        win_ctx: WindowContext,
     ) -> (
         Arc<Device>,
         u32,
         impl ExactSizeIterator<Item = Arc<vulkano::device::Queue>>,
     ) {
-        let library = VulkanLibrary::new().expect("no local vulkan dll");
-        let event_loop = EventLoop::new();
+        let library = VulkanLibrary::new().expect("can't find local vulkan dll");
+        let (window, event_loop) = (win_ctx.window, win_ctx.event_loop);
         let required_extensions = Surface::required_extensions(&event_loop);
         let device_extensions = DeviceExtensions {
             khr_swapchain: true,
@@ -750,7 +752,6 @@ pub mod vulkan_primitives {
         )
         .expect("failed to create instance");
 
-        let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
         let surface = Surface::from_window(instance.clone(), window.clone())
             .expect("could not create window");
 
