@@ -1,6 +1,8 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
+use std::arch::x86_64::__m128i;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use image::{ImageBuffer, Rgba};
@@ -51,6 +53,15 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
+pub struct VulkanoContext {
+    instance: Arc<Instance>,
+    device: Arc<Device>,
+    queue_family_index: u32,
+    queues: Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>>,
+    event_loop: EventLoop<()>,
+    window: Arc<Window>,
+}
+
 pub struct Context {
     instance: Arc<Instance>,
     device: Arc<Device>,
@@ -63,19 +74,43 @@ pub struct WindowContext {
     window: Arc<Window>,
 }
 
-impl Default for WindowContext {
-    fn default() -> Self {
+impl VulkanoContext {
+    pub fn new() -> Self {
+        let win_ctx = WindowContext::new();
+        let ctx = Context::new(&win_ctx.event_loop);
+        Self {
+            instance: ctx.instance,
+            device: ctx.device,
+            queue_family_index: ctx.queue_family_index,
+            queues: ctx.queues,
+            event_loop: win_ctx.event_loop,
+            window: win_ctx.window,
+        }
+    }
+}
+
+impl WindowContext {
+    pub fn new() -> Self {
         let event_loop = EventLoop::new();
         let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
         Self { event_loop, window }
     }
 }
 
-impl Default for Context {
-    fn default() -> Self {
+impl From<VulkanoContext> for WindowContext {
+    fn from(value: VulkanoContext) -> Self {
+        WindowContext {
+            event_loop: value.event_loop,
+            window: value.window,
+        }
+    }
+}
+
+impl Context {
+    pub fn new(event_loop: &EventLoop<()>) -> Self {
         let library = VulkanLibrary::new().expect("can't find vulkan library dll");
-        let win_ctx = WindowContext::default();
-        let required_extensions = Surface::required_extensions(&win_ctx.event_loop);
+        let win_ctx = WindowContext::new();
+        let required_extensions = Surface::required_extensions(&event_loop);
 
         let instance = Instance::new(
             library,
