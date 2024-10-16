@@ -3,13 +3,12 @@
 #![allow(clippy::single_match)]
 
 use tracing::info;
-use vulkys::render::vulkano::{create_window, VulkanoContext};
+use vulkys::render::vulkano::{create_window, WindowContext};
 
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
-    let vk_ctx = VulkanoContext::new();
-    let win_ctx = vk_ctx.into();
+    let win_ctx = WindowContext::new();
 
     create_window(win_ctx);
     info!("WORKED");

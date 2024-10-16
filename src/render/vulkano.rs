@@ -1,7 +1,6 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
-use std::arch::x86_64::__m128i;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -62,31 +61,9 @@ pub struct VulkanoContext {
     window: Arc<Window>,
 }
 
-pub struct Context {
-    instance: Arc<Instance>,
-    device: Arc<Device>,
-    queue_family_index: u32,
-    queues: Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>>,
-}
-
 pub struct WindowContext {
     event_loop: EventLoop<()>,
     window: Arc<Window>,
-}
-
-impl VulkanoContext {
-    pub fn new() -> Self {
-        let win_ctx = WindowContext::new();
-        let ctx = Context::new(&win_ctx.event_loop);
-        Self {
-            instance: ctx.instance,
-            device: ctx.device,
-            queue_family_index: ctx.queue_family_index,
-            queues: ctx.queues,
-            event_loop: win_ctx.event_loop,
-            window: win_ctx.window,
-        }
-    }
 }
 
 impl WindowContext {
@@ -106,8 +83,8 @@ impl From<VulkanoContext> for WindowContext {
     }
 }
 
-impl Context {
-    pub fn new(event_loop: &EventLoop<()>) -> Self {
+impl VulkanoContext {
+    pub fn new() -> Self {
         let library = VulkanLibrary::new().expect("can't find vulkan library dll");
         let win_ctx = WindowContext::new();
         let required_extensions = Surface::required_extensions(&win_ctx.event_loop);
@@ -121,11 +98,15 @@ impl Context {
         )
         .expect("failed to create instance");
         let (device, queue_family_index, queues) = create_device_and_queues(win_ctx);
+
+        let win_ctx = WindowContext::new();
         Self {
             instance,
             device,
             queue_family_index,
             queues: Box::new(queues),
+            window: win_ctx.window,
+            event_loop: win_ctx.event_loop,
         }
     }
 }
@@ -164,7 +145,7 @@ struct MyVertex {
     position: [f32; 2],
 }
 
-pub fn do_graphics_pipeline(ctx: Context) {
+pub fn do_graphics_pipeline(ctx: VulkanoContext) {
     let (device, queue_family_index, mut queues) = (ctx.device, ctx.queue_family_index, ctx.queues);
     let queue = queues.next().unwrap();
     let memory_allocator = create_memory_allocator(device.clone());
@@ -353,7 +334,7 @@ pub fn do_graphics_pipeline(ctx: Context) {
     image.save("image.png").unwrap();
 }
 
-pub fn draw_mandelbrot_fractal(ctx: Context) {
+pub fn draw_mandelbrot_fractal(ctx: VulkanoContext) {
     let (device, queue_family_index, mut queues) = (ctx.device, ctx.queue_family_index, ctx.queues);
     let queue = queues.next().unwrap();
     let memory_allocator = vulkan_primitives::create_memory_allocator(device.clone());
@@ -466,7 +447,7 @@ pub fn draw_mandelbrot_fractal(ctx: Context) {
     image.save("mandelbrot.png").unwrap();
 }
 
-pub fn do_image_creation(ctx: Context) {
+pub fn do_image_creation(ctx: VulkanoContext) {
     let (device, mut queues) = (ctx.device, ctx.queues);
     let memory_allocator = vulkan_primitives::create_memory_allocator(device.clone());
 
@@ -540,7 +521,7 @@ pub fn do_image_creation(ctx: Context) {
     image.save("image.png").unwrap();
 }
 
-pub fn do_compute_pipeline(ctx: Context) {
+pub fn do_compute_pipeline(ctx: VulkanoContext) {
     let (device, queue_family_index, mut queues) = (ctx.device, ctx.queue_family_index, ctx.queues);
     let queue = queues.next().unwrap();
     let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
