@@ -3,7 +3,7 @@
 #![allow(clippy::single_match)]
 
 use tracing::info;
-use vulkys::render::vulkano::{create_window, WindowContext};
+use vulkys::render::vulkano::lib::{create_window, WindowContext};
 
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();

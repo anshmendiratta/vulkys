@@ -7,9 +7,6 @@ use std::sync::Arc;
 use image::{ImageBuffer, Rgba};
 use tracing::info;
 
-use vulkan_primitives::{
-    create_command_buffer_allocator, create_device_and_queues, create_memory_allocator,
-};
 use vulkano::buffer::BufferContents;
 use vulkano::device::physical::PhysicalDeviceType;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
@@ -52,6 +49,8 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
+use super::primitives;
+
 pub struct VulkanoContext {
     instance: Arc<Instance>,
     device: Arc<Device>,
@@ -72,14 +71,17 @@ impl WindowContext {
         let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
         Self { event_loop, window }
     }
+    pub fn window(&self) -> Arc<Window> {
+        self.window.clone()
+    }
+    pub fn event_loop(&self) -> &EventLoop<()> {
+        &self.event_loop
+    }
 }
 
-impl From<VulkanoContext> for WindowContext {
-    fn from(value: VulkanoContext) -> Self {
-        WindowContext {
-            event_loop: value.event_loop,
-            window: value.window,
-        }
+impl Default for WindowContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -97,7 +99,7 @@ impl VulkanoContext {
             },
         )
         .expect("failed to create instance");
-        let (device, queue_family_index, queues) = create_device_and_queues(win_ctx);
+        let (device, queue_family_index, queues) = primitives::select_device_and_queues(win_ctx);
 
         let win_ctx = WindowContext::new();
         Self {
@@ -108,6 +110,12 @@ impl VulkanoContext {
             window: win_ctx.window,
             event_loop: win_ctx.event_loop,
         }
+    }
+}
+
+impl Default for VulkanoContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -148,7 +156,7 @@ struct MyVertex {
 pub fn do_graphics_pipeline(ctx: VulkanoContext) {
     let (device, queue_family_index, mut queues) = (ctx.device, ctx.queue_family_index, ctx.queues);
     let queue = queues.next().unwrap();
-    let memory_allocator = create_memory_allocator(device.clone());
+    let memory_allocator = primitives::create_memory_allocator(device.clone());
     let vertex_1 = MyVertex {
         position: [-0.5, -0.5],
     };
@@ -269,7 +277,7 @@ pub fn do_graphics_pipeline(ctx: VulkanoContext) {
         .unwrap()
     };
 
-    let command_buffer_allocator = create_command_buffer_allocator(device.clone());
+    let command_buffer_allocator = primitives::create_command_buffer_allocator(device.clone());
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
         &command_buffer_allocator,
         queue_family_index,
@@ -337,7 +345,7 @@ pub fn do_graphics_pipeline(ctx: VulkanoContext) {
 pub fn draw_mandelbrot_fractal(ctx: VulkanoContext) {
     let (device, queue_family_index, mut queues) = (ctx.device, ctx.queue_family_index, ctx.queues);
     let queue = queues.next().unwrap();
-    let memory_allocator = vulkan_primitives::create_memory_allocator(device.clone());
+    let memory_allocator = primitives::create_memory_allocator(device.clone());
 
     let image = Image::new(
         memory_allocator.clone(),
@@ -406,8 +414,7 @@ pub fn draw_mandelbrot_fractal(ctx: VulkanoContext) {
     )
     .expect("couldn't create fractal data buffer");
 
-    let command_buffer_allocator =
-        vulkan_primitives::create_command_buffer_allocator(device.clone());
+    let command_buffer_allocator = primitives::create_command_buffer_allocator(device.clone());
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
         &command_buffer_allocator,
         queue_family_index,
@@ -449,7 +456,7 @@ pub fn draw_mandelbrot_fractal(ctx: VulkanoContext) {
 
 pub fn do_image_creation(ctx: VulkanoContext) {
     let (device, mut queues) = (ctx.device, ctx.queues);
-    let memory_allocator = vulkan_primitives::create_memory_allocator(device.clone());
+    let memory_allocator = primitives::create_memory_allocator(device.clone());
 
     let image = Image::new(
         memory_allocator.clone(),
@@ -467,9 +474,7 @@ pub fn do_image_creation(ctx: VulkanoContext) {
     )
     .unwrap();
 
-    let command_buffer_allocator =
-        vulkan_primitives::create_command_buffer_allocator(device.clone());
-    // let (device, _, mut queues) = create_device_and_queues(instance.clone());
+    let command_buffer_allocator = primitives::create_command_buffer_allocator(device.clone());
     let queue = queues.next().unwrap();
 
     let buffer = Buffer::from_iter(
@@ -705,137 +710,5 @@ mod mandelbrot_compute_shader {
                 imageStore(img, ivec2(gl_GlobalInvocationID.xy), to_write);
             }
         ",
-    }
-}
-
-pub mod vulkan_primitives {
-    use std::iter::Enumerate;
-    use std::sync::Arc;
-
-    use tracing::info;
-    use tracing_subscriber::field::VisitOutput;
-    use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
-    use vulkano::command_buffer::allocator::{
-        StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
-    };
-    use vulkano::command_buffer::{self, AutoCommandBufferBuilder, CopyBufferInfo};
-    use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-    use vulkano::descriptor_set::{self, PersistentDescriptorSet, WriteDescriptorSet};
-    use vulkano::device::physical::PhysicalDeviceType;
-    use vulkano::device::{
-        Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags,
-    };
-    use vulkano::format::Format;
-    use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
-    use vulkano::instance::{Instance, InstanceCreateInfo};
-    use vulkano::memory::allocator::{
-        AllocationCreateInfo, MemoryAllocator, MemoryTypeFilter, StandardMemoryAllocator,
-    };
-    use vulkano::pipeline::compute::ComputePipelineCreateInfo;
-    use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
-    use vulkano::pipeline::{
-        ComputePipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo,
-    };
-    use vulkano::swapchain::Surface;
-    use vulkano::sync::GpuFuture;
-    use vulkano::{sync, VulkanLibrary};
-    use winit::event_loop::EventLoop;
-    use winit::window::WindowBuilder;
-
-    use super::WindowContext;
-
-    pub fn create_device_and_queues(
-        win_ctx: WindowContext,
-    ) -> (
-        Arc<Device>,
-        u32,
-        impl ExactSizeIterator<Item = Arc<vulkano::device::Queue>>,
-    ) {
-        let library = VulkanLibrary::new().expect("can't find local vulkan dll");
-        let (window, event_loop) = (win_ctx.window, win_ctx.event_loop);
-        let required_extensions = Surface::required_extensions(&event_loop);
-        let device_extensions = DeviceExtensions {
-            khr_swapchain: true,
-            ..DeviceExtensions::empty()
-        };
-
-        let instance = Instance::new(
-            library,
-            InstanceCreateInfo {
-                enabled_extensions: required_extensions,
-                ..Default::default()
-            },
-        )
-        .expect("failed to create instance");
-
-        let surface = Surface::from_window(instance.clone(), window.clone())
-            .expect("could not create window");
-
-        let physical_device = instance
-            .enumerate_physical_devices()
-            .expect("could not enumerate physical devices")
-            .filter(|p| p.supported_extensions().contains(&device_extensions))
-            .filter_map(|p| {
-                p.queue_family_properties()
-                    .iter()
-                    .enumerate()
-                    .position(|(i, q)| {
-                        q.queue_flags.contains(QueueFlags::GRAPHICS)
-                            && p.surface_support(i as u32, &surface).unwrap_or(false)
-                    })
-                    .map(|q| (p, q as u32))
-            })
-            .min_by_key(|(p, _)| match p.properties().device_type {
-                PhysicalDeviceType::DiscreteGpu => 0,
-                PhysicalDeviceType::IntegratedGpu => 0,
-                PhysicalDeviceType::VirtualGpu => 0,
-                PhysicalDeviceType::Cpu => 0,
-                _ => 4,
-            })
-            .expect("no device available");
-
-        let queue_family_index = physical_device
-            .0
-            .queue_family_properties()
-            .iter()
-            .enumerate()
-            .position(|(_queue_family_index, queue_family_properties)| {
-                queue_family_properties
-                    .queue_flags
-                    .contains(QueueFlags::GRAPHICS)
-            })
-            .expect("couldn't find a graphical queue family")
-            as u32;
-
-        let (device, queues) = Device::new(
-            physical_device.0,
-            DeviceCreateInfo {
-                queue_create_infos: vec![QueueCreateInfo {
-                    queue_family_index,
-                    ..Default::default()
-                }],
-                ..Default::default()
-            },
-        )
-        .expect("failed to create device");
-
-        (device, queue_family_index, queues)
-    }
-
-    pub fn create_memory_allocator(
-        device: Arc<Device>,
-    ) -> Arc<
-        vulkano::memory::allocator::GenericMemoryAllocator<
-            vulkano::memory::allocator::FreeListAllocator,
-        >,
-    > {
-        Arc::new(StandardMemoryAllocator::new_default(device))
-    }
-
-    pub fn create_command_buffer_allocator(device: Arc<Device>) -> StandardCommandBufferAllocator {
-        StandardCommandBufferAllocator::new(
-            device.clone(),
-            StandardCommandBufferAllocatorCreateInfo::default(),
-        )
     }
 }
