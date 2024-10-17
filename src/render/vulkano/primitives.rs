@@ -6,16 +6,45 @@ use vulkano::VulkanLibrary;
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
 };
-use vulkano::device::physical::PhysicalDeviceType;
+use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags};
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::StandardMemoryAllocator;
+use winit::window::Window;
 
 use super::lib::WindowContext;
 
-pub fn select_physical_device(
-    win_ctx: &WindowContext,
-) -> (Arc<vulkano::device::physical::PhysicalDevice>, u32) {
+pub fn create_swapchain_and_images(instance: Arc<Instance>, window: Arc<Window>) {
+    let surface =
+        Surface::from_window(instance, window.clone()).expect("could not create window");
+    let physical_device = select_physical_device(win_ctx);
+    let caps = physical_device
+        .surface_capabilities(&surface, Default::default())
+        .expect("failed to get surface capabilities");
+
+    let dimensions = window.inner_size();
+    let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
+    let image_format = physical_device
+        .surface_formats(&surface, Default::default())
+        .unwrap()[0]
+        .0;
+
+    let (mut swapchain, images) = Swapchain::new(
+        device.clone(),
+        surface.clone(),
+        SwapchainCreateInfo {
+            min_image_count: caps.min_image_count + 1,
+            image_format,
+            image_extent: dimensions.into(),
+            image_usage: ImageUsage::COLOR_ATTACHMENT,
+            composite_alpha,
+            ..Default::default()
+        },
+    )
+    .unwrap()
+}
+
+pub fn select_physical_device(win_ctx: Arc<WindowContext>) -> Arc<PhysicalDevice> {
     let (window, event_loop) = (win_ctx.window(), win_ctx.event_loop());
     let required_extensions = Surface::required_extensions(&event_loop);
     let device_extensions = DeviceExtensions {
@@ -58,10 +87,11 @@ pub fn select_physical_device(
             _ => 4,
         })
         .expect("no device available")
+        .0
 }
 
 pub fn select_device_and_queues(
-    win_ctx: WindowContext,
+    win_ctx: Arc<WindowContext>,
 ) -> (
     Arc<Device>,
     u32,
@@ -74,7 +104,6 @@ pub fn select_device_and_queues(
 
     let physical_device = select_physical_device(&win_ctx);
     let queue_family_index = physical_device
-        .0
         .queue_family_properties()
         .iter()
         .enumerate()
@@ -86,7 +115,7 @@ pub fn select_device_and_queues(
         .expect("couldn't find a graphical queue family") as u32;
 
     let (device, queues) = Device::new(
-        physical_device.0,
+        physical_device,
         DeviceCreateInfo {
             queue_create_infos: vec![QueueCreateInfo {
                 queue_family_index,

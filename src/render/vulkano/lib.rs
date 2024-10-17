@@ -41,15 +41,15 @@ use vulkano::pipeline::{
     ComputePipeline, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout,
     PipelineShaderStageCreateInfo,
 };
-use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, Subpass};
-use vulkano::swapchain::Surface;
+use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
+use vulkano::swapchain::{self, Surface, Swapchain, SwapchainCreateInfo};
 use vulkano::sync::{GpuFuture, PipelineStages};
 use vulkano::{library, single_pass_renderpass, sync, VulkanLibrary};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
-use super::primitives;
+use super::primitives::{self, create_swapchain_and_images, select_device_and_queues};
 
 pub struct VulkanoContext {
     instance: Arc<Instance>,
@@ -77,6 +77,9 @@ impl WindowContext {
     pub fn event_loop(&self) -> &EventLoop<()> {
         &self.event_loop
     }
+    pub fn consume(self) -> (EventLoop<()>, Arc<Window>) {
+        (self.event_loop, self.window)
+    }
 }
 
 impl Default for WindowContext {
@@ -89,7 +92,7 @@ impl VulkanoContext {
     pub fn new() -> Self {
         let library = VulkanLibrary::new().expect("can't find vulkan library dll");
         let win_ctx = WindowContext::new();
-        let required_extensions = Surface::required_extensions(&win_ctx.event_loop);
+        let required_extensions = Surface::required_extensions(win_ctx.event_loop());
 
         let instance = Instance::new(
             library,
@@ -99,7 +102,8 @@ impl VulkanoContext {
             },
         )
         .expect("failed to create instance");
-        let (device, queue_family_index, queues) = primitives::select_device_and_queues(win_ctx);
+        let (device, queue_family_index, queues) =
+            primitives::select_device_and_queues(Arc::new(win_ctx));
 
         let win_ctx = WindowContext::new();
         Self {
@@ -119,9 +123,10 @@ impl Default for VulkanoContext {
     }
 }
 
-pub fn create_window(win_ctx: WindowContext) {
+pub fn create_window(win_ctx: Arc<WindowContext>) {
     let library = VulkanLibrary::new().expect("can't find vulkan library");
-    let (event_loop, window) = (win_ctx.event_loop, win_ctx.window);
+    let physical_device = primitives::select_physical_device(win_ctx.clone());
+    let (window, event_loop) = (win_ctx.window(), win_ctx.consume().0);
     let required_extensions = Surface::required_extensions(&event_loop);
     let instance = Instance::new(
         library,
@@ -132,8 +137,18 @@ pub fn create_window(win_ctx: WindowContext) {
     )
     .expect("failed to create instance");
 
-    let _surface =
+    let surface =
         Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
+    let caps = physical_device
+        .surface_capabilities(&surface, Default::default())
+        .expect("failed to get surface capabilities");
+
+    let dimensions = window.inner_size();
+    let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
+    let image_format = physical_device
+        .surface_formats(&surface, Default::default())
+        .unwrap()[0]
+        .0;
 
     event_loop.run(|event, _, control_flow| match event {
         Event::WindowEvent {
@@ -153,7 +168,7 @@ struct MyVertex {
     position: [f32; 2],
 }
 
-pub fn do_graphics_pipeline(ctx: VulkanoContext) {
+pub fn run_graphics_pipeline(ctx: VulkanoContext) {
     let (device, queue_family_index, mut queues) = (ctx.device, ctx.queue_family_index, ctx.queues);
     let queue = queues.next().unwrap();
     let memory_allocator = primitives::create_memory_allocator(device.clone());
@@ -182,22 +197,8 @@ pub fn do_graphics_pipeline(ctx: VulkanoContext) {
     )
     .unwrap();
 
-    let render_pass = single_pass_renderpass!(
-        device.clone(),
-        attachments: {
-            color: {
-                format: Format::R8G8B8A8_UNORM,
-                samples: 1,
-                load_op: Clear,
-                store_op: Store,
-            },
-        },
-        pass: {
-            color: [color],
-            depth_stencil: {},
-        }
-    )
-    .unwrap();
+    let swapchain = create_swapchain_and_images();
+    let render_pass = get_render_pass(device, swapchain);
 
     let image = Image::new(
         memory_allocator.clone(),
@@ -224,9 +225,10 @@ pub fn do_graphics_pipeline(ctx: VulkanoContext) {
     )
     .unwrap();
 
-    let vertex_shader = vertex_shader::load(device.clone()).expect("failed to make vertex shader");
-    let fragment_shader =
-        fragment_shader::load(device.clone()).expect("failed to make fragment shader");
+    let vertex_shader =
+        super::shaders::vertex_shader::load(device.clone()).expect("failed to make vertex shader");
+    let fragment_shader = super::shaders::fragment_shader::load(device.clone())
+        .expect("failed to make fragment shader");
 
     let viewport = Viewport {
         offset: [0.0, 0.0],
@@ -274,7 +276,7 @@ pub fn do_graphics_pipeline(ctx: VulkanoContext) {
                 ..GraphicsPipelineCreateInfo::layout(layout)
             },
         )
-        .unwrap()
+            .unwrap()
     };
 
     let command_buffer_allocator = primitives::create_command_buffer_allocator(device.clone());
@@ -342,6 +344,25 @@ pub fn do_graphics_pipeline(ctx: VulkanoContext) {
     image.save("image.png").unwrap();
 }
 
+pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
+    vulkano::single_pass_renderpass!(
+        device,
+        attachments: {
+            color: {
+            format: swapchain.image_format(),
+            samples: 1,
+            load_op: Clear,
+            store_op: Store,
+        },
+    },
+        pass: {
+            color: [color],
+            depth_stencil: {},
+        }
+    )
+    .unwrap()
+}
+
 pub fn draw_mandelbrot_fractal(ctx: VulkanoContext) {
     let (device, queue_family_index, mut queues) = (ctx.device, ctx.queue_family_index, ctx.queues);
     let queue = queues.next().unwrap();
@@ -364,8 +385,8 @@ pub fn draw_mandelbrot_fractal(ctx: VulkanoContext) {
     .unwrap();
     let view = ImageView::new_default(image.clone()).unwrap();
 
-    let shader =
-        mandelbrot_compute_shader::load(device.clone()).expect("failed to create shader module");
+    let shader = super::shaders::mandelbrot_compute_shader::load(device.clone())
+        .expect("failed to create shader module");
     let cs = shader.entry_point("main").unwrap();
     let stage = PipelineShaderStageCreateInfo::new(cs);
     let layout = PipelineLayout::new(
@@ -547,7 +568,8 @@ pub fn do_compute_pipeline(ctx: VulkanoContext) {
     )
     .expect("Could not do thing for compute pipelines");
 
-    let shader = compute_shaders::load(device.clone()).expect("failed to create shader module");
+    let shader = super::shaders::compute_shaders::load(device.clone())
+        .expect("failed to create shader module");
     let cs = shader.entry_point("main").unwrap();
     let stage = PipelineShaderStageCreateInfo::new(cs);
     let layout = PipelineLayout::new(
@@ -620,95 +642,5 @@ pub fn do_compute_pipeline(ctx: VulkanoContext) {
     let content = &data_buffer.read().unwrap();
     for (n, val) in content.iter().enumerate() {
         assert_eq!(*val, n as u32 * 12);
-    }
-}
-
-mod compute_shaders {
-    vulkano_shaders::shader! {
-        ty: "compute",
-        src: r"
-            #version 460
-
-            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-            layout(set = 0, binding = 0) buffer Data {
-                uint data[];
-            } buf;
-
-            void main() {
-                uint idx = gl_GlobalInvocationID.x;
-                buf.data[idx] *= 12;
-            }
-        ",
-    }
-}
-
-mod fragment_shader {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: r"
-            #version 460
-
-            layout(location = 0) out vec4 f_color;
-            layout(location = 1) in vec2 pos;
-
-            void main() {
-                float t_along_x = (pos.x + gl_FragCoord.x)/1024.0;
-                float t_along_y = (pos.y + gl_FragCoord.y)/1024.0;
-                float r = t_along_x;
-                float b = t_along_y;
-                vec3 pixel_color = vec3(r, 0.0, b);
-                f_color = vec4(pixel_color, 1.0);
-            }
-        ",
-    }
-}
-
-mod vertex_shader {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: r"
-            #version 460
-
-            layout(location = 0) in vec2 position;
-            layout(location = 1) out vec2 pos;
-
-            void main() {
-                gl_Position = vec4(position, 0.0, 1.0);
-                pos = gl_Position.xy;
-            }
-        ",
-    }
-}
-
-mod mandelbrot_compute_shader {
-    vulkano_shaders::shader! {
-        ty: "compute",
-        src: r"
-            #version 460
-            layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-
-            layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
-
-            void main() {
-                vec2 norm_coordinates = (gl_GlobalInvocationID.xy + vec2(0.5)) / vec2(imageSize(img));
-                vec2 c = (norm_coordinates - vec2(0.5)) * 2.0 - vec2(1.0, 0.0);
-
-                vec2 z = vec2(0.0, 0.0);
-                float i;
-                for (i = 0.0; i < 1.0; i += 0.005) {
-                    z = vec2(
-                        z.x * z.x - z.y * z.y + c.x,
-                        z.y * z.x + z.x * z.y + c.y
-                    );
-
-                    if (length(z) > 4.0) {
-                        break;
-                    }
-                }
-
-                vec4 to_write = vec4(log(exp(sin(vec3(gl_GlobalInvocationID)))), i);
-                imageStore(img, ivec2(gl_GlobalInvocationID.xy), to_write);
-            }
-        ",
     }
 }
