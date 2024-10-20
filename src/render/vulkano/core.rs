@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+#![allow(unused_variables)]
 #![allow(dead_code)]
 
 use std::ops::Deref;
@@ -64,8 +65,8 @@ pub struct VulkanoContext {
 
 pub struct WindowContext {
     pub event_loop: EventLoop<()>,
-    pub window: Arc<Window>,
     pub instance: Arc<Instance>,
+    pub window: Arc<Window>,
 }
 
 impl WindowContext {
@@ -105,7 +106,7 @@ impl WindowContext {
 
     pub fn create_window(self) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");
-        let physical_device = primitives::select_physical_device(Arc::new(&self));
+        let physical_device = primitives::select_physical_device(&self);
 
         let surface = Surface::from_window(self.instance.clone(), self.window.clone())
             .expect("could not create window");
@@ -227,7 +228,7 @@ pub fn run_graphics_pipeline(
     )
     .unwrap();
 
-    let swapchain = create_swapchain_and_images(instance, Arc::new(&win_ctx));
+    let swapchain = create_swapchain_and_images(instance, &win_ctx);
     let render_pass = get_render_pass(device.clone(), &swapchain.0);
 
     let image = Image::new(

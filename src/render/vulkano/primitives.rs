@@ -1,8 +1,9 @@
+#![allow(unused_variables)]
+
 use std::sync::Arc;
 
 use vulkano::image::{Image, ImageUsage};
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
-use vulkano::VulkanLibrary;
 
 use super::core::WindowContext;
 use vulkano::command_buffer::allocator::{
@@ -15,14 +16,14 @@ use vulkano::memory::allocator::StandardMemoryAllocator;
 
 pub fn create_swapchain_and_images(
     instance: Instance,
-    win_ctx: Arc<&WindowContext>,
+    win_ctx: &WindowContext,
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
     // let instance = ctx.instance();
     // let window = ctx.window();
     let surface = Surface::from_window(Arc::new(instance), win_ctx.window.clone())
         .expect("could not create window");
-    let physical_device = select_physical_device(win_ctx.clone());
-    let device = select_device_and_queues(win_ctx.clone()).0;
+    let physical_device = select_physical_device(win_ctx);
+    let device = select_device_and_queues(win_ctx).0;
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
@@ -51,15 +52,13 @@ pub fn create_swapchain_and_images(
     (swapchain, images)
 }
 
-pub fn select_physical_device(win_ctx: Arc<&WindowContext>) -> Arc<PhysicalDevice> {
+pub fn select_physical_device(win_ctx: &WindowContext) -> Arc<PhysicalDevice> {
     let (window, event_loop) = (win_ctx.window(), win_ctx.event_loop());
-    let required_extensions = Surface::required_extensions(&event_loop);
     let device_extensions = DeviceExtensions {
         khr_swapchain: true,
         ..DeviceExtensions::empty()
     };
 
-    let library = VulkanLibrary::new().expect("can't find local vulkan dll");
     let instance = win_ctx.instance();
     let surface =
         Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
@@ -90,7 +89,7 @@ pub fn select_physical_device(win_ctx: Arc<&WindowContext>) -> Arc<PhysicalDevic
 }
 
 pub fn select_device_and_queues(
-    win_ctx: Arc<&WindowContext>,
+    win_ctx: &WindowContext,
 ) -> (
     Arc<Device>,
     u32,
