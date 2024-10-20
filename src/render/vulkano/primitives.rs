@@ -10,7 +10,7 @@ use vulkano::command_buffer::allocator::{
 };
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags};
-use vulkano::instance::{Instance, InstanceCreateInfo};
+use vulkano::instance::Instance;
 use vulkano::memory::allocator::StandardMemoryAllocator;
 
 pub fn create_swapchain_and_images(
@@ -34,7 +34,7 @@ pub fn create_swapchain_and_images(
         .unwrap()[0]
         .0;
 
-    let (mut swapchain, images) = Swapchain::new(
+    let (swapchain, images) = Swapchain::new(
         device.clone(),
         surface.clone(),
         SwapchainCreateInfo {
