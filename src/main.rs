@@ -3,14 +3,14 @@
 #![allow(clippy::single_match)]
 
 use tracing::info;
-use vulkys::render::vulkano::lib::{create_window, WindowContext};
+use vulkys::render::vulkano::core::WindowContext;
 
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
     let win_ctx = WindowContext::new();
 
-    create_window(win_ctx);
+    WindowContext::create_window(win_ctx);
     info!("WORKED");
 
     // let options = eframe::NativeOptions::default();

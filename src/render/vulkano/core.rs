@@ -25,7 +25,9 @@ use vulkano::command_buffer::{
 };
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::{self, PersistentDescriptorSet, WriteDescriptorSet};
-use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags};
+use vulkano::device::{
+    Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
+};
 use vulkano::format::{self, Format};
 use vulkano::image::view::ImageView;
 use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
@@ -56,20 +58,37 @@ pub struct VulkanoContext {
     device: Arc<Device>,
     queue_family_index: u32,
     queues: Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>>,
-    event_loop: EventLoop<()>,
+    event_loop: Arc<EventLoop<()>>,
     window: Arc<Window>,
 }
 
 pub struct WindowContext {
-    event_loop: EventLoop<()>,
-    window: Arc<Window>,
+    pub event_loop: EventLoop<()>,
+    pub window: Arc<Window>,
+    pub instance: Arc<Instance>,
 }
 
 impl WindowContext {
     pub fn new() -> Self {
         let event_loop = EventLoop::new();
         let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-        Self { event_loop, window }
+        let library = VulkanLibrary::new().expect("can't find vulkan library");
+        // let physical_device = primitives::select_physical_device(Arc::new());
+        let required_extensions = Surface::required_extensions(&event_loop);
+        let instance = Instance::new(
+            library,
+            InstanceCreateInfo {
+                enabled_extensions: required_extensions,
+                ..Default::default()
+            },
+        )
+        .expect("failed to create instance");
+
+        Self {
+            event_loop,
+            window,
+            instance,
+        }
     }
     pub fn window(&self) -> Arc<Window> {
         self.window.clone()
@@ -77,8 +96,39 @@ impl WindowContext {
     pub fn event_loop(&self) -> &EventLoop<()> {
         &self.event_loop
     }
-    pub fn consume(self) -> (EventLoop<()>, Arc<Window>) {
+    pub fn instance(&self) -> Arc<Instance> {
+        self.instance.clone()
+    }
+    pub fn reduce(self) -> (EventLoop<()>, Arc<Window>) {
         (self.event_loop, self.window)
+    }
+
+    pub fn create_window(self) {
+        let library = VulkanLibrary::new().expect("can't find vulkan library");
+        let physical_device = primitives::select_physical_device(Arc::new(&self));
+
+        let surface = Surface::from_window(self.instance.clone(), self.window.clone())
+            .expect("could not create window");
+        let caps = physical_device
+            .surface_capabilities(&surface, Default::default())
+            .expect("failed to get surface capabilities");
+
+        let dimensions = self.window.inner_size();
+        let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
+        let image_format = physical_device
+            .surface_formats(&surface, Default::default())
+            .unwrap()[0]
+            .0;
+
+        self.event_loop.run(|event, _, control_flow| match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                *control_flow = ControlFlow::Exit;
+            }
+            _ => (),
+        });
     }
 }
 
@@ -89,77 +139,50 @@ impl Default for WindowContext {
 }
 
 impl VulkanoContext {
-    pub fn new() -> Self {
-        let library = VulkanLibrary::new().expect("can't find vulkan library dll");
-        let win_ctx = WindowContext::new();
-        let required_extensions = Surface::required_extensions(win_ctx.event_loop());
+    // pub fn new() -> Self {
+    //     let library = VulkanLibrary::new().expect("can't find vulkan library dll");
+    //     let win_ctx = Arc::new(WindowContext::new());
+    //     let required_extensions = Surface::required_extensions(win_ctx.event_loop());
 
-        let instance = Instance::new(
-            library,
-            InstanceCreateInfo {
-                enabled_extensions: required_extensions,
-                ..Default::default()
-            },
-        )
-        .expect("failed to create instance");
-        let (device, queue_family_index, queues) =
-            primitives::select_device_and_queues(Arc::new(win_ctx));
+    //     let instance = Instance::new(
+    //         library,
+    //         InstanceCreateInfo {
+    //             enabled_extensions: required_extensions,
+    //             ..Default::default()
+    //         },
+    //     )
+    //     .expect("failed to create instance");
+    //     let (device, queue_family_index, queues) =
+    //         primitives::select_device_and_queues(win_ctx.window(), win_ctx.event_loop());
 
-        let win_ctx = WindowContext::new();
-        Self {
-            instance,
-            device,
-            queue_family_index,
-            queues: Box::new(queues),
-            window: win_ctx.window,
-            event_loop: win_ctx.event_loop,
-        }
-    }
+    //     Self {
+    //         instance,
+    //         device,
+    //         queue_family_index,
+    //         queues: Box::new(queues),
+    //         window: win_ctx.window.clone(),
+    //         event_loop: Arc::new(win_ctx.reduce().0),
+    //     }
+    // }
+    // pub fn instance(&self) -> Arc<Instance> {
+    //     self.instance.clone()
+    // }
+    // pub fn window(&self) -> Arc<Window> {
+    //     self.window.clone()
+    // }
+    // pub fn event_loop(&self) -> &EventLoop<()> {
+    //     &self.event_loop
+    // }
+    // // pub fn queues(&self) -> Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>> {
+    // //     self.queues.into_iter().collect()
+    // // }
 }
 
-impl Default for VulkanoContext {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-pub fn create_window(win_ctx: Arc<WindowContext>) {
-    let library = VulkanLibrary::new().expect("can't find vulkan library");
-    let physical_device = primitives::select_physical_device(win_ctx.clone());
-    let (window, event_loop) = (win_ctx.window(), win_ctx.consume().0);
-    let required_extensions = Surface::required_extensions(&event_loop);
-    let instance = Instance::new(
-        library,
-        InstanceCreateInfo {
-            enabled_extensions: required_extensions,
-            ..Default::default()
-        },
-    )
-    .expect("failed to create instance");
-
-    let surface =
-        Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
-    let caps = physical_device
-        .surface_capabilities(&surface, Default::default())
-        .expect("failed to get surface capabilities");
-
-    let dimensions = window.inner_size();
-    let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
-    let image_format = physical_device
-        .surface_formats(&surface, Default::default())
-        .unwrap()[0]
-        .0;
-
-    event_loop.run(|event, _, control_flow| match event {
-        Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } => {
-            *control_flow = ControlFlow::Exit;
-        }
-        _ => (),
-    });
-}
+// impl Default for VulkanoContext {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
 #[derive(BufferContents, Vertex)]
 #[repr(C)]
@@ -168,8 +191,15 @@ struct MyVertex {
     position: [f32; 2],
 }
 
-pub fn run_graphics_pipeline(ctx: VulkanoContext) {
-    let (device, queue_family_index, mut queues) = (ctx.device, ctx.queue_family_index, ctx.queues);
+pub fn run_graphics_pipeline(
+    device: Arc<Device>,
+    queue_family_index: u32,
+    mut queues: Box<dyn ExactSizeIterator<Item = Arc<Queue>>>,
+    instance: Instance,
+    win_ctx: WindowContext,
+) {
+    // let (device, queue_family_index, mut queues) =
+    //     (ctx.device, ctx.queue_family_index, ctx.queues());
     let queue = queues.next().unwrap();
     let memory_allocator = primitives::create_memory_allocator(device.clone());
     let vertex_1 = MyVertex {
@@ -197,8 +227,8 @@ pub fn run_graphics_pipeline(ctx: VulkanoContext) {
     )
     .unwrap();
 
-    let swapchain = create_swapchain_and_images();
-    let render_pass = get_render_pass(device, swapchain);
+    let swapchain = create_swapchain_and_images(instance, Arc::new(&win_ctx));
+    let render_pass = get_render_pass(device.clone(), &swapchain.0);
 
     let image = Image::new(
         memory_allocator.clone(),

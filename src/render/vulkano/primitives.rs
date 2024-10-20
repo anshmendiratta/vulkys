@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use vulkano::swapchain::Surface;
+use vulkano::image::{Image, ImageUsage};
+use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use vulkano::VulkanLibrary;
 
+use super::core::WindowContext;
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
 };
@@ -10,19 +12,22 @@ use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags};
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::StandardMemoryAllocator;
-use winit::window::Window;
 
-use super::lib::WindowContext;
-
-pub fn create_swapchain_and_images(instance: Arc<Instance>, window: Arc<Window>) {
-    let surface =
-        Surface::from_window(instance, window.clone()).expect("could not create window");
-    let physical_device = select_physical_device(win_ctx);
+pub fn create_swapchain_and_images(
+    instance: Instance,
+    win_ctx: Arc<&WindowContext>,
+) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
+    // let instance = ctx.instance();
+    // let window = ctx.window();
+    let surface = Surface::from_window(Arc::new(instance), win_ctx.window.clone())
+        .expect("could not create window");
+    let physical_device = select_physical_device(win_ctx.clone());
+    let device = select_device_and_queues(win_ctx.clone()).0;
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
 
-    let dimensions = window.inner_size();
+    let dimensions = win_ctx.window.inner_size();
     let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
     let image_format = physical_device
         .surface_formats(&surface, Default::default())
@@ -41,10 +46,12 @@ pub fn create_swapchain_and_images(instance: Arc<Instance>, window: Arc<Window>)
             ..Default::default()
         },
     )
-    .unwrap()
+    .unwrap();
+
+    (swapchain, images)
 }
 
-pub fn select_physical_device(win_ctx: Arc<WindowContext>) -> Arc<PhysicalDevice> {
+pub fn select_physical_device(win_ctx: Arc<&WindowContext>) -> Arc<PhysicalDevice> {
     let (window, event_loop) = (win_ctx.window(), win_ctx.event_loop());
     let required_extensions = Surface::required_extensions(&event_loop);
     let device_extensions = DeviceExtensions {
@@ -53,15 +60,7 @@ pub fn select_physical_device(win_ctx: Arc<WindowContext>) -> Arc<PhysicalDevice
     };
 
     let library = VulkanLibrary::new().expect("can't find local vulkan dll");
-    let instance = Instance::new(
-        library,
-        InstanceCreateInfo {
-            enabled_extensions: required_extensions,
-            ..Default::default()
-        },
-    )
-    .unwrap();
-
+    let instance = win_ctx.instance();
     let surface =
         Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
 
@@ -91,7 +90,7 @@ pub fn select_physical_device(win_ctx: Arc<WindowContext>) -> Arc<PhysicalDevice
 }
 
 pub fn select_device_and_queues(
-    win_ctx: Arc<WindowContext>,
+    win_ctx: Arc<&WindowContext>,
 ) -> (
     Arc<Device>,
     u32,
@@ -102,7 +101,7 @@ pub fn select_device_and_queues(
         ..DeviceExtensions::empty()
     };
 
-    let physical_device = select_physical_device(&win_ctx);
+    let physical_device = select_physical_device(win_ctx);
     let queue_family_index = physical_device
         .queue_family_properties()
         .iter()
