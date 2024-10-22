@@ -55,12 +55,9 @@ use winit::window::{Window, WindowBuilder};
 use super::primitives::{self, create_swapchain_and_images, select_device_and_queues};
 
 pub struct VulkanoContext {
-    instance: Arc<Instance>,
     device: Arc<Device>,
     queue_family_index: u32,
     queues: Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>>,
-    event_loop: Arc<EventLoop<()>>,
-    window: Arc<Window>,
 }
 
 pub struct WindowContext {
@@ -140,50 +137,34 @@ impl Default for WindowContext {
 }
 
 impl VulkanoContext {
-    // pub fn new() -> Self {
-    //     let library = VulkanLibrary::new().expect("can't find vulkan library dll");
-    //     let win_ctx = Arc::new(WindowContext::new());
-    //     let required_extensions = Surface::required_extensions(win_ctx.event_loop());
+    pub fn new() -> Self {
+        let library = VulkanLibrary::new().expect("can't find vulkan library dll");
+        let win_ctx = WindowContext::new();
+        let required_extensions = Surface::required_extensions(win_ctx.event_loop());
 
-    //     let instance = Instance::new(
-    //         library,
-    //         InstanceCreateInfo {
-    //             enabled_extensions: required_extensions,
-    //             ..Default::default()
-    //         },
-    //     )
-    //     .expect("failed to create instance");
-    //     let (device, queue_family_index, queues) =
-    //         primitives::select_device_and_queues(win_ctx.window(), win_ctx.event_loop());
+        let instance = Instance::new(
+            library,
+            InstanceCreateInfo {
+                enabled_extensions: required_extensions,
+                ..Default::default()
+            },
+        )
+        .expect("failed to create instance");
+        let (device, queue_family_index, queues) = primitives::select_device_and_queues(&win_ctx);
 
-    //     Self {
-    //         instance,
-    //         device,
-    //         queue_family_index,
-    //         queues: Box::new(queues),
-    //         window: win_ctx.window.clone(),
-    //         event_loop: Arc::new(win_ctx.reduce().0),
-    //     }
-    // }
-    // pub fn instance(&self) -> Arc<Instance> {
-    //     self.instance.clone()
-    // }
-    // pub fn window(&self) -> Arc<Window> {
-    //     self.window.clone()
-    // }
-    // pub fn event_loop(&self) -> &EventLoop<()> {
-    //     &self.event_loop
-    // }
-    // // pub fn queues(&self) -> Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>> {
-    // //     self.queues.into_iter().collect()
-    // // }
+        Self {
+            device,
+            queue_family_index,
+            queues: Box::new(queues),
+        }
+    }
 }
 
-// impl Default for VulkanoContext {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
+impl Default for VulkanoContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[derive(BufferContents, Vertex)]
 #[repr(C)]

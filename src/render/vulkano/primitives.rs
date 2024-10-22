@@ -18,8 +18,6 @@ pub fn create_swapchain_and_images(
     instance: Instance,
     win_ctx: &WindowContext,
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
-    // let instance = ctx.instance();
-    // let window = ctx.window();
     let surface = Surface::from_window(Arc::new(instance), win_ctx.window.clone())
         .expect("could not create window");
     let physical_device = select_physical_device(win_ctx);
