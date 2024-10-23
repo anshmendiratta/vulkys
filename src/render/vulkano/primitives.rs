@@ -2,7 +2,9 @@
 
 use std::sync::Arc;
 
+use vulkano::image::view::ImageView;
 use vulkano::image::{Image, ImageUsage};
+use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass};
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 
 use super::core::WindowContext;
@@ -13,6 +15,26 @@ use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags};
 use vulkano::instance::Instance;
 use vulkano::memory::allocator::StandardMemoryAllocator;
+
+pub fn get_framebuffers(
+    images: &Vec<Arc<Image>>,
+    render_pass: &Arc<RenderPass>,
+) -> Vec<Arc<Framebuffer>> {
+    images
+        .iter()
+        .map(|image| -> Arc<Framebuffer> {
+            let view = ImageView::new_default(image.clone()).unwrap();
+            Framebuffer::new(
+                render_pass.clone(),
+                FramebufferCreateInfo {
+                    attachments: vec![view],
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+        })
+        .collect::<Vec<_>>()
+}
 
 pub fn create_swapchain_and_images(
     instance: Instance,

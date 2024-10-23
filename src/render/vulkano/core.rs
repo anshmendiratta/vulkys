@@ -41,7 +41,7 @@ use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
 use vulkano::pipeline::layout::{PipelineDescriptorSetLayoutCreateInfo, PipelineLayoutCreateInfo};
 use vulkano::pipeline::{
-    ComputePipeline, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout,
+    ComputePipeline, DynamicState, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout,
     PipelineShaderStageCreateInfo,
 };
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
@@ -52,7 +52,9 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
-use super::primitives::{self, create_swapchain_and_images, select_device_and_queues};
+use super::primitives::{
+    self, create_swapchain_and_images, get_framebuffers, select_device_and_queues,
+};
 
 pub struct VulkanoContext {
     device: Arc<Device>,
@@ -71,7 +73,6 @@ impl WindowContext {
         let event_loop = EventLoop::new();
         let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
         let library = VulkanLibrary::new().expect("can't find vulkan library");
-        // let physical_device = primitives::select_physical_device(Arc::new());
         let required_extensions = Surface::required_extensions(&event_loop);
         let instance = Instance::new(
             library,
@@ -173,15 +174,10 @@ struct MyVertex {
     position: [f32; 2],
 }
 
-pub fn run_graphics_pipeline(
-    device: Arc<Device>,
-    queue_family_index: u32,
-    mut queues: Box<dyn ExactSizeIterator<Item = Arc<Queue>>>,
-    instance: Instance,
-    win_ctx: WindowContext,
-) {
-    // let (device, queue_family_index, mut queues) =
-    //     (ctx.device, ctx.queue_family_index, ctx.queues());
+pub fn run_graphics_pipeline(vk_ctx: VulkanoContext, instance: Instance, win_ctx: WindowContext) {
+    let (device, queue_family_index, mut queues) =
+        (vk_ctx.device, vk_ctx.queue_family_index, vk_ctx.queues);
+    let window = win_ctx.window();
     let queue = queues.next().unwrap();
     let memory_allocator = primitives::create_memory_allocator(device.clone());
     let vertex_1 = MyVertex {
@@ -228,14 +224,8 @@ pub fn run_graphics_pipeline(
     )
     .unwrap();
     let view = ImageView::new_default(image.clone()).unwrap();
-    let frame_buffer = Framebuffer::new(
-        render_pass.clone(),
-        FramebufferCreateInfo {
-            attachments: vec![view],
-            ..Default::default()
-        },
-    )
-    .unwrap();
+    let images = vec![image.clone()];
+    let frame_buffer = get_framebuffers(&images, &render_pass);
 
     let vertex_shader =
         super::shaders::vertex_shader::load(device.clone()).expect("failed to make vertex shader");
@@ -244,7 +234,7 @@ pub fn run_graphics_pipeline(
 
     let viewport = Viewport {
         offset: [0.0, 0.0],
-        extent: [1024.0, 1024.0],
+        extent: window.inner_size().into(),
         depth_range: 0.0..=1.0,
     };
 
@@ -278,8 +268,8 @@ pub fn run_graphics_pipeline(
                 vertex_input_state: Some(vertex_shader_state),
                 input_assembly_state: Some(InputAssemblyState::default()),
                 viewport_state: Some(ViewportState {
-                    viewports: [viewport].into_iter().collect(),
-                    ..Default::default()
+                    viewports: [DynamicState::Viewport],
+..Default::default() 
                 }),
                 rasterization_state: Some(RasterizationState::default()),
                 multisample_state: Some(MultisampleState::default()),
@@ -303,7 +293,7 @@ pub fn run_graphics_pipeline(
         .begin_render_pass(
             RenderPassBeginInfo {
                 clear_values: vec![Some([0.0, 0.0, 0.0, 1.0].into())],
-                ..command_buffer::RenderPassBeginInfo::framebuffer(frame_buffer.clone())
+                ..command_buffer::RenderPassBeginInfo::framebuffer(frame_buffer[0].clone())
             },
             SubpassBeginInfo {
                 contents: command_buffer::SubpassContents::Inline,
