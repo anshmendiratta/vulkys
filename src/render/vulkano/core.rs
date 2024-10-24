@@ -8,7 +8,7 @@ use std::sync::Arc;
 use image::{ImageBuffer, Rgba};
 use tracing::info;
 
-use vulkano::buffer::BufferContents;
+use vulkano::buffer::{BufferContents, Subbuffer};
 use vulkano::device::physical::PhysicalDeviceType;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
@@ -22,7 +22,7 @@ use vulkano::command_buffer::allocator::{
 };
 use vulkano::command_buffer::{
     self, AutoCommandBufferBuilder, ClearColorImageInfo, CopyBufferInfo, CopyImageToBufferInfo,
-    RenderPassBeginInfo, SubpassBeginInfo, SubpassEndInfo,
+    PrimaryAutoCommandBuffer, RenderPassBeginInfo, SubpassBeginInfo, SubpassEndInfo,
 };
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::{self, PersistentDescriptorSet, WriteDescriptorSet};
@@ -45,6 +45,7 @@ use vulkano::pipeline::{
     PipelineShaderStageCreateInfo,
 };
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
+use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{self, Surface, Swapchain, SwapchainCreateInfo};
 use vulkano::sync::{GpuFuture, PipelineStages};
 use vulkano::{library, single_pass_renderpass, sync, VulkanLibrary};
@@ -101,11 +102,10 @@ impl WindowContext {
     pub fn reduce(self) -> (EventLoop<()>, Arc<Window>) {
         (self.event_loop, self.window)
     }
-
     pub fn create_window(self) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");
         let physical_device = primitives::select_physical_device(&self);
-
+        let device = select_device_and_queues(&self).0;
         let surface = Surface::from_window(self.instance.clone(), self.window.clone())
             .expect("could not create window");
         let caps = physical_device
@@ -119,15 +119,43 @@ impl WindowContext {
             .unwrap()[0]
             .0;
 
-        self.event_loop.run(|event, _, control_flow| match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                *control_flow = ControlFlow::Exit;
-            }
-            _ => (),
-        });
+        let mut swapchain = create_swapchain_and_images(self.instance.clone(), &self).0;
+        let render_pass = get_render_pass(device, &swapchain);
+        let mut window_resized = false;
+        let mut recreate_swapchain = false;
+
+        self.event_loop
+            .run(move |event, _, control_flow| match event {
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => {
+                    *control_flow = ControlFlow::Exit;
+                }
+                Event::WindowEvent {
+                    event: WindowEvent::Resized(_),
+                    ..
+                } => {
+                    window_resized = true;
+                }
+                Event::MainEventsCleared => {
+                    if recreate_swapchain {
+                        recreate_swapchain = false;
+
+                        let new_dimensions = self.window.inner_size();
+
+                        let (new_swapchain, new_images) = swapchain
+                            .recreate(SwapchainCreateInfo {
+                                image_extent: new_dimensions.into(),
+                                ..swapchain.create_info()
+                            })
+                            .expect("failed to recreate swapchain: {e}");
+                        swapchain = new_swapchain;
+                        let new_framebuffers = get_framebuffers(&new_images, &render_pass);
+                    }
+                }
+                _ => (),
+            });
     }
 }
 
@@ -205,7 +233,7 @@ pub fn run_graphics_pipeline(vk_ctx: VulkanoContext, instance: Instance, win_ctx
     )
     .unwrap();
 
-    let swapchain = create_swapchain_and_images(instance, &win_ctx);
+    let swapchain = create_swapchain_and_images(Arc::new(instance), &win_ctx);
     let render_pass = get_render_pass(device.clone(), &swapchain.0);
 
     let image = Image::new(
@@ -225,7 +253,7 @@ pub fn run_graphics_pipeline(vk_ctx: VulkanoContext, instance: Instance, win_ctx
     .unwrap();
     let view = ImageView::new_default(image.clone()).unwrap();
     let images = vec![image.clone()];
-    let frame_buffer = get_framebuffers(&images, &render_pass);
+    let framebuffers = get_framebuffers(&images, &render_pass);
 
     let vertex_shader =
         super::shaders::vertex_shader::load(device.clone()).expect("failed to make vertex shader");
@@ -238,77 +266,22 @@ pub fn run_graphics_pipeline(vk_ctx: VulkanoContext, instance: Instance, win_ctx
         depth_range: 0.0..=1.0,
     };
 
-    let pipeline = {
-        let vs = vertex_shader.entry_point("main").unwrap();
-        let fs = fragment_shader.entry_point("main").unwrap();
-
-        let vertex_shader_state = MyVertex::per_vertex()
-            .definition(&vs.info().input_interface)
-            .unwrap();
-
-        let stages = [
-            PipelineShaderStageCreateInfo::new(vs),
-            PipelineShaderStageCreateInfo::new(fs),
-        ];
-
-        let layout = PipelineLayout::new(
-            device.clone(),
-            PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
-                .into_pipeline_layout_create_info(device.clone())
-                .unwrap(),
-        )
-        .unwrap();
-        let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
-
-        GraphicsPipeline::new(
-            device.clone(),
-            None,
-            vulkano::pipeline::graphics::GraphicsPipelineCreateInfo {
-                stages: stages.into_iter().collect(),
-                vertex_input_state: Some(vertex_shader_state),
-                input_assembly_state: Some(InputAssemblyState::default()),
-                viewport_state: Some(ViewportState {
-                    viewports: [DynamicState::Viewport],
-..Default::default() 
-                }),
-                rasterization_state: Some(RasterizationState::default()),
-                multisample_state: Some(MultisampleState::default()),
-                color_blend_state: Some(vulkano::pipeline::graphics::color_blend::ColorBlendState::with_attachment_states(subpass.num_color_attachments(), ColorBlendAttachmentState::default())),
-                subpass: Some(subpass.into()),
-                ..GraphicsPipelineCreateInfo::layout(layout)
-            },
-        )
-            .unwrap()
-    };
+    let pipeline = get_pipeline(
+        device.clone(),
+        vertex_shader.clone(),
+        fragment_shader.clone(),
+        render_pass.clone(),
+        viewport.clone(),
+    );
 
     let command_buffer_allocator = primitives::create_command_buffer_allocator(device.clone());
-    let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
+    let command_buffers = get_command_buffers(
         &command_buffer_allocator,
-        queue_family_index,
-        command_buffer::CommandBufferUsage::OneTimeSubmit,
-    )
-    .unwrap();
-
-    command_buffer_builder
-        .begin_render_pass(
-            RenderPassBeginInfo {
-                clear_values: vec![Some([0.0, 0.0, 0.0, 1.0].into())],
-                ..command_buffer::RenderPassBeginInfo::framebuffer(frame_buffer[0].clone())
-            },
-            SubpassBeginInfo {
-                contents: command_buffer::SubpassContents::Inline,
-                ..Default::default()
-            },
-        )
-        .unwrap()
-        .bind_pipeline_graphics(pipeline.clone())
-        .unwrap()
-        .bind_vertex_buffers(0, vertex_buffer.clone())
-        .unwrap()
-        .draw(3, 1, 0, 0)
-        .unwrap()
-        .end_render_pass(SubpassEndInfo::default())
-        .unwrap();
+        &queue,
+        &pipeline,
+        &framebuffers,
+        &vertex_buffer,
+    );
 
     let image_buffer = Buffer::from_iter(
         memory_allocator.clone(),
@@ -325,25 +298,107 @@ pub fn run_graphics_pipeline(vk_ctx: VulkanoContext, instance: Instance, win_ctx
     )
     .expect("couldn't make image buffer in graphics");
 
-    command_buffer_builder
-        .copy_image_to_buffer(CopyImageToBufferInfo::image_buffer(
-            image,
-            image_buffer.clone(),
-        ))
-        .unwrap();
-
-    let command_buffer = command_buffer_builder.build().unwrap();
-    let future = sync::now(device.clone())
-        .then_execute(queue.clone(), command_buffer)
-        .unwrap()
-        .then_signal_fence_and_flush()
-        .unwrap();
-    future.wait(None).unwrap();
-
     let image_buffer_content = image_buffer.read().unwrap();
     let image =
         ImageBuffer::<Rgba<u8>, _>::from_raw(1024, 1024, &image_buffer_content[..]).unwrap();
     image.save("image.png").unwrap();
+}
+
+fn get_command_buffers(
+    command_buffer_allocator: &StandardCommandBufferAllocator,
+    queue: &Arc<Queue>,
+    pipeline: &Arc<GraphicsPipeline>,
+    framebuffers: &Vec<Arc<Framebuffer>>,
+    vertex_buffer: &Subbuffer<[MyVertex]>,
+) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
+    framebuffers
+        .iter()
+        .map(|framebuffer| {
+            let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
+                command_buffer_allocator,
+                queue.queue_family_index(),
+                command_buffer::CommandBufferUsage::MultipleSubmit,
+            )
+            .unwrap();
+
+            command_buffer_builder
+                .begin_render_pass(
+                    RenderPassBeginInfo {
+                        clear_values: vec![Some([0.0, 0.0, 0.0, 1.0].into())],
+                        ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
+                    },
+                    SubpassBeginInfo {
+                        contents: command_buffer::SubpassContents::Inline,
+                        ..Default::default()
+                    },
+                )
+                .unwrap()
+                .bind_pipeline_graphics(pipeline.clone())
+                .unwrap()
+                .bind_vertex_buffers(0, vertex_buffer.clone())
+                .unwrap()
+                .draw(vertex_buffer.len() as u32, 1, 0, 0)
+                .unwrap()
+                .end_render_pass(SubpassEndInfo::default())
+                .unwrap();
+
+            command_buffer_builder.build().unwrap()
+        })
+        .collect()
+}
+
+pub fn get_pipeline(
+    device: Arc<Device>,
+    vertex_shader: Arc<ShaderModule>,
+    fragment_shader: Arc<ShaderModule>,
+    render_pass: Arc<RenderPass>,
+    viewport: Viewport,
+) -> Arc<GraphicsPipeline> {
+    let vs = vertex_shader.entry_point("main").unwrap();
+    let fs = fragment_shader.entry_point("main").unwrap();
+
+    let vertex_shader_state = MyVertex::per_vertex()
+        .definition(&vs.info().input_interface)
+        .unwrap();
+
+    let stages = [
+        PipelineShaderStageCreateInfo::new(vs),
+        PipelineShaderStageCreateInfo::new(fs),
+    ];
+
+    let layout = PipelineLayout::new(
+        device.clone(),
+        PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
+            .into_pipeline_layout_create_info(device.clone())
+            .unwrap(),
+    )
+    .unwrap();
+    let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
+
+    GraphicsPipeline::new(
+        device.clone(),
+        None,
+        vulkano::pipeline::graphics::GraphicsPipelineCreateInfo {
+            stages: stages.into_iter().collect(),
+            vertex_input_state: Some(vertex_shader_state),
+            input_assembly_state: Some(InputAssemblyState::default()),
+            viewport_state: Some(ViewportState {
+                viewports: [viewport].into(),
+                ..Default::default()
+            }),
+            rasterization_state: Some(RasterizationState::default()),
+            multisample_state: Some(MultisampleState::default()),
+            color_blend_state: Some(
+                vulkano::pipeline::graphics::color_blend::ColorBlendState::with_attachment_states(
+                    subpass.num_color_attachments(),
+                    ColorBlendAttachmentState::default(),
+                ),
+            ),
+            subpass: Some(subpass.into()),
+            ..GraphicsPipelineCreateInfo::layout(layout)
+        },
+    )
+    .unwrap()
 }
 
 pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {

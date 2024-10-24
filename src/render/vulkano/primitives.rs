@@ -37,11 +37,11 @@ pub fn get_framebuffers(
 }
 
 pub fn create_swapchain_and_images(
-    instance: Instance,
+    instance: Arc<Instance>,
     win_ctx: &WindowContext,
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
-    let surface = Surface::from_window(Arc::new(instance), win_ctx.window.clone())
-        .expect("could not create window");
+    let surface =
+        Surface::from_window(instance, win_ctx.window.clone()).expect("could not create window");
     let physical_device = select_physical_device(win_ctx);
     let device = select_device_and_queues(win_ctx).0;
     let caps = physical_device
