@@ -54,8 +54,9 @@ use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
 use super::primitives::{
-    self, create_swapchain_and_images, get_framebuffers, select_device_and_queues,
+    self, create_command_buffer_allocator, create_swapchain_and_images, get_framebuffers, select_device_and_queues
 };
+use super::shaders;
 
 pub struct VulkanoContext {
     device: Arc<Device>,
@@ -105,7 +106,8 @@ impl WindowContext {
     pub fn create_window(self) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");
         let physical_device = primitives::select_physical_device(&self);
-        let device = select_device_and_queues(&self).0;
+        let (device, _, queues) = select_device_and_queues(&self);
+        let queue = queues.next().unwrap();
         let surface = Surface::from_window(self.instance.clone(), self.window.clone())
             .expect("could not create window");
         let caps = physical_device
@@ -121,8 +123,22 @@ impl WindowContext {
 
         let mut swapchain = create_swapchain_and_images(self.instance.clone(), &self).0;
         let render_pass = get_render_pass(device, &swapchain);
+        let vs = shaders::vertex_shader::load(device.clone()).unwrap();
+        let fs = shaders::fragment_shader::load(device.clone()).unwrap();
+        let render_pass = get_render_pass(device.clone(), &swapchain);
+    let viewport = Viewport {
+        offset: [0.0, 0.0],
+        extent: self.window.inner_size().into(),
+        depth_range: 0.0..=1.0,
+    };
+    let pipeline = get_pipeline(device.clone(), vs, fs, render_pass, viewport);
+    let framebuffers = get_framebuffers(, );
+    let command_buffer_allocator = create_command_buffer_allocator(device.clone());
+    let command_buffers = get_command_buffers(&command_buffer_allocator, &queue, , , );
         let mut window_resized = false;
         let mut recreate_swapchain = false;
+
+        // TODO: This needs a lot of data. Give the function more by default by passing in an arg or having this be a func under a larger struct with more fields
 
         self.event_loop
             .run(move |event, _, control_flow| match event {
@@ -152,6 +168,14 @@ impl WindowContext {
                             .expect("failed to recreate swapchain: {e}");
                         swapchain = new_swapchain;
                         let new_framebuffers = get_framebuffers(&new_images, &render_pass);
+
+                        if window_resized {
+                            window_resized = false;
+
+                            viewport.extent = new_dimensions.into();
+                            let new_pipeline = get_pipeline(device.clone(), vs.clone(), , , );
+                            command_buffers = get_command_buffers( , , , );
+                        }
                     }
                 }
                 _ => (),
