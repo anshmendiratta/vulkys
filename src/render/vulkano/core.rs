@@ -5,6 +5,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use eframe::EventLoopBuilder;
 use image::{ImageBuffer, Rgba};
 use tracing::info;
 
@@ -54,93 +55,131 @@ use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
 use super::primitives::{
-    self, create_command_buffer_allocator, create_swapchain_and_images, get_framebuffers, select_device_and_queues
+    self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
+    get_framebuffers, get_required_extensions, select_device_and_queues,
 };
 use super::shaders;
 
 pub struct VulkanoContext {
-    device: Arc<Device>,
+    pub device: Arc<Device>,
     queue_family_index: u32,
     queues: Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>>,
 }
 
 pub struct WindowContext {
-    pub event_loop: EventLoop<()>,
     pub instance: Arc<Instance>,
     pub window: Arc<Window>,
+    event_loop: EventLoop<()>,
 }
 
-impl WindowContext {
-    pub fn new() -> Self {
-        let event_loop = EventLoop::new();
-        let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-        let library = VulkanLibrary::new().expect("can't find vulkan library");
-        let required_extensions = Surface::required_extensions(&event_loop);
-        let instance = Instance::new(
-            library,
-            InstanceCreateInfo {
-                enabled_extensions: required_extensions,
-                ..Default::default()
-            },
-        )
-        .expect("failed to create instance");
+pub struct WindowEventHandler {
+    vk_ctx: VulkanoContext,
+    // device: Arc<Device>,
+    // queue_family_index: u32,
+    // queues: Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>>,
+    win_ctx: WindowContext,
+    swapchain: Arc<Swapchain>,
+    framebuffers: Vec<Arc<Framebuffer>>,
+    images: Vec<Arc<Image>>,
+    render_pass: Arc<RenderPass>,
+    viewport: Viewport,
+    graphics_pipeline: Arc<GraphicsPipeline>,
+}
 
+impl WindowEventHandler {
+    pub fn new() -> Self {
+        let win_ctx = WindowContext::new();
+        let vk_ctx = VulkanoContext::with_window_context(&win_ctx);
+        let required_extensions = Surface::required_extensions(&win_ctx.event_loop);
+        let library = VulkanLibrary::new().expect("no local vulkan lib");
+        let (swapchain, images) = create_swapchain_and_images(&win_ctx, &vk_ctx);
+        let render_pass = get_render_pass(vk_ctx.device.clone(), &swapchain);
+        let framebuffers = get_framebuffers(&images, &render_pass);
+        let viewport = Viewport {
+            offset: [0.0, 0.0],
+            extent: win_ctx.window.inner_size().into(),
+            depth_range: 0.0..=1.0,
+        };
+        let vs = super::shaders::vertex_shader::load(vk_ctx.device.clone()).unwrap();
+        let fs = super::shaders::fragment_shader::load(vk_ctx.device.clone()).unwrap();
+        let graphics_pipeline = get_pipeline(
+            vk_ctx.device.clone(),
+            vs,
+            fs,
+            render_pass.clone(),
+            viewport.clone(),
+        );
         Self {
-            event_loop,
-            window,
-            instance,
+            vk_ctx,
+            win_ctx,
+            swapchain,
+            framebuffers,
+            images,
+            render_pass,
+            viewport,
+            graphics_pipeline,
         }
     }
-    pub fn window(&self) -> Arc<Window> {
-        self.window.clone()
-    }
-    pub fn event_loop(&self) -> &EventLoop<()> {
-        &self.event_loop
-    }
-    pub fn instance(&self) -> Arc<Instance> {
-        self.instance.clone()
-    }
-    pub fn reduce(self) -> (EventLoop<()>, Arc<Window>) {
-        (self.event_loop, self.window)
-    }
-    pub fn create_window(self) {
+
+    pub fn run(mut self) {
+        // TODO: This needs a lot of data. Give the function more by default by passing in an arg or having this be a func under a larger struct with more fields
+
         let library = VulkanLibrary::new().expect("can't find vulkan library");
-        let physical_device = primitives::select_physical_device(&self);
-        let (device, _, queues) = select_device_and_queues(&self);
-        let queue = queues.next().unwrap();
-        let surface = Surface::from_window(self.instance.clone(), self.window.clone())
-            .expect("could not create window");
+        let physical_device = primitives::select_physical_device(&self.win_ctx);
+        let surface =
+            Surface::from_window(self.win_ctx.instance.clone(), self.win_ctx.window.clone())
+                .expect("could not create window");
         let caps = physical_device
             .surface_capabilities(&surface, Default::default())
             .expect("failed to get surface capabilities");
-
-        let dimensions = self.window.inner_size();
+        let dimensions = self.win_ctx.window.inner_size();
         let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
         let image_format = physical_device
             .surface_formats(&surface, Default::default())
             .unwrap()[0]
             .0;
+        let queue = self.vk_ctx.queues.next().unwrap();
+        let memory_allocator = create_memory_allocator(self.vk_ctx.device.clone());
+        let vertex_1 = MyVertex {
+            position: [-0.5, -0.5],
+        };
+        let vertex_2 = MyVertex {
+            position: [0.0, 0.5],
+        };
+        let vertex_3 = MyVertex {
+            position: [0.5, -0.25],
+        };
+        let vertex_buffer = Buffer::from_iter(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: BufferUsage::VERTEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            vec![vertex_1, vertex_2, vertex_3],
+        )
+        .unwrap();
 
-        let mut swapchain = create_swapchain_and_images(self.instance.clone(), &self).0;
-        let render_pass = get_render_pass(device, &swapchain);
-        let vs = shaders::vertex_shader::load(device.clone()).unwrap();
-        let fs = shaders::fragment_shader::load(device.clone()).unwrap();
-        let render_pass = get_render_pass(device.clone(), &swapchain);
-    let viewport = Viewport {
-        offset: [0.0, 0.0],
-        extent: self.window.inner_size().into(),
-        depth_range: 0.0..=1.0,
-    };
-    let pipeline = get_pipeline(device.clone(), vs, fs, render_pass, viewport);
-    let framebuffers = get_framebuffers(, );
-    let command_buffer_allocator = create_command_buffer_allocator(device.clone());
-    let command_buffers = get_command_buffers(&command_buffer_allocator, &queue, , , );
+        let vs = super::shaders::vertex_shader::load(self.vk_ctx.device.clone()).unwrap();
+        let fs = super::shaders::fragment_shader::load(self.vk_ctx.device.clone()).unwrap();
+        let command_buffer_allocator = create_command_buffer_allocator(self.vk_ctx.device.clone());
+        let command_buffers = get_command_buffers(
+            &command_buffer_allocator,
+            &queue,
+            &self.graphics_pipeline,
+            &self.framebuffers,
+            &vertex_buffer,
+        );
+
         let mut window_resized = false;
         let mut recreate_swapchain = false;
 
-        // TODO: This needs a lot of data. Give the function more by default by passing in an arg or having this be a func under a larger struct with more fields
-
-        self.event_loop
+        self.win_ctx
+            .event_loop
             .run(move |event, _, control_flow| match event {
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
@@ -158,23 +197,35 @@ impl WindowContext {
                     if recreate_swapchain {
                         recreate_swapchain = false;
 
-                        let new_dimensions = self.window.inner_size();
-
-                        let (new_swapchain, new_images) = swapchain
+                        let new_dimensions = self.win_ctx.window.inner_size();
+                        let (new_swapchain, new_images) = self
+                            .swapchain
                             .recreate(SwapchainCreateInfo {
                                 image_extent: new_dimensions.into(),
-                                ..swapchain.create_info()
+                                ..self.swapchain.create_info()
                             })
                             .expect("failed to recreate swapchain: {e}");
-                        swapchain = new_swapchain;
-                        let new_framebuffers = get_framebuffers(&new_images, &render_pass);
+                        self.swapchain = new_swapchain;
+                        let new_framebuffers = get_framebuffers(&new_images, &self.render_pass);
 
                         if window_resized {
                             window_resized = false;
 
-                            viewport.extent = new_dimensions.into();
-                            let new_pipeline = get_pipeline(device.clone(), vs.clone(), , , );
-                            command_buffers = get_command_buffers( , , , );
+                            self.viewport.extent = new_dimensions.into();
+                            let new_pipeline = get_pipeline(
+                                self.vk_ctx.device.clone(),
+                                vs.clone(),
+                                fs.clone(),
+                                self.render_pass.clone(),
+                                self.viewport.clone(),
+                            );
+                            let command_buffers = get_command_buffers(
+                                &command_buffer_allocator,
+                                &queue,
+                                &self.graphics_pipeline,
+                                &self.framebuffers,
+                                &vertex_buffer,
+                            );
                         }
                     }
                 }
@@ -183,18 +234,12 @@ impl WindowContext {
     }
 }
 
-impl Default for WindowContext {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl VulkanoContext {
+impl WindowContext {
     pub fn new() -> Self {
-        let library = VulkanLibrary::new().expect("can't find vulkan library dll");
-        let win_ctx = WindowContext::new();
-        let required_extensions = Surface::required_extensions(win_ctx.event_loop());
-
+        let event_loop = EventLoop::new();
+        let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
+        let (_, required_extensions) = get_required_extensions(&event_loop);
+        let library = VulkanLibrary::new().expect("could not find local vulkan");
         let instance = Instance::new(
             library,
             InstanceCreateInfo {
@@ -203,19 +248,32 @@ impl VulkanoContext {
             },
         )
         .expect("failed to create instance");
-        let (device, queue_family_index, queues) = primitives::select_device_and_queues(&win_ctx);
+
+        Self {
+            instance,
+            window,
+            event_loop,
+        }
+    }
+    pub fn window(&self) -> Arc<Window> {
+        self.window.clone()
+    }
+    pub fn event_loop(&self) -> &EventLoop<()> {
+        &self.event_loop
+    }
+}
+
+impl VulkanoContext {
+    pub fn with_window_context(win_ctx: &WindowContext) -> Self {
+        let library = VulkanLibrary::new().expect("can't find vulkan library dll");
+        let (device, queue_family_index, queues) = primitives::select_device_and_queues(win_ctx);
+        let (_, required_extensions) = get_required_extensions(&win_ctx.event_loop());
 
         Self {
             device,
             queue_family_index,
             queues: Box::new(queues),
         }
-    }
-}
-
-impl Default for VulkanoContext {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -226,11 +284,17 @@ struct MyVertex {
     position: [f32; 2],
 }
 
-pub fn run_graphics_pipeline(vk_ctx: VulkanoContext, instance: Instance, win_ctx: WindowContext) {
-    let (device, queue_family_index, mut queues) =
-        (vk_ctx.device, vk_ctx.queue_family_index, vk_ctx.queues);
+pub fn run_graphics_pipeline(
+    mut vk_ctx: VulkanoContext,
+    instance: Instance,
+    win_ctx: WindowContext,
+) {
+    let (device, queue_family_index, queue) = (
+        vk_ctx.device.clone(),
+        vk_ctx.queue_family_index,
+        vk_ctx.queues.next().unwrap(),
+    );
     let window = win_ctx.window();
-    let queue = queues.next().unwrap();
     let memory_allocator = primitives::create_memory_allocator(device.clone());
     let vertex_1 = MyVertex {
         position: [-0.5, -0.5],
@@ -257,7 +321,7 @@ pub fn run_graphics_pipeline(vk_ctx: VulkanoContext, instance: Instance, win_ctx
     )
     .unwrap();
 
-    let swapchain = create_swapchain_and_images(Arc::new(instance), &win_ctx);
+    let swapchain = create_swapchain_and_images(&win_ctx, &vk_ctx);
     let render_pass = get_render_pass(device.clone(), &swapchain.0);
 
     let image = Image::new(

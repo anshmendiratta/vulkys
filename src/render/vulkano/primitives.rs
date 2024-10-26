@@ -6,15 +6,29 @@ use vulkano::image::view::ImageView;
 use vulkano::image::{Image, ImageUsage};
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass};
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
+use vulkano::VulkanLibrary;
+use winit::event_loop::EventLoop;
 
-use super::core::WindowContext;
+use super::core::{VulkanoContext, WindowContext};
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
 };
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags};
-use vulkano::instance::Instance;
+use vulkano::instance::InstanceExtensions;
 use vulkano::memory::allocator::StandardMemoryAllocator;
+
+pub fn get_required_extensions(
+    event_loop: &EventLoop<()>,
+) -> (DeviceExtensions, InstanceExtensions) {
+    let device_extensions = DeviceExtensions {
+        khr_swapchain: true,
+        ..DeviceExtensions::empty()
+    };
+    let required_extensions = Surface::required_extensions(&event_loop);
+
+    (device_extensions, required_extensions)
+}
 
 pub fn get_framebuffers(
     images: &Vec<Arc<Image>>,
@@ -37,13 +51,13 @@ pub fn get_framebuffers(
 }
 
 pub fn create_swapchain_and_images(
-    instance: Arc<Instance>,
     win_ctx: &WindowContext,
+    vk_ctx: &VulkanoContext,
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
-    let surface =
-        Surface::from_window(instance, win_ctx.window.clone()).expect("could not create window");
+    let surface = Surface::from_window(win_ctx.instance.clone(), win_ctx.window.clone())
+        .expect("could not create window");
     let physical_device = select_physical_device(win_ctx);
-    let device = select_device_and_queues(win_ctx).0;
+    let device = vk_ctx.device.clone();
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
@@ -73,13 +87,13 @@ pub fn create_swapchain_and_images(
 }
 
 pub fn select_physical_device(win_ctx: &WindowContext) -> Arc<PhysicalDevice> {
-    let (window, event_loop) = (win_ctx.window(), win_ctx.event_loop());
-    let device_extensions = DeviceExtensions {
-        khr_swapchain: true,
-        ..DeviceExtensions::empty()
-    };
-
-    let instance = win_ctx.instance();
+    let (window, event_loop, instance) = (
+        win_ctx.window(),
+        win_ctx.event_loop(),
+        win_ctx.instance.clone(),
+    );
+    let (device_extensions, _) = get_required_extensions(event_loop);
+    let library = VulkanLibrary::new().expect("no local vulkan lib");
     let surface =
         Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
 
