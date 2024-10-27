@@ -74,9 +74,6 @@ pub struct WindowContext {
 
 pub struct WindowEventHandler {
     vk_ctx: VulkanoContext,
-    // device: Arc<Device>,
-    // queue_family_index: u32,
-    // queues: Box<dyn ExactSizeIterator<Item = Arc<vulkano::device::Queue>>>,
     win_ctx: WindowContext,
     swapchain: Arc<Swapchain>,
     framebuffers: Vec<Arc<Framebuffer>>,
@@ -122,8 +119,6 @@ impl WindowEventHandler {
     }
 
     pub fn run(mut self) {
-        // TODO: This needs a lot of data. Give the function more by default by passing in an arg or having this be a func under a larger struct with more fields
-
         let library = VulkanLibrary::new().expect("can't find vulkan library");
         let physical_device = primitives::select_physical_device(&self.win_ctx);
         let surface =
