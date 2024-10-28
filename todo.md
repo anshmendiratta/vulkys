@@ -1,7 +1,7 @@
 # todo
 
 - [ ] finish vulkano book
-- [ ] get ohysics code rightg
+- [ ] get physics code right
 - [ ] plan for later
 - [ ] 
 - [ ] 

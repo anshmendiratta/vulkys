@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use eframe::EventLoopBuilder;
 use image::{ImageBuffer, Rgba};
-use tracing::info;
+use tracing::{event, info, span, Level};
 
 use vulkano::buffer::{BufferContents, Subbuffer};
 use vulkano::device::physical::PhysicalDeviceType;
@@ -47,9 +47,9 @@ use vulkano::pipeline::{
 };
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
-use vulkano::swapchain::{self, Surface, Swapchain, SwapchainCreateInfo};
+use vulkano::swapchain::{self, Surface, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo};
 use vulkano::sync::{GpuFuture, PipelineStages};
-use vulkano::{library, single_pass_renderpass, sync, VulkanLibrary};
+use vulkano::{library, single_pass_renderpass, sync, Validated, VulkanError, VulkanLibrary};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
@@ -162,7 +162,7 @@ impl WindowEventHandler {
         let vs = super::shaders::vertex_shader::load(self.vk_ctx.device.clone()).unwrap();
         let fs = super::shaders::fragment_shader::load(self.vk_ctx.device.clone()).unwrap();
         let command_buffer_allocator = create_command_buffer_allocator(self.vk_ctx.device.clone());
-        let command_buffers = get_command_buffers(
+        let mut command_buffers = get_command_buffers(
             &command_buffer_allocator,
             &queue,
             &self.graphics_pipeline,
@@ -189,7 +189,7 @@ impl WindowEventHandler {
                     window_resized = true;
                 }
                 Event::MainEventsCleared => {
-                    if recreate_swapchain {
+                    if window_resized || recreate_swapchain {
                         recreate_swapchain = false;
 
                         let new_dimensions = self.win_ctx.window.inner_size();
@@ -214,13 +214,53 @@ impl WindowEventHandler {
                                 self.render_pass.clone(),
                                 self.viewport.clone(),
                             );
-                            let command_buffers = get_command_buffers(
+                            command_buffers = get_command_buffers(
                                 &command_buffer_allocator,
                                 &queue,
                                 &self.graphics_pipeline,
                                 &self.framebuffers,
                                 &vertex_buffer,
                             );
+                        }
+                    }
+
+                    let (image_i, suboptimal, acquire_future) =
+                        match swapchain::acquire_next_image(self.swapchain.clone(), None)
+                            .map_err(Validated::unwrap)
+                        {
+                            Ok(r) => r,
+                            Err(vulkano::VulkanError::OutOfDate) => {
+                                recreate_swapchain = true;
+                                return;
+                            }
+                            Err(e) => panic!("failed to acquire the next image: {e}"),
+                        };
+
+                    if suboptimal {
+                        recreate_swapchain = true;
+                    }
+
+                    let execution = sync::now(self.vk_ctx.device.clone())
+                        .join(acquire_future)
+                        .then_execute(queue.clone(), command_buffers[image_i as usize].clone())
+                        .unwrap()
+                        .then_swapchain_present(
+                            queue.clone(),
+                            SwapchainPresentInfo::swapchain_image_index(
+                                self.swapchain.clone(),
+                                image_i,
+                            ),
+                        )
+                        .then_signal_fence_and_flush();
+
+                    info!("BEFORE EXEC ERROR");
+                    match execution.map_err(Validated::unwrap) {
+                        Ok(future) => future.wait(None).unwrap(),
+                        Err(VulkanError::OutOfDate) => {
+                            recreate_swapchain = true;
+                        }
+                        Err(e) => {
+                            println!("FAILED TO FLUSH FUTURE {e}");
                         }
                     }
                 }
