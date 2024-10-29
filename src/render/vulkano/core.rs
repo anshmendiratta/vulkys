@@ -229,7 +229,7 @@ impl WindowEventHandler {
                             .map_err(Validated::unwrap)
                         {
                             Ok(r) => r,
-                            Err(vulkano::VulkanError::OutOfDate) => {
+                            Err(VulkanError::OutOfDate) => {
                                 recreate_swapchain = true;
                                 return;
                             }
@@ -242,8 +242,8 @@ impl WindowEventHandler {
 
                     let execution = sync::now(self.vk_ctx.device.clone())
                         .join(acquire_future)
-                        .then_execute(queue.clone(), command_buffers[image_i as usize].clone())
-                        .unwrap()
+                        // .then_execute(queue.clone(), command_buffers[image_i as usize].clone()) // NOTE: Offending line
+                        // .unwrap()
                         .then_swapchain_present(
                             queue.clone(),
                             SwapchainPresentInfo::swapchain_image_index(
@@ -447,7 +447,7 @@ fn get_command_buffers(
             command_buffer_builder
                 .begin_render_pass(
                     RenderPassBeginInfo {
-                        clear_values: vec![Some([0.0, 0.0, 0.0, 1.0].into())],
+                        clear_values: vec![Some([0.1, 0.1, 0.1, 1.0].into())],
                         ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
                     },
                     SubpassBeginInfo {
