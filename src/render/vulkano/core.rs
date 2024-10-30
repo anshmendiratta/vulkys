@@ -201,13 +201,13 @@ impl WindowEventHandler {
                             })
                             .expect("failed to recreate swapchain: {e}");
                         self.swapchain = new_swapchain;
-                        let new_framebuffers = get_framebuffers(&new_images, &self.render_pass);
+                        self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
 
                         if window_resized {
                             window_resized = false;
 
                             self.viewport.extent = new_dimensions.into();
-                            let new_pipeline = get_pipeline(
+                            self.graphics_pipeline = get_pipeline(
                                 self.vk_ctx.device.clone(),
                                 vs.clone(),
                                 fs.clone(),
@@ -242,8 +242,8 @@ impl WindowEventHandler {
 
                     let execution = sync::now(self.vk_ctx.device.clone())
                         .join(acquire_future)
-                        // .then_execute(queue.clone(), command_buffers[image_i as usize].clone()) // NOTE: Offending line
-                        // .unwrap()
+                        .then_execute(queue.clone(), command_buffers[image_i as usize].clone()) // NOTE: Offending line
+                        .unwrap()
                         .then_swapchain_present(
                             queue.clone(),
                             SwapchainPresentInfo::swapchain_image_index(
@@ -253,7 +253,6 @@ impl WindowEventHandler {
                         )
                         .then_signal_fence_and_flush();
 
-                    info!("BEFORE EXEC ERROR");
                     match execution.map_err(Validated::unwrap) {
                         Ok(future) => future.wait(None).unwrap(),
                         Err(VulkanError::OutOfDate) => {
@@ -447,7 +446,7 @@ fn get_command_buffers(
             command_buffer_builder
                 .begin_render_pass(
                     RenderPassBeginInfo {
-                        clear_values: vec![Some([0.1, 0.1, 0.1, 1.0].into())],
+                        clear_values: vec![Some([0.0, 0.0, 0.0, 1.0].into())],
                         ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
                     },
                     SubpassBeginInfo {
