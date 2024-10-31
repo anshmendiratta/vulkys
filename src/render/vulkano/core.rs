@@ -4,10 +4,11 @@
 
 use std::ops::Deref;
 use std::sync::Arc;
+use std::{thread, time};
 
 use eframe::EventLoopBuilder;
 use image::{ImageBuffer, Rgba};
-use tracing::{event, info, span, Level};
+use tracing::{error, event, info, span, Level};
 
 use vulkano::buffer::{BufferContents, Subbuffer};
 use vulkano::device::physical::PhysicalDeviceType;
@@ -48,6 +49,7 @@ use vulkano::pipeline::{
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{self, Surface, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo};
+use vulkano::sync::future::FenceSignalFuture;
 use vulkano::sync::{GpuFuture, PipelineStages};
 use vulkano::{library, single_pass_renderpass, sync, Validated, VulkanError, VulkanLibrary};
 use winit::event::{Event, WindowEvent};
@@ -160,7 +162,8 @@ impl WindowEventHandler {
         .unwrap();
 
         let vs = super::shaders::vertex_shader::load(self.vk_ctx.device.clone()).unwrap();
-        let fs = super::shaders::fragment_shader::load(self.vk_ctx.device.clone()).unwrap();
+        let fragment_shader =
+            super::shaders::fragment_shader::load(self.vk_ctx.device.clone()).unwrap();
         let command_buffer_allocator = create_command_buffer_allocator(self.vk_ctx.device.clone());
         let mut command_buffers = get_command_buffers(
             &command_buffer_allocator,
@@ -169,6 +172,10 @@ impl WindowEventHandler {
             &self.framebuffers,
             &vertex_buffer,
         );
+
+        let frames_in_flight = self.images.len();
+        let mut fences: Vec<Option<Arc<FenceSignalFuture<_>>>> = vec![None; frames_in_flight];
+        let mut previous_fence_i = 0;
 
         let mut window_resized = false;
         let mut recreate_swapchain = false;
@@ -210,7 +217,7 @@ impl WindowEventHandler {
                             self.graphics_pipeline = get_pipeline(
                                 self.vk_ctx.device.clone(),
                                 vs.clone(),
-                                fs.clone(),
+                                fragment_shader.clone(),
                                 self.render_pass.clone(),
                                 self.viewport.clone(),
                             );
@@ -240,9 +247,22 @@ impl WindowEventHandler {
                         recreate_swapchain = true;
                     }
 
-                    let execution = sync::now(self.vk_ctx.device.clone())
+                    if let Some(image_fence) = &fences[image_i as usize] {
+                        image_fence.wait(None).unwrap();
+                    }
+                    let previous_fence = match fences[previous_fence_i as usize].clone() {
+                        None => {
+                            let mut now = sync::now(self.vk_ctx.device.clone());
+                            now.cleanup_finished();
+
+                            now.boxed()
+                        }
+                        Some(fence) => fence.boxed(),
+                    };
+
+                    let future = previous_fence
                         .join(acquire_future)
-                        .then_execute(queue.clone(), command_buffers[image_i as usize].clone()) // NOTE: Offending line
+                        .then_execute(queue.clone(), command_buffers[image_i as usize].clone())
                         .unwrap()
                         .then_swapchain_present(
                             queue.clone(),
@@ -253,15 +273,19 @@ impl WindowEventHandler {
                         )
                         .then_signal_fence_and_flush();
 
-                    match execution.map_err(Validated::unwrap) {
-                        Ok(future) => future.wait(None).unwrap(),
+                    fences[image_i as usize] = match future.map_err(Validated::unwrap) {
+                        Ok(value) => Some(Arc::new(value)),
                         Err(VulkanError::OutOfDate) => {
                             recreate_swapchain = true;
+                            None
                         }
                         Err(e) => {
-                            println!("FAILED TO FLUSH FUTURE {e}");
+                            error!("failed to flush future: {e}");
+                            None
                         }
-                    }
+                    };
+
+                    previous_fence_i = image_i;
                 }
                 _ => (),
             });
