@@ -250,6 +250,7 @@ impl WindowEventHandler {
                     if let Some(image_fence) = &fences[image_i as usize] {
                         image_fence.wait(None).unwrap();
                     }
+
                     let previous_fence = match fences[previous_fence_i as usize].clone() {
                         None => {
                             let mut now = sync::now(self.vk_ctx.device.clone());

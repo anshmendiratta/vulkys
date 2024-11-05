@@ -1,6 +1,6 @@
 pub(crate) use crate::physics::rigidbodies::Updateable;
 
-use crate::physics::step::world_step;
+use crate::physics::step::step_world;
 
 pub(crate) struct World {
     pub gravity: (f64, f64),
@@ -61,7 +61,7 @@ impl World {
     where
         T: Updateable + AsRef<T> + Clone,
     {
-        world_step(self)
+        step_world(self)
     }
 }
 
