@@ -17,27 +17,6 @@ pub mod compute_shaders {
     }
 }
 
-pub mod fragment_shader {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: r"
-            #version 460
-
-            layout(location = 0) out vec4 f_color;
-            layout(location = 1) in vec2 pos;
-
-            void main() {
-                float t_along_x = (pos.x + gl_FragCoord.x)/1024.0;
-                float t_along_y = (pos.y + gl_FragCoord.y)/1024.0;
-                float r = t_along_x;
-                float b = t_along_y;
-                vec3 pixel_color = vec3(r, 0.0, b);
-                f_color = vec4(pixel_color, 1.0);
-            }
-        ",
-    }
-}
-
 pub mod vertex_shader {
     vulkano_shaders::shader! {
         ty: "vertex",
@@ -49,7 +28,25 @@ pub mod vertex_shader {
 
             void main() {
                 gl_Position = vec4(position, 0.0, 1.0);
+                gl_PointSize = 10.0;
+
                 pos = gl_Position.xy;
+            }
+        ",
+    }
+}
+pub mod fragment_shader {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        src: r"
+            #version 460
+
+            layout(location = 0) out vec4 f_color;
+            layout(location = 1) in vec2 pos;
+
+            void main() {
+                vec3 pixel_color = vec3(1.0, 1.0, 1.0);
+                f_color = vec4(pixel_color, 1.0);
             }
         ",
     }
