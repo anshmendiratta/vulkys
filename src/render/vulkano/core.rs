@@ -13,7 +13,7 @@ use tracing::{error, event, info, span, Level};
 use vulkano::buffer::{BufferContents, Subbuffer};
 use vulkano::device::physical::PhysicalDeviceType;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
-use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
+use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
 use vulkano::pipeline::graphics::multisample::MultisampleState;
 use vulkano::pipeline::graphics::rasterization::RasterizationState;
 use vulkano::pipeline::graphics::vertex_input::{Vertex, VertexDefinition};
@@ -52,6 +52,7 @@ use vulkano::swapchain::{self, Surface, Swapchain, SwapchainCreateInfo, Swapchai
 use vulkano::sync::future::FenceSignalFuture;
 use vulkano::sync::{GpuFuture, PipelineStages};
 use vulkano::{library, single_pass_renderpass, sync, Validated, VulkanError, VulkanLibrary};
+use winit::dpi::Size;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
@@ -60,6 +61,7 @@ use super::primitives::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
     get_framebuffers, get_required_extensions, select_device_and_queues,
 };
+use super::procedural::generate_hexagon_vertices;
 use super::shaders;
 
 pub struct VulkanoContext {
@@ -137,15 +139,7 @@ impl WindowEventHandler {
             .0;
         let queue = self.vk_ctx.queues.next().unwrap();
         let memory_allocator = create_memory_allocator(self.vk_ctx.device.clone());
-        let vertex_1 = MyVertex {
-            position: [-0.5, -0.5],
-        };
-        let vertex_2 = MyVertex {
-            position: [0.0, 0.5],
-        };
-        let vertex_3 = MyVertex {
-            position: [0.5, -0.25],
-        };
+        let vertex_vector = generate_hexagon_vertices::<6>();
         let vertex_buffer = Buffer::from_iter(
             memory_allocator.clone(),
             BufferCreateInfo {
@@ -157,7 +151,7 @@ impl WindowEventHandler {
                     | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
             },
-            vec![vertex_1, vertex_2, vertex_3],
+            vertex_vector,
         )
         .unwrap();
 
@@ -296,7 +290,19 @@ impl WindowEventHandler {
 impl WindowContext {
     pub fn new() -> Self {
         let event_loop = EventLoop::new();
-        let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
+        const WINDOW_LENGTH: usize = 1000;
+        const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
+            width: WINDOW_LENGTH as u32,
+            height: WINDOW_LENGTH as u32,
+        });
+        let window = Arc::new(
+            WindowBuilder::new()
+                .with_title("vulkys")
+                .with_inner_size(WINDOW_DIMENSION)
+                .with_resizable(false)
+                .build(&event_loop)
+                .unwrap(),
+        );
         let (_, required_extensions) = get_required_extensions(&event_loop);
         let library = VulkanLibrary::new().expect("could not find local vulkan");
         let instance = Instance::new(
@@ -336,11 +342,11 @@ impl VulkanoContext {
     }
 }
 
-#[derive(BufferContents, Vertex)]
+#[derive(BufferContents, Vertex, Debug)]
 #[repr(C)]
-struct MyVertex {
+pub struct MyVertex {
     #[format(R32G32_SFLOAT)]
-    position: [f32; 2],
+    pub position: [f32; 2],
 }
 
 pub fn run_graphics_pipeline(
@@ -528,7 +534,10 @@ pub fn get_pipeline(
         vulkano::pipeline::graphics::GraphicsPipelineCreateInfo {
             stages: stages.into_iter().collect(),
             vertex_input_state: Some(vertex_shader_state),
-            input_assembly_state: Some(InputAssemblyState::default()),
+            input_assembly_state: Some(InputAssemblyState {
+                topology: PrimitiveTopology::PointList,
+                ..Default::default()
+            }),
             viewport_state: Some(ViewportState {
                 viewports: [viewport].into(),
                 ..Default::default()
