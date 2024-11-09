@@ -144,13 +144,10 @@ impl WindowEventHandler {
             .surface_formats(&surface, Default::default())
             .unwrap()[0]
             .0;
-<<<<<<< HEAD
         let queue = self.vkcx.queues.next().unwrap();
         let memory_allocator = create_memory_allocator(self.vkcx.device.clone());
-=======
-        let queue = self.vk_ctx.queues.next().unwrap();
-        let memory_allocator = create_memory_allocator(self.vk_ctx.device.clone());
->>>>>>> c6fcd486c82c5f8727e409c484ada63b9131aa67
+        let queue = self.vkcx.queues.next().unwrap();
+        let memory_allocator = create_memory_allocator(self.vkcx.device.clone());
         let vertex_vector = generate_hexagon_vertices::<6>();
         let vertex_buffer = Buffer::from_iter(
             memory_allocator.clone(),
@@ -302,23 +299,17 @@ impl WindowEventHandler {
 impl WindowContext {
     pub fn new() -> Self {
         let event_loop = EventLoop::new();
-<<<<<<< HEAD
-=======
         const WINDOW_LENGTH: usize = 1000;
         const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
             width: WINDOW_LENGTH as u32,
             height: WINDOW_LENGTH as u32,
         });
->>>>>>> c6fcd486c82c5f8727e409c484ada63b9131aa67
         let window = Arc::new(
             WindowBuilder::new()
                 .with_title("vulkys")
                 .with_inner_size(WINDOW_DIMENSION)
                 .with_resizable(false)
-<<<<<<< HEAD
                 .with_decorations(false)
-=======
->>>>>>> c6fcd486c82c5f8727e409c484ada63b9131aa67
                 .build(&event_loop)
                 .unwrap(),
         );
@@ -554,11 +545,7 @@ pub fn get_pipeline(
             stages: stages.into_iter().collect(),
             vertex_input_state: Some(vertex_shader_state),
             input_assembly_state: Some(InputAssemblyState {
-<<<<<<< HEAD
                 topology: PrimitiveTopology::TriangleFan,
-=======
-                topology: PrimitiveTopology::PointList,
->>>>>>> c6fcd486c82c5f8727e409c484ada63b9131aa67
                 ..Default::default()
             }),
             viewport_state: Some(ViewportState {
