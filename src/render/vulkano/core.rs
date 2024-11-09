@@ -64,6 +64,12 @@ use super::primitives::{
 use super::procedural::generate_hexagon_vertices;
 use super::shaders;
 
+const WINDOW_LENGTH: usize = 1000;
+const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
+    width: WINDOW_LENGTH as u32,
+    height: WINDOW_LENGTH as u32,
+});
+
 pub struct VulkanoContext {
     pub device: Arc<Device>,
     queue_family_index: u32,
@@ -77,8 +83,10 @@ pub struct WindowContext {
 }
 
 pub struct WindowEventHandler {
-    vk_ctx: VulkanoContext,
-    win_ctx: WindowContext,
+    #[doc = "Vulkano context"]
+    vkcx: VulkanoContext,
+    #[doc = "Window context"]
+    wincx: WindowContext,
     swapchain: Arc<Swapchain>,
     framebuffers: Vec<Arc<Framebuffer>>,
     images: Vec<Arc<Image>>,
@@ -111,8 +119,8 @@ impl WindowEventHandler {
             viewport.clone(),
         );
         Self {
-            vk_ctx,
-            win_ctx,
+            vkcx: vk_ctx,
+            wincx: win_ctx,
             swapchain,
             framebuffers,
             images,
@@ -124,21 +132,20 @@ impl WindowEventHandler {
 
     pub fn run(mut self) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");
-        let physical_device = primitives::select_physical_device(&self.win_ctx);
-        let surface =
-            Surface::from_window(self.win_ctx.instance.clone(), self.win_ctx.window.clone())
-                .expect("could not create window");
+        let physical_device = primitives::select_physical_device(&self.wincx);
+        let surface = Surface::from_window(self.wincx.instance.clone(), self.wincx.window.clone())
+            .expect("could not create window");
         let caps = physical_device
             .surface_capabilities(&surface, Default::default())
             .expect("failed to get surface capabilities");
-        let dimensions = self.win_ctx.window.inner_size();
+        let dimensions = self.wincx.window.inner_size();
         let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
         let image_format = physical_device
             .surface_formats(&surface, Default::default())
             .unwrap()[0]
             .0;
-        let queue = self.vk_ctx.queues.next().unwrap();
-        let memory_allocator = create_memory_allocator(self.vk_ctx.device.clone());
+        let queue = self.vkcx.queues.next().unwrap();
+        let memory_allocator = create_memory_allocator(self.vkcx.device.clone());
         let vertex_vector = generate_hexagon_vertices::<6>();
         let vertex_buffer = Buffer::from_iter(
             memory_allocator.clone(),
@@ -155,10 +162,10 @@ impl WindowEventHandler {
         )
         .unwrap();
 
-        let vs = super::shaders::vertex_shader::load(self.vk_ctx.device.clone()).unwrap();
+        let vs = super::shaders::vertex_shader::load(self.vkcx.device.clone()).unwrap();
         let fragment_shader =
-            super::shaders::fragment_shader::load(self.vk_ctx.device.clone()).unwrap();
-        let command_buffer_allocator = create_command_buffer_allocator(self.vk_ctx.device.clone());
+            super::shaders::fragment_shader::load(self.vkcx.device.clone()).unwrap();
+        let command_buffer_allocator = create_command_buffer_allocator(self.vkcx.device.clone());
         let mut command_buffers = get_command_buffers(
             &command_buffer_allocator,
             &queue,
@@ -174,7 +181,7 @@ impl WindowEventHandler {
         let mut window_resized = false;
         let mut recreate_swapchain = false;
 
-        self.win_ctx
+        self.wincx
             .event_loop
             .run(move |event, _, control_flow| match event {
                 Event::WindowEvent {
@@ -193,7 +200,7 @@ impl WindowEventHandler {
                     if window_resized || recreate_swapchain {
                         recreate_swapchain = false;
 
-                        let new_dimensions = self.win_ctx.window.inner_size();
+                        let new_dimensions = self.wincx.window.inner_size();
                         let (new_swapchain, new_images) = self
                             .swapchain
                             .recreate(SwapchainCreateInfo {
@@ -209,7 +216,7 @@ impl WindowEventHandler {
 
                             self.viewport.extent = new_dimensions.into();
                             self.graphics_pipeline = get_pipeline(
-                                self.vk_ctx.device.clone(),
+                                self.vkcx.device.clone(),
                                 vs.clone(),
                                 fragment_shader.clone(),
                                 self.render_pass.clone(),
@@ -247,7 +254,7 @@ impl WindowEventHandler {
 
                     let previous_fence = match fences[previous_fence_i as usize].clone() {
                         None => {
-                            let mut now = sync::now(self.vk_ctx.device.clone());
+                            let mut now = sync::now(self.vkcx.device.clone());
                             now.cleanup_finished();
 
                             now.boxed()
@@ -290,16 +297,12 @@ impl WindowEventHandler {
 impl WindowContext {
     pub fn new() -> Self {
         let event_loop = EventLoop::new();
-        const WINDOW_LENGTH: usize = 1000;
-        const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
-            width: WINDOW_LENGTH as u32,
-            height: WINDOW_LENGTH as u32,
-        });
         let window = Arc::new(
             WindowBuilder::new()
                 .with_title("vulkys")
                 .with_inner_size(WINDOW_DIMENSION)
                 .with_resizable(false)
+                .with_decorations(false)
                 .build(&event_loop)
                 .unwrap(),
         );
@@ -535,7 +538,7 @@ pub fn get_pipeline(
             stages: stages.into_iter().collect(),
             vertex_input_state: Some(vertex_shader_state),
             input_assembly_state: Some(InputAssemblyState {
-                topology: PrimitiveTopology::PointList,
+                topology: PrimitiveTopology::TriangleFan,
                 ..Default::default()
             }),
             viewport_state: Some(ViewportState {
