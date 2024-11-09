@@ -146,8 +146,6 @@ impl WindowEventHandler {
             .0;
         let queue = self.vkcx.queues.next().unwrap();
         let memory_allocator = create_memory_allocator(self.vkcx.device.clone());
-        let queue = self.vkcx.queues.next().unwrap();
-        let memory_allocator = create_memory_allocator(self.vkcx.device.clone());
         let vertex_vector = generate_hexagon_vertices::<6>();
         let vertex_buffer = Buffer::from_iter(
             memory_allocator.clone(),
