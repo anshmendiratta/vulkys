@@ -45,7 +45,11 @@ pub mod fragment_shader {
             layout(location = 1) in vec2 pos;
 
             void main() {
+<<<<<<< HEAD
                 vec3 pixel_color = vec3(0.5, 0.2, 1.0);
+=======
+                vec3 pixel_color = vec3(1.0, 1.0, 1.0);
+>>>>>>> c6fcd486c82c5f8727e409c484ada63b9131aa67
                 f_color = vec4(pixel_color, 1.0);
             }
         ",
