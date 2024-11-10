@@ -12,7 +12,7 @@ libm = "0.2.6"
 vulkano = "0.34.1"
 vulkano-shaders = "0.34.0"
 image = "0.24"
-winit = "0.28.0"
+winit = {version = "0.28.0", default-features = true}
 
 [profile.dev]
 opt-level = 1 

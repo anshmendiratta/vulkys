@@ -307,7 +307,6 @@ impl WindowContext {
                 .with_title("vulkys")
                 .with_inner_size(WINDOW_DIMENSION)
                 .with_resizable(false)
-                .with_decorations(false)
                 .build(&event_loop)
                 .unwrap(),
         );
