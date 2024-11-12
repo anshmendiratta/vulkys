@@ -1,7 +1,7 @@
 use libm::{cos, sin};
 use std::f32::consts::PI;
 
-use super::core::MyVertex;
+use super::vk_core::MyVertex;
 
 pub fn generate_hexagon_vertices<const N: usize>() -> Vec<MyVertex> {
     let radius: f32 = 0.5;

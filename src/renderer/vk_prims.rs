@@ -9,12 +9,14 @@ use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use vulkano::VulkanLibrary;
 use winit::event_loop::EventLoop;
 
-use super::core::{VulkanoContext, WindowContext};
+use super::vk_core::{VulkanoContext, WindowContext};
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
 };
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
-use vulkano::device::{Device, DeviceCreateInfo, DeviceExtensions, QueueCreateInfo, QueueFlags};
+use vulkano::device::{
+    Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
+};
 use vulkano::instance::InstanceExtensions;
 use vulkano::memory::allocator::StandardMemoryAllocator;
 
@@ -122,13 +124,7 @@ pub fn select_physical_device(win_ctx: &WindowContext) -> Arc<PhysicalDevice> {
         .0
 }
 
-pub fn select_device_and_queues(
-    win_ctx: &WindowContext,
-) -> (
-    Arc<Device>,
-    u32,
-    impl ExactSizeIterator<Item = Arc<vulkano::device::Queue>>,
-) {
+pub fn select_device_and_queue(win_ctx: &WindowContext) -> (Arc<Device>, u32, Arc<Queue>) {
     let device_extensions = DeviceExtensions {
         khr_swapchain: true,
         ..DeviceExtensions::empty()
@@ -146,7 +142,7 @@ pub fn select_device_and_queues(
         })
         .expect("couldn't find a graphical queue family") as u32;
 
-    let (device, queues) = Device::new(
+    let (device, mut queues) = Device::new(
         physical_device,
         DeviceCreateInfo {
             queue_create_infos: vec![QueueCreateInfo {
@@ -159,7 +155,7 @@ pub fn select_device_and_queues(
     )
     .expect("failed to create device");
 
-    (device, queue_family_index, queues)
+    (device, queue_family_index, queues.next().unwrap())
 }
 
 pub fn create_memory_allocator(
