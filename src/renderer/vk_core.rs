@@ -302,11 +302,6 @@ impl WindowEventHandler {
 impl WindowContext {
     pub fn new() -> Self {
         let event_loop = EventLoop::new();
-        const WINDOW_LENGTH: usize = 1000;
-        const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
-            width: WINDOW_LENGTH as u32,
-            height: WINDOW_LENGTH as u32,
-        });
         let window = Arc::new(
             WindowBuilder::new()
                 .with_title("vulkys")
