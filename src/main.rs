@@ -11,9 +11,7 @@ fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
     let win_ctx_handler = WindowEventHandler::new();
-    // win_ctx_handler.run();
-
-    let compute_pipeline = get_compute_pipeline(win_ctx_handler.vkcx());
+    win_ctx_handler.run();
 
     info!("WORKED");
 
@@ -23,5 +21,6 @@ fn main() -> Result<(), eframe::Error> {
     //     options,
     //     Box::new(|_cc| Box::<Content>::default()),
     // );
+
     Ok(())
 }

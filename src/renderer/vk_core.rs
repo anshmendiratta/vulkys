@@ -100,7 +100,7 @@ impl WindowEventHandler {
         };
         let vs = super::shaders::vertex_shader::load(vk_ctx.device.clone()).unwrap();
         let fs = super::shaders::fragment_shader::load(vk_ctx.device.clone()).unwrap();
-        let graphics_pipeline = get_pipeline(
+        let graphics_pipeline = get_graphics_pipeline(
             vk_ctx.device.clone(),
             vs,
             fs,
@@ -152,8 +152,8 @@ impl WindowEventHandler {
         .unwrap();
 
         let vs = super::shaders::vertex_shader::load(self.vkcx.device.clone()).unwrap();
-        let fragment_shader =
-            super::shaders::fragment_shader::load(self.vkcx.device.clone()).unwrap();
+        let fs = super::shaders::fragment_shader::load(self.vkcx.device.clone()).unwrap();
+
         let command_buffer_allocator = create_command_buffer_allocator(self.vkcx.device.clone());
         let mut command_buffers = get_command_buffers(
             &command_buffer_allocator,
@@ -204,10 +204,10 @@ impl WindowEventHandler {
                             window_resized = false;
 
                             self.viewport.extent = new_dimensions.into();
-                            self.graphics_pipeline = get_pipeline(
+                            self.graphics_pipeline = get_graphics_pipeline(
                                 self.vkcx.device.clone(),
                                 vs.clone(),
-                                fragment_shader.clone(),
+                                fs.clone(),
                                 self.render_pass.clone(),
                                 self.viewport.clone(),
                             );
@@ -351,9 +351,9 @@ impl VulkanoContext {
 
 #[derive(BufferContents, Vertex, Debug)]
 #[repr(C)]
-pub struct MyVertex {
+pub struct CustomVertex {
     #[format(R32G32_SFLOAT)]
-    pub position: [f32; 2],
+    pub position_in: [f32; 2],
 }
 
 fn get_command_buffers(
@@ -361,7 +361,7 @@ fn get_command_buffers(
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
     framebuffers: &Vec<Arc<Framebuffer>>,
-    vertex_buffer: &Subbuffer<[MyVertex]>,
+    vertex_buffer: &Subbuffer<[CustomVertex]>,
 ) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
     framebuffers
         .iter()
@@ -399,7 +399,7 @@ fn get_command_buffers(
         .collect()
 }
 
-pub fn get_pipeline(
+pub fn get_graphics_pipeline(
     device: Arc<Device>,
     vertex_shader: Arc<ShaderModule>,
     fragment_shader: Arc<ShaderModule>,
@@ -408,16 +408,15 @@ pub fn get_pipeline(
 ) -> Arc<GraphicsPipeline> {
     let vs = vertex_shader.entry_point("main").unwrap();
     let fs = fragment_shader.entry_point("main").unwrap();
-    let cs = super::shaders::compute_shaders::load(device.clone())
-        .unwrap()
-        .entry_point("main")
-        .unwrap();
 
-    let vertex_shader_state = MyVertex::per_vertex()
+    let vertex_shader_state = CustomVertex::per_vertex()
         .definition(&vs.info().input_interface)
         .unwrap();
 
-    let stages = [PipelineShaderStageCreateInfo::new(vs)];
+    let stages = [
+        PipelineShaderStageCreateInfo::new(vs),
+        PipelineShaderStageCreateInfo::new(fs),
+    ];
 
     let layout = PipelineLayout::new(
         device.clone(),
@@ -435,7 +434,7 @@ pub fn get_pipeline(
             stages: stages.into_iter().collect(),
             vertex_input_state: Some(vertex_shader_state),
             input_assembly_state: Some(InputAssemblyState {
-                topology: PrimitiveTopology::TriangleFan,
+                topology: PrimitiveTopology::PointList,
                 ..Default::default()
             }),
             viewport_state: Some(ViewportState {
@@ -483,6 +482,7 @@ pub fn get_compute_pipeline(ctx: VulkanoContext) {
     let shader = super::shaders::compute_shaders::load(device.clone())
         .expect("failed to create shader module");
     let cs = shader.entry_point("main").unwrap();
+
     let stage = PipelineShaderStageCreateInfo::new(cs);
     let layout = PipelineLayout::new(
         device.clone(),
@@ -558,10 +558,6 @@ pub fn get_compute_pipeline(ctx: VulkanoContext) {
         .unwrap()
         .then_signal_fence_and_flush()
         .unwrap();
-    future.wait(None).unwrap();
 
-    let buffer_content = data_buffer.read().unwrap();
-    for val in buffer_content.iter() {
-        dbg!(val.round());
-    }
+    future.wait(None).unwrap();
 }
