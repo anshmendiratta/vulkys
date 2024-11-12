@@ -71,19 +71,6 @@ const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     height: WINDOW_LENGTH as u32,
 });
 
-#[derive(Clone)]
-pub struct VulkanoContext {
-    pub(crate) device: Arc<Device>,
-    queue_family_index: u32,
-    queue: Arc<Queue>,
-}
-
-pub struct WindowContext {
-    pub instance: Arc<Instance>,
-    pub window: Arc<Window>,
-    event_loop: EventLoop<()>,
-}
-
 pub struct WindowEventHandler {
     #[doc = "Vulkano context"]
     vkcx: VulkanoContext,
@@ -299,6 +286,12 @@ impl WindowEventHandler {
     }
 }
 
+pub struct WindowContext {
+    pub instance: Arc<Instance>,
+    pub window: Arc<Window>,
+    event_loop: EventLoop<()>,
+}
+
 impl WindowContext {
     pub fn new() -> Self {
         let event_loop = EventLoop::new();
@@ -333,6 +326,13 @@ impl WindowContext {
     pub fn event_loop(&self) -> &EventLoop<()> {
         &self.event_loop
     }
+}
+
+#[derive(Clone)]
+pub struct VulkanoContext {
+    pub(crate) device: Arc<Device>,
+    queue_family_index: u32,
+    queue: Arc<Queue>,
 }
 
 impl VulkanoContext {
