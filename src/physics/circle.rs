@@ -6,7 +6,7 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-struct Circle {
+pub struct Circle {
     radius: f32,
     position: Vec2,
     velocity: Vec2,

@@ -1,3 +1,4 @@
+use super::circle::Circle;
 use egui::Vec2;
 
 #[derive(PartialEq)]
@@ -11,6 +12,10 @@ impl RigidBodySelection {
             RigidBodySelection::Circle => "Circle",
         }
     }
+}
+
+pub enum RigidBody {
+    Circle(Circle),
 }
 
 const DELTA_TIME: f64 = 0.1;
