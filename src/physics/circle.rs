@@ -7,9 +7,9 @@ use super::{
 
 #[derive(Debug, Clone)]
 pub struct Circle {
-    radius: f32,
-    position: Vec2,
-    velocity: Vec2,
+    pub radius: f32,
+    pub position: Vec2,
+    pub velocity: Vec2,
 }
 
 impl Updateable for Circle {
