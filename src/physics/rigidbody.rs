@@ -40,4 +40,13 @@ impl RigidBody {
             },
         }
     }
+    pub fn get_vertex_count(&self) -> u8 {
+        match self {
+            RigidBody::Circle_(Circle {
+                radius: _,
+                position: _,
+                velocity: _,
+            }) => 32,
+        }
+    }
 }

@@ -53,17 +53,19 @@ use vulkano::swapchain::{self, Surface, Swapchain, SwapchainCreateInfo, Swapchai
 use vulkano::sync::future::FenceSignalFuture;
 use vulkano::sync::{GpuFuture, PipelineStages};
 use vulkano::{library, single_pass_renderpass, sync, Validated, VulkanError, VulkanLibrary};
-use winit::dpi::Size;
+use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
+
+use crate::physics::rigidbody::RigidBody;
 
 use super::shaders;
 use super::vk_prims::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
     get_framebuffers, get_required_extensions, select_device_and_queue,
 };
-use super::vk_proc_func::generate_hexagon_vertices;
+use super::vk_proc_func::{generate_polygon_vertices, Polygon};
 
 const WINDOW_LENGTH: f32 = 1000.;
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
@@ -85,25 +87,25 @@ pub struct WindowEventHandler {
 
 impl WindowEventHandler {
     pub fn new() -> Self {
-        let win_ctx = WindowContext::new();
-        let vk_ctx = VulkanoContext::with_window_context(&win_ctx);
-        let required_extensions = Surface::required_extensions(&win_ctx.event_loop);
+        let windowcx = WindowContext::new();
+        let vulkancx = VulkanoContext::with_window_context(&windowcx);
+        let required_extensions = Surface::required_extensions(&windowcx.event_loop);
         let library = VulkanLibrary::new().expect("no local vulkan lib");
-        let (swapchain, images) = create_swapchain_and_images(&win_ctx, &vk_ctx);
-        let render_pass = get_render_pass(vk_ctx.device.clone(), &swapchain);
+        let (swapchain, images) = create_swapchain_and_images(&windowcx, &vulkancx);
+        let render_pass = get_render_pass(vulkancx.device.clone(), &swapchain);
         let framebuffers = get_framebuffers(&images, &render_pass);
-        let vs = super::shaders::vertex_shader::load(vk_ctx.device.clone()).unwrap();
-        let fs = super::shaders::fragment_shader::load(vk_ctx.device.clone()).unwrap();
+        let vs = super::shaders::vertex_shader::load(vulkancx.device.clone()).unwrap();
+        let fs = super::shaders::fragment_shader::load(vulkancx.device.clone()).unwrap();
         let graphics_pipeline = get_graphics_pipeline(
-            vk_ctx.device.clone(),
+            vulkancx.device.clone(),
             vs,
             fs,
             render_pass.clone(),
-            win_ctx.rendercx.viewport.clone(),
+            windowcx.rendercx.viewport.clone(),
         );
         Self {
-            vulkancx: vk_ctx,
-            windowcx: win_ctx,
+            vulkancx,
+            windowcx,
             swapchain,
             framebuffers,
             images,
@@ -113,6 +115,10 @@ impl WindowEventHandler {
     }
 
     pub fn run(mut self) {
+        // let objects: Vec<Polygon>  =
+        // self.run_inner(objects);
+    }
+    pub fn run_inner(mut self) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");
         let physical_device = vk_prims::select_physical_device(&self.windowcx);
         let surface =
@@ -129,9 +135,43 @@ impl WindowEventHandler {
             .0;
         let queue = self.vulkancx.queue;
         let memory_allocator = create_memory_allocator(self.vulkancx.device.clone());
-        let vertex_vector: Vec<CustomVertex> = generate_hexagon_vertices::<6>(
-            WINDOW_DIMENSION.to_physical(self.windowcx.rendercx.scale_factor),
-        );
+
+        // Polygon construction
+        let central_vertices: Vec<CustomVertex> = vec![
+            CustomVertex {
+                position_in: [0.5; 2],
+            },
+            CustomVertex {
+                position_in: [-0.5; 2],
+            },
+        ];
+        // NOTE: Length of these two vectors should be the same
+        // TODO: Rewrite later, refactor too
+        // Type: Vec<[CustomVertex; 3]>
+        let polygon_vector: Vec<Polygon> = [4 as u8, 5 as u8]
+            .iter()
+            .enumerate()
+            .map(|(i, obj)| {
+                // let vertex_count = obj.get_vertex_count();
+                generate_polygon_vertices(*obj as u8, central_vertices[i].clone())
+            })
+            .collect();
+
+        let vertex_buffer_data: Vec<CustomVertex> = {
+            let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(polygon_vector.len() * 3);
+            for polygon in polygon_vector {
+                for triangle in polygon {
+                    let [a, b, c] = triangle;
+                    buffer_data.push(a);
+                    buffer_data.push(b);
+                    buffer_data.push(c);
+                }
+            }
+
+            buffer_data
+        };
+        dbg!(&vertex_buffer_data);
+        dbg!(&vertex_buffer_data.len());
         let vertex_buffer = Buffer::from_iter(
             memory_allocator.clone(),
             BufferCreateInfo {
@@ -143,7 +183,7 @@ impl WindowEventHandler {
                     | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
             },
-            vertex_vector,
+            vertex_buffer_data,
         )
         .unwrap();
 
@@ -292,10 +332,10 @@ pub struct RenderContext {
 }
 
 impl RenderContext {
-    fn new() -> Self {
+    fn new(window_inner_size: PhysicalSize<u32>) -> Self {
         let scale_factor = 1.0;
         let viewport = Viewport {
-            extent: [WINDOW_LENGTH; 2],
+            extent: window_inner_size.into(),
             ..Default::default()
         };
         RenderContext {
@@ -339,7 +379,7 @@ impl WindowContext {
             },
         )
         .expect("failed to create instance");
-        let rendercx = RenderContext::new();
+        let rendercx = RenderContext::new(window.inner_size());
 
         Self {
             instance,
@@ -377,7 +417,7 @@ impl VulkanoContext {
     }
 }
 
-#[derive(BufferContents, Vertex, Debug)]
+#[derive(BufferContents, Vertex, Debug, Clone)]
 #[repr(C)]
 pub struct CustomVertex {
     #[format(R32G32_SFLOAT)]
@@ -404,7 +444,7 @@ fn get_command_buffers(
             command_buffer_builder
                 .begin_render_pass(
                     RenderPassBeginInfo {
-                        clear_values: vec![Some([0.0, 0.0, 0.0, 1.0].into())],
+                        clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],
                         ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
                     },
                     SubpassBeginInfo {
@@ -436,16 +476,13 @@ pub fn get_graphics_pipeline(
 ) -> Arc<GraphicsPipeline> {
     let vs = vertex_shader.entry_point("main").unwrap();
     let fs = fragment_shader.entry_point("main").unwrap();
-
     let vertex_shader_state = CustomVertex::per_vertex()
         .definition(&vs.info().input_interface)
         .unwrap();
-
     let stages = [
         PipelineShaderStageCreateInfo::new(vs),
         PipelineShaderStageCreateInfo::new(fs),
     ];
-
     let layout = PipelineLayout::new(
         device.clone(),
         PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
@@ -462,7 +499,7 @@ pub fn get_graphics_pipeline(
             stages: stages.into_iter().collect(),
             vertex_input_state: Some(vertex_shader_state),
             input_assembly_state: Some(InputAssemblyState {
-                topology: PrimitiveTopology::TriangleFan,
+                topology: PrimitiveTopology::TriangleList,
                 ..Default::default()
             }),
             viewport_state: Some(ViewportState {

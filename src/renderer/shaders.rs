@@ -35,7 +35,8 @@ pub mod vertex_shader {
             layout(location = 1) out vec2 position_out;
 
             void main() {
-                gl_Position = vec4(position_in, 2.0, 0);
+                gl_Position = vec4(position_in, 0.0, 1.0);
+                // gl_PointSize = 20.;
             }
         ",
     }
@@ -49,9 +50,17 @@ pub mod fragment_shader {
             layout(location = 0) out vec4 f_color;
             layout(location = 1) in vec2 pos;
 
+            // bool is_inside_circle(vec2 pos)  {
+            //     vec2 circle_center = vec2(0.0);
+            //     vec2 dist_coords = vec2(circle_center - pos);
+            //     if (length(dist_coords) < 1000.) {
+            //         return true;
+            //     };
+            //     return false;
+            // }
+            
             void main() {
-                vec3 pixel_color = vec3(1.0);
-                f_color = vec4(pixel_color, 1.0);
+                f_color = vec4(1.0, 1.0, 0.0, 1.0);
             }
         ",
     }

@@ -13,17 +13,18 @@ use vulkys::{
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
-    let win_ctx_handler = WindowEventHandler::new();
-    dbg!(&win_ctx_handler.windowcx().window.inner_size());
-    win_ctx_handler.run();
+    // Running simulation
+    let windowcx_handler = WindowEventHandler::new();
+    windowcx_handler.run_inner();
 
     info!("WORKED");
 
-    eframe::run_native(
-        "Physics engine!",
-        eframe::NativeOptions::default(),
-        Box::new(|_cc| Box::<Content>::default()),
-    )?;
+    // Opening initial GUI
+    // eframe::run_native(
+    //     "Physics engine!",
+    //     eframe::NativeOptions::default(),
+    //     Box::new(|_cc| Box::<Content>::default()),
+    // )?;
 
     Ok(())
 }

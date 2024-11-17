@@ -53,24 +53,22 @@ pub fn get_framebuffers(
 }
 
 pub fn create_swapchain_and_images(
-    win_ctx: &WindowContext,
-    vk_ctx: &VulkanoContext,
+    windowcx: &WindowContext,
+    vulkancx: &VulkanoContext,
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
-    let surface = Surface::from_window(win_ctx.instance.clone(), win_ctx.window.clone())
+    let surface = Surface::from_window(windowcx.instance.clone(), windowcx.window.clone())
         .expect("could not create window");
-    let physical_device = select_physical_device(win_ctx);
-    let device = vk_ctx.device.clone();
+    let physical_device = select_physical_device(windowcx);
+    let device = vulkancx.device.clone();
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
-
-    let dimensions = win_ctx.window.inner_size();
+    let dimensions = windowcx.window.inner_size();
     let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
     let image_format = physical_device
         .surface_formats(&surface, Default::default())
         .unwrap()[0]
         .0;
-
     let (swapchain, images) = Swapchain::new(
         device.clone(),
         surface.clone(),
