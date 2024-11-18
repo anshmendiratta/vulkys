@@ -115,8 +115,7 @@ impl WindowEventHandler {
     }
 
     pub fn run(mut self) {
-        // let objects: Vec<Polygon>  =
-        // self.run_inner(objects);
+        // let objects: Vec<Polygon> =
     }
     pub fn run_inner(mut self) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");

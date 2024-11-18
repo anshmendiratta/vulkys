@@ -1,24 +1,25 @@
-use egui::Vec2;
+use serde::Serialize;
+
+use crate::FVec2;
 
 use super::{
     lib::DELTA_TIME,
     rigidbody::{GenericObject, Updateable},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Circle {
     pub radius: f32,
-    pub position: Vec2,
-    pub velocity: Vec2,
+    pub position: FVec2,
+    pub velocity: FVec2,
 }
 
 impl Updateable for Circle {
-    fn update_position(&mut self, velocity: Vec2) {
-        self.position += Vec2::new(velocity.x * DELTA_TIME, velocity.y * DELTA_TIME);
+    fn update_position(&mut self, velocity: FVec2) {
+        self.position += FVec2::new(velocity.x * DELTA_TIME, velocity.y * DELTA_TIME);
     }
-
-    fn update_velocity(&mut self, acceleration: Vec2) {
-        self.velocity += Vec2::new(acceleration.x * DELTA_TIME, acceleration.y * DELTA_TIME);
+    fn update_velocity(&mut self, acceleration: FVec2) {
+        self.velocity += FVec2::new(acceleration.x * DELTA_TIME, acceleration.y * DELTA_TIME);
     }
 }
 

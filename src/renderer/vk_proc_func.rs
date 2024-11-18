@@ -13,7 +13,7 @@ pub fn generate_polygon_vertices(n: u8, with_center: CustomVertex) -> Polygon {
         .map(|(idx, _)| 2.0 * PI / (n as f32) * idx as f32)
         .collect();
 
-    let outer_coordinates: Vec<CustomVertex> = angles
+    let mut outer_coordinates: Vec<CustomVertex> = angles
         .iter()
         .map(|angle| CustomVertex {
             position_in: [
@@ -22,8 +22,9 @@ pub fn generate_polygon_vertices(n: u8, with_center: CustomVertex) -> Polygon {
             ],
         })
         .collect();
+    outer_coordinates.push(outer_coordinates[0].clone());
 
-    let mut triangles: Vec<Triangle> = Vec::with_capacity(n as usize - 2);
+    let mut triangles: Vec<Triangle> = Vec::with_capacity(n as usize);
     outer_coordinates.windows(2).for_each(|win| {
         let (v1, v2) = match win {
             [v1, v2] => (v1, v2),
@@ -31,5 +32,6 @@ pub fn generate_polygon_vertices(n: u8, with_center: CustomVertex) -> Polygon {
         };
         triangles.push([with_center.clone(), v1.clone(), v2.clone()]);
     });
+
     triangles
 }

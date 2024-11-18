@@ -14,17 +14,17 @@ fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
     // Running simulation
-    let windowcx_handler = WindowEventHandler::new();
-    windowcx_handler.run_inner();
+    // let windowcx_handler = WindowEventHandler::new();
+    // windowcx_handler.run_inner();
 
     info!("WORKED");
 
     // Opening initial GUI
-    // eframe::run_native(
-    //     "Physics engine!",
-    //     eframe::NativeOptions::default(),
-    //     Box::new(|_cc| Box::<Content>::default()),
-    // )?;
+    eframe::run_native(
+        "Physics engine!",
+        eframe::NativeOptions::default(),
+        Box::new(|_cc| Box::<Content>::default()),
+    )?;
 
     Ok(())
 }
