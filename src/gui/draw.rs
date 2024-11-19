@@ -10,10 +10,10 @@ use egui::RichText;
 use serde::Serialize;
 use tracing::info;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct Content {
     #[serde(skip_serializing)]
-    sim_button_clicked: bool,
+    pub sim_button_clicked: bool,
     #[serde(skip_serializing)]
     selected: RigidBodySelection,
     #[serde(skip_serializing)]
@@ -73,7 +73,7 @@ impl Content {
 
         self.next_object_id += 1;
     }
-    pub fn reset_values(&mut self) {
+    fn reset_values(&mut self) {
         self.radius = 0.;
         self.position_x = 0.;
         self.position_y = 0.;
@@ -91,6 +91,10 @@ impl Content {
 
 impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.sim_button_clicked {
+            return;
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ComboBox::from_label("Select object to add")
                 .selected_text(self.selected.to_string())
@@ -105,7 +109,6 @@ impl eframe::App for Content {
                 ui.add(egui::Slider::new(&mut self.position_y, -0.0..=1.0));
                 ui.label("STARTING Y-COORDINATE");
             });
-
             ui.horizontal(|ui| {
                 ui.add(egui::Slider::new(&mut self.velocity_x, 0.0..=5.0));
                 ui.label("STARTING X-VELOCITY");
@@ -113,7 +116,6 @@ impl eframe::App for Content {
                 ui.add(egui::Slider::new(&mut self.velocity_y, 0.0..=5.0));
                 ui.label("STARTING Y-VELOCITY");
             });
-
             ui.horizontal(|ui| {
                 if ui.button("Add object").clicked() {
                     if self.selected == RigidBodySelection::None {
@@ -131,14 +133,13 @@ impl eframe::App for Content {
                     self.reset_values();
                 }
             });
-
             ui.horizontal(|ui| {
                 if ui.button("Run simulation").clicked() {
                     self.sim_button_clicked = true;
                     info!("Run simulation button pressed");
                     let _ = self.flush_to_csv();
                 }
-            })
+            });
         });
 
         egui::SidePanel::right("Objects added").show(ctx, |ui| {

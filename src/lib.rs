@@ -1,5 +1,6 @@
 use std::ops::AddAssign;
 
+use renderer::vk_core::CustomVertex;
 use serde::Serialize;
 
 pub mod core;
@@ -16,6 +17,17 @@ pub struct FVec2 {
 impl FVec2 {
     fn new(x: f32, y: f32) -> Self {
         Self { x, y }
+    }
+    fn x(&self) -> f32 {
+        self.x
+    }
+    fn y(&self) -> f32 {
+        self.y
+    }
+    fn to_custom_vertex(&self) -> CustomVertex {
+        CustomVertex {
+            position_in: [self.x, self.y],
+        }
     }
 }
 

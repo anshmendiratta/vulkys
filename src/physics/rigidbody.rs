@@ -1,4 +1,5 @@
 use super::circle::Circle;
+use crate::renderer::vk_proc_func::{generate_polygon_triangles, Polygon, Triangle};
 use crate::FVec2;
 use serde::Serialize;
 
@@ -24,7 +25,7 @@ impl RigidBodySelection {
 }
 
 type RBid = u8;
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug)]
 pub enum RigidBody {
     Circle_(Circle, RBid),
 }
@@ -63,5 +64,15 @@ impl RigidBody {
         match self {
             RigidBody::Circle_(Circle { .. }, _) => 32,
         }
+    }
+    pub fn to_polygon(&self) -> Polygon {
+        let real_self = match self {
+            RigidBody::Circle_(circle, ..) => circle,
+        };
+        let center_coordinate = FVec2::new(real_self.position.x, real_self.position.y);
+        generate_polygon_triangles(
+            self.get_vertex_count(),
+            center_coordinate.to_custom_vertex(),
+        )
     }
 }

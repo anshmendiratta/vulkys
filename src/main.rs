@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 #![allow(clippy::single_match)]
 
-use tracing::{info, instrument::WithSubscriber};
+use tracing::{error, info, instrument::WithSubscriber, warn};
 use vulkano::pipeline::PipelineShaderStageCreateInfo;
 use vulkys::{
     gui::draw::Content,
@@ -13,18 +13,20 @@ use vulkys::{
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
-    // Running simulation
-    // let windowcx_handler = WindowEventHandler::new();
-    // windowcx_handler.run_inner();
-
-    info!("WORKED");
-
     // Opening initial GUI
-    eframe::run_native(
-        "Physics engine!",
-        eframe::NativeOptions::default(),
-        Box::new(|_cc| Box::<Content>::default()),
-    )?;
+    // let gui_content = Box::new(Content::default());
+    // eframe::run_native(
+    //     "Physics engine!",
+    //     eframe::NativeOptions::default(),
+    //     Box::new(|_cc| gui_content),
+    // )?;
+
+    // Running simulation
+    let windowcx_handler = WindowEventHandler::new();
+    match windowcx_handler.run() {
+        Ok(_) => info!("Worked"),
+        _ => error!("Couldn't read objects.json file"),
+    };
 
     Ok(())
 }

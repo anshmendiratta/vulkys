@@ -3,3 +3,4 @@
 #![allow(clippy::single_match)]
 
 pub mod data_structures;
+pub mod parse;

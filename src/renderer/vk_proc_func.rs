@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 pub type Triangle = [CustomVertex; 3];
 pub type Polygon = Vec<Triangle>;
-pub fn generate_polygon_vertices(n: u8, with_center: CustomVertex) -> Polygon {
+pub fn generate_polygon_triangles(n: u8, with_center: CustomVertex) -> Polygon {
     let radius: f32 = 0.5;
     let angles: Vec<f32> = vec![0.; n as usize]
         .into_iter()

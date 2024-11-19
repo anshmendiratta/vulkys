@@ -2,13 +2,14 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use std::ops::Deref;
+use std::path::Path;
 use std::sync::Arc;
-use std::{thread, time};
 
 use eframe::EventLoopBuilder;
 use egui::Vec2;
 use image::{ImageBuffer, Rgba};
+use serde::Deserialize;
+use serde_json::Value;
 use tracing::{error, event, info, span, Level};
 
 use vulkano::buffer::{BufferContents, Subbuffer};
@@ -58,6 +59,7 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{self, ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
+use crate::core::parse::parse_serde_value;
 use crate::physics::rigidbody::RigidBody;
 
 use super::shaders;
@@ -65,7 +67,7 @@ use super::vk_prims::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
     get_framebuffers, get_required_extensions, select_device_and_queue,
 };
-use super::vk_proc_func::{generate_polygon_vertices, Polygon};
+use super::vk_proc_func::{generate_polygon_triangles, Polygon};
 
 const WINDOW_LENGTH: f32 = 1000.;
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
@@ -74,9 +76,7 @@ const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
 });
 
 pub struct WindowEventHandler {
-    #[doc = "Vulkano context"]
     vulkancx: VulkanoContext,
-    #[doc = "Window context"]
     windowcx: WindowContext,
     swapchain: Arc<Swapchain>,
     framebuffers: Vec<Arc<Framebuffer>>,
@@ -113,11 +113,21 @@ impl WindowEventHandler {
             graphics_pipeline,
         }
     }
+    pub fn run(self) -> Result<(), std::io::Error> {
+        let objects: Vec<RigidBody> = {
+            let objects_json = std::fs::read_to_string(Path::new("objects.json"))?;
+            let json_as_serde_value = serde_json::from_str(&objects_json)?;
+            let objects: Vec<RigidBody> = parse_serde_value(json_as_serde_value)?;
 
-    pub fn run(mut self) {
-        // let objects: Vec<Polygon> =
+            objects
+        };
+        let polygons: Vec<Polygon> = objects.iter().map(|body| body.to_polygon()).collect();
+
+        self.run_inner(polygons);
+
+        Ok(())
     }
-    pub fn run_inner(mut self) {
+    pub fn run_inner(mut self, polygon_vector: Vec<Polygon>) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");
         let physical_device = vk_prims::select_physical_device(&self.windowcx);
         let surface =
@@ -147,15 +157,6 @@ impl WindowEventHandler {
         // NOTE: Length of these two vectors should be the same
         // TODO: Rewrite later, refactor too
         // Type: Vec<[CustomVertex; 3]>
-        let polygon_vector: Vec<Polygon> = [4 as u8, 5 as u8]
-            .iter()
-            .enumerate()
-            .map(|(i, obj)| {
-                // let vertex_count = obj.get_vertex_count();
-                generate_polygon_vertices(*obj as u8, central_vertices[i].clone())
-            })
-            .collect();
-
         let vertex_buffer_data: Vec<CustomVertex> = {
             let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(polygon_vector.len() * 3);
             for polygon in polygon_vector {
@@ -169,8 +170,6 @@ impl WindowEventHandler {
 
             buffer_data
         };
-        dbg!(&vertex_buffer_data);
-        dbg!(&vertex_buffer_data.len());
         let vertex_buffer = Buffer::from_iter(
             memory_allocator.clone(),
             BufferCreateInfo {
@@ -416,7 +415,7 @@ impl VulkanoContext {
     }
 }
 
-#[derive(BufferContents, Vertex, Debug, Clone)]
+#[derive(BufferContents, Vertex, Debug, Clone, Deserialize)]
 #[repr(C)]
 pub struct CustomVertex {
     #[format(R32G32_SFLOAT)]
