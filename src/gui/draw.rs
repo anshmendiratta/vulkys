@@ -100,13 +100,9 @@ impl Content {
 impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let radius_range = 0.0..=0.3;
-        let position_range: RangeInclusive<f32>;
-        match self.radius.total_cmp(&0.) {
-            std::cmp::Ordering::Equal => position_range = -1.0..=1.0,
-            std::cmp::Ordering::Greater => {
-                position_range = (-1.0 + self.radius)..=(1.0 - self.radius)
-            }
-            std::cmp::Ordering::Less => unreachable!(),
+        let position_range = match self.radius.total_cmp(&0.) {
+            std::cmp::Ordering::Greater => (-1.0 + self.radius)..=(1.0 - self.radius),
+            _ => -1.0..=1.0,
         };
         let velocity_range = -5.0..=5.0;
 
