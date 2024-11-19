@@ -5,8 +5,7 @@ use std::f32::consts::PI;
 
 pub type Triangle = [CustomVertex; 3];
 pub type Polygon = Vec<Triangle>;
-pub fn generate_polygon_triangles(n: u8, with_center: CustomVertex) -> Polygon {
-    let radius: f32 = 0.5;
+pub fn generate_polygon_triangles(n: u8, with_center: CustomVertex, with_radius: f32) -> Polygon {
     let angles: Vec<f32> = vec![0.; n as usize]
         .into_iter()
         .enumerate()
@@ -17,8 +16,8 @@ pub fn generate_polygon_triangles(n: u8, with_center: CustomVertex) -> Polygon {
         .iter()
         .map(|angle| CustomVertex {
             position_in: [
-                radius * (cos(angle.clone() as f64) as f32) + with_center.position_in[0],
-                radius * (sin(angle.clone() as f64) as f32) + with_center.position_in[1],
+                with_radius * (cos(angle.clone() as f64) as f32) + with_center.position_in[0],
+                with_radius * (sin(angle.clone() as f64) as f32) + with_center.position_in[1],
             ],
         })
         .collect();

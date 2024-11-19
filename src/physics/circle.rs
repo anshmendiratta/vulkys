@@ -24,7 +24,12 @@ impl Updateable for Circle {
 }
 
 impl GenericObject for Circle {
-    fn get_debug(&self) -> &str {
-        "r={self.radius},p={self.position},v={self.velocity}"
+    fn get_debug(&self) -> String {
+        format!(
+            "r = {},
+            p = {},
+            v = {}",
+            self.radius, self.position, self.velocity
+        )
     }
 }

@@ -1,5 +1,5 @@
 use super::circle::Circle;
-use crate::renderer::vk_proc_func::{generate_polygon_triangles, Polygon, Triangle};
+use crate::renderer::vk_proc_func::{generate_polygon_triangles, Polygon};
 use crate::FVec2;
 use serde::Serialize;
 
@@ -35,7 +35,7 @@ pub trait Updateable {
     fn update_velocity(&mut self, acceleration: FVec2);
 }
 pub trait GenericObject: Updateable {
-    fn get_debug(&self) -> &str;
+    fn get_debug(&self) -> String;
 }
 
 impl RigidBody {
@@ -73,6 +73,7 @@ impl RigidBody {
         generate_polygon_triangles(
             self.get_vertex_count(),
             center_coordinate.to_custom_vertex(),
+            real_self.radius,
         )
     }
 }

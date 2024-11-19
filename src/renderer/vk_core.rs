@@ -61,6 +61,7 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::core::parse::parse_serde_value;
 use crate::physics::rigidbody::RigidBody;
+use crate::WINDOW_LENGTH;
 
 use super::shaders;
 use super::vk_prims::{
@@ -69,7 +70,6 @@ use super::vk_prims::{
 };
 use super::vk_proc_func::{generate_polygon_triangles, Polygon};
 
-const WINDOW_LENGTH: f32 = 1000.;
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     width: WINDOW_LENGTH as u32,
     height: WINDOW_LENGTH as u32,

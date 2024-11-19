@@ -1,4 +1,5 @@
 use crate::FVec2;
+use std::ops::RangeInclusive;
 use std::path::Path;
 
 use crate::physics::circle::Circle;
@@ -35,7 +36,7 @@ impl Default for Content {
     fn default() -> Self {
         Self {
             objects: Vec::new(),
-            radius: 1.0,
+            radius: 0.0,
             position_x: 0.0,
             position_y: 0.0,
             velocity_x: 0.0,
@@ -56,8 +57,15 @@ struct ObjectInfo {
     velocity_y: f32,
 }
 
+impl ObjectInfo {
+    fn correct_for_vulkan_coordinate_system(&mut self) {
+        self.position_y *= -1.;
+    }
+}
+
 impl Content {
-    fn add_object(&mut self, obj_params: ObjectInfo) {
+    fn add_object(&mut self, mut obj_params: ObjectInfo) {
+        obj_params.correct_for_vulkan_coordinate_system();
         match obj_params.obj_type {
             RigidBodySelection::Circle_ => {
                 let complete_circle: Circle = Circle {
@@ -91,6 +99,17 @@ impl Content {
 
 impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let radius_range = 0.0..=0.3;
+        let position_range: RangeInclusive<f32>;
+        match self.radius.total_cmp(&0.) {
+            std::cmp::Ordering::Equal => position_range = -1.0..=1.0,
+            std::cmp::Ordering::Greater => {
+                position_range = (-1.0 + self.radius)..=(1.0 - self.radius)
+            }
+            std::cmp::Ordering::Less => unreachable!(),
+        };
+        let velocity_range = -5.0..=5.0;
+
         if self.sim_button_clicked {
             return;
         }
@@ -103,19 +122,36 @@ impl eframe::App for Content {
                 });
 
             ui.horizontal(|ui| {
-                ui.add(egui::Slider::new(&mut self.position_x, -1.0..=1.0));
-                ui.label("STARTING X-COORDINATE");
+                ui.add(egui::Slider::new(
+                    &mut self.position_x,
+                    position_range.clone(),
+                ));
+                ui.label("Starting x-coordinate");
 
-                ui.add(egui::Slider::new(&mut self.position_y, -0.0..=1.0));
-                ui.label("STARTING Y-COORDINATE");
+                ui.add(egui::Slider::new(
+                    &mut self.position_y,
+                    position_range.clone(),
+                ));
+                ui.label("Starting y-coordinate");
             });
             ui.horizontal(|ui| {
-                ui.add(egui::Slider::new(&mut self.velocity_x, 0.0..=5.0));
-                ui.label("STARTING X-VELOCITY");
+                ui.add(egui::Slider::new(
+                    &mut self.velocity_x,
+                    velocity_range.clone(),
+                ));
+                ui.label("Starting x-velocity");
 
-                ui.add(egui::Slider::new(&mut self.velocity_y, 0.0..=5.0));
-                ui.label("STARTING Y-VELOCITY");
+                ui.add(egui::Slider::new(
+                    &mut self.velocity_y,
+                    velocity_range.clone(),
+                ));
+                ui.label("Starting y-velocity");
             });
+            ui.horizontal(|ui| {
+                ui.add(egui::Slider::new(&mut self.radius, radius_range));
+                ui.label("Radius");
+            });
+
             ui.horizontal(|ui| {
                 if ui.button("Add object").clicked() {
                     if self.selected == RigidBodySelection::None {
