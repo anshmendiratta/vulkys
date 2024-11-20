@@ -2,6 +2,8 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use std::collections::HashMap;
+use std::hash::RandomState;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -61,14 +63,14 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::core::parse::parse_serde_value;
 use crate::physics::rigidbody::RigidBody;
-use crate::WINDOW_LENGTH;
+use crate::{FVec2, WINDOW_LENGTH};
 
 use super::shaders;
 use super::vk_prims::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
     get_framebuffers, get_required_extensions, select_device_and_queue,
 };
-use super::vk_proc_func::{generate_polygon_triangles, Polygon};
+use super::vk_proc_func::{generate_polygon_triangles, Polygon, PolygonMethods};
 
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     width: WINDOW_LENGTH as u32,
@@ -114,20 +116,28 @@ impl WindowEventHandler {
         }
     }
     pub fn run(self) -> Result<(), std::io::Error> {
-        let objects: Vec<RigidBody> = {
+        let rigidbodies: Vec<RigidBody> = {
             let objects_json = std::fs::read_to_string(Path::new("objects.json"))?;
             let json_as_serde_value = serde_json::from_str(&objects_json)?;
             let objects: Vec<RigidBody> = parse_serde_value(json_as_serde_value)?;
 
             objects
         };
-        let polygons: Vec<Polygon> = objects.iter().map(|body| body.to_polygon()).collect();
+        let polygons: Vec<Polygon> = rigidbodies.iter().map(|body| body.to_polygon()).collect();
 
-        self.run_inner(polygons);
+        let mut objects_hash: HashMap<u8, (RigidBody, Polygon)> =
+            HashMap::with_capacity_and_hasher(rigidbodies.len(), RandomState::new());
+        for (rigidbody, polygon) in std::iter::zip(rigidbodies, polygons) {
+            let key = rigidbody.get_id().unwrap();
+            objects_hash.insert(key, (rigidbody, polygon));
+        }
+
+        self.run_inner(objects_hash);
 
         Ok(())
     }
-    pub fn run_inner(mut self, polygon_vector: Vec<Polygon>) {
+    // TODO: Have this take a HashMap<u8, (RigidBody, Polygon)> where the RBid: u8 binds them together
+    pub fn run_inner(mut self, objects_hash: HashMap<u8, (RigidBody, Polygon)>) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");
         let physical_device = vk_prims::select_physical_device(&self.windowcx);
         let surface =
@@ -145,27 +155,19 @@ impl WindowEventHandler {
         let queue = self.vulkancx.queue;
         let memory_allocator = create_memory_allocator(self.vulkancx.device.clone());
 
-        // Polygon construction
-        let central_vertices: Vec<CustomVertex> = vec![
-            CustomVertex {
-                position_in: [0.5; 2],
-            },
-            CustomVertex {
-                position_in: [-0.5; 2],
-            },
-        ];
         // NOTE: Length of these two vectors should be the same
         // TODO: Rewrite later, refactor too
         // Type: Vec<[CustomVertex; 3]>
         let vertex_buffer_data: Vec<CustomVertex> = {
-            let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(polygon_vector.len() * 3);
-            for polygon in polygon_vector {
-                for triangle in polygon {
-                    let [a, b, c] = triangle;
-                    buffer_data.push(a);
-                    buffer_data.push(b);
-                    buffer_data.push(c);
-                }
+            let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(objects_hash.len() * 3);
+            for (_, (_, polygon)) in objects_hash {
+                // for triangle in polygon {
+                //     let [a, b, c] = triangle;
+                //     buffer_data.push(a);
+                //     buffer_data.push(b);
+                //     buffer_data.push(c);
+                // }
+                buffer_data = ([buffer_data, polygon.destructure_into_list()]).concat();
             }
 
             buffer_data
@@ -415,11 +417,11 @@ impl VulkanoContext {
     }
 }
 
-#[derive(BufferContents, Vertex, Debug, Clone, Deserialize)]
+#[derive(BufferContents, Vertex, Debug, Clone, Deserialize, PartialEq)]
 #[repr(C)]
 pub struct CustomVertex {
     #[format(R32G32_SFLOAT)]
-    pub position_in: [f32; 2],
+    pub position_in: FVec2,
 }
 
 fn get_command_buffers(

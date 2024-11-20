@@ -1,7 +1,7 @@
 use std::ops::AddAssign;
 
 use renderer::vk_core::CustomVertex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub mod core;
 pub mod gui;
@@ -10,7 +10,7 @@ pub mod renderer;
 
 const WINDOW_LENGTH: f32 = 1000.;
 
-#[derive(Clone, Copy, Serialize, Debug, PartialEq)]
+#[derive(Clone, Copy, Deserialize, Serialize, Debug, PartialEq, bytemuck::AnyBitPattern)]
 pub struct FVec2 {
     x: f32,
     y: f32,
@@ -21,9 +21,7 @@ impl FVec2 {
         Self { x, y }
     }
     fn to_custom_vertex(&self) -> CustomVertex {
-        CustomVertex {
-            position_in: [self.x, self.y],
-        }
+        CustomVertex { position_in: *self }
     }
 }
 
