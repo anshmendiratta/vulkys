@@ -73,6 +73,11 @@ impl RigidBody {
             real_self.radius,
         )
     }
+    pub fn get_radius(&self) -> f32 {
+        match self {
+            RigidBody::Circle_(c, _) => c.radius,
+        }
+    }
     pub fn get_position(&self) -> FVec2 {
         match self {
             RigidBody::Circle_(c, _) => c.position,

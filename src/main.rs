@@ -14,16 +14,6 @@ use vulkys::FVec2;
 fn main() -> Result<(), eframe::Error> {
     tracing_subscriber::fmt::init();
 
-    // Opening initial GUI
-    // let gui_content = Box::new(Content::default());
-    // let mut eframe_native_options = eframe::NativeOptions::default();
-    // eframe_native_options.run_and_return = true;
-    // eframe::run_native(
-    //     "Physics engine!",
-    //     eframe_native_options,
-    //     Box::new(|_cc| gui_content),
-    // )?;
-
     // Initialize objects
     let circle_1: RigidBody = RigidBody::Circle_(
         Circle {
@@ -42,6 +32,7 @@ fn main() -> Result<(), eframe::Error> {
         1,
     );
     let objects: Vec<RigidBody> = vec![circle_1, circle_2];
+    // Initialize scene
     let scene: Scene = Scene::with_objects(objects);
     // Running simulation
     scene.run();

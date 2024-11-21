@@ -26,10 +26,16 @@ impl Scene {
             dt: DELTA_TIME,
         }
     }
-    pub fn run(self) {
-        let windowcx_handler = WindowEventHandler::new();
-        windowcx_handler.run_with_objects(self.objects);
-        info!("Running main scene");
+    // TODO: modify the `run_with_objects` to loop over itself with updated values instaed of being called in a loop
+    // Currently runs the window context handler function over and over again.
+    // That is BAD.
+    pub fn run(mut self) {
+        loop {
+            let windowcx_handler = WindowEventHandler::new();
+            windowcx_handler.run_with_objects(self.objects.clone());
+            self.update_objects();
+            info!("Running main scene");
+        }
     }
     pub fn update_objects(&mut self) {
         for object in &mut self.objects {
@@ -38,7 +44,13 @@ impl Scene {
                 current_velocity.x,
                 current_velocity.y + GRAVITY_ACCELERATION * self.dt,
             );
+            let current_position = object.get_position();
+            let updated_position = FVec2::new(
+                current_position.x + current_velocity.x * self.dt,
+                current_position.y + current_velocity.y * self.dt,
+            );
             object.update_velocity(updated_velocity);
+            object.update_position(updated_position);
         }
     }
 }

@@ -116,7 +116,16 @@ impl WindowEventHandler {
         }
     }
     pub fn run_with_objects(self, rigidbodies: Vec<RigidBody>) {
-        let polygons: Vec<Polygon> = rigidbodies.iter().map(|body| body.to_polygon()).collect();
+        let polygons: Vec<Polygon> = rigidbodies
+            .iter()
+            .map(|body| {
+                generate_polygon_triangles(
+                    body.get_vertex_count(),
+                    body.get_position().to_custom_vertex(),
+                    body.get_radius(),
+                )
+            })
+            .collect();
 
         let mut objects_hash: HashMap<u8, (RigidBody, Polygon)> =
             HashMap::with_capacity_and_hasher(rigidbodies.len(), RandomState::new());
@@ -152,12 +161,6 @@ impl WindowEventHandler {
         let vertex_buffer_data: Vec<CustomVertex> = {
             let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(objects_hash.len() * 3);
             for (_, (_, polygon)) in objects_hash {
-                // for triangle in polygon {
-                //     let [a, b, c] = triangle;
-                //     buffer_data.push(a);
-                //     buffer_data.push(b);
-                //     buffer_data.push(c);
-                // }
                 buffer_data = ([buffer_data, polygon.destructure_into_list()]).concat();
             }
 
