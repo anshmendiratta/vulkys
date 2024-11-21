@@ -17,10 +17,10 @@ pub struct FVec2 {
 }
 
 impl FVec2 {
-    fn new(x: f32, y: f32) -> Self {
+    pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
-    fn to_custom_vertex(&self) -> CustomVertex {
+    pub fn to_custom_vertex(&self) -> CustomVertex {
         CustomVertex { position_in: *self }
     }
 }

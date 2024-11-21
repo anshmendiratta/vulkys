@@ -115,14 +115,7 @@ impl WindowEventHandler {
             graphics_pipeline,
         }
     }
-    pub fn run(self) -> Result<(), std::io::Error> {
-        let rigidbodies: Vec<RigidBody> = {
-            let objects_json = std::fs::read_to_string(Path::new("objects.json"))?;
-            let json_as_serde_value = serde_json::from_str(&objects_json)?;
-            let objects: Vec<RigidBody> = parse_serde_value(json_as_serde_value)?;
-
-            objects
-        };
+    pub fn run_with_objects(self, rigidbodies: Vec<RigidBody>) {
         let polygons: Vec<Polygon> = rigidbodies.iter().map(|body| body.to_polygon()).collect();
 
         let mut objects_hash: HashMap<u8, (RigidBody, Polygon)> =
@@ -133,8 +126,6 @@ impl WindowEventHandler {
         }
 
         self.run_inner(objects_hash);
-
-        Ok(())
     }
     // TODO: Have this take a HashMap<u8, (RigidBody, Polygon)> where the RBid: u8 binds them together
     pub fn run_inner(mut self, objects_hash: HashMap<u8, (RigidBody, Polygon)>) {

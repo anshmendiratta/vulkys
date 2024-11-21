@@ -24,20 +24,17 @@ impl RigidBodySelection {
     }
 }
 
+pub trait GenericObject {
+    fn get_debug(&self) -> String;
+}
+
 type RBid = u8;
 #[derive(Serialize, Clone, Debug)]
 pub enum RigidBody {
     Circle_(Circle, RBid),
 }
 
-pub trait Updateable {
-    fn update_position(&mut self, velocity: FVec2);
-    fn update_velocity(&mut self, acceleration: FVec2);
-}
-pub trait GenericObject: Updateable {
-    fn get_debug(&self) -> String;
-}
-
+#[allow(dead_code)]
 impl RigidBody {
     pub fn get_id(&self) -> Option<RBid> {
         match self {
@@ -62,7 +59,7 @@ impl RigidBody {
     }
     pub fn get_vertex_count(&self) -> u8 {
         match self {
-            RigidBody::Circle_(Circle { .. }, _) => 32,
+            RigidBody::Circle_(_, _) => 32,
         }
     }
     pub fn to_polygon(&self) -> Polygon {
@@ -75,5 +72,34 @@ impl RigidBody {
             center_coordinate.to_custom_vertex(),
             real_self.radius,
         )
+    }
+    pub fn get_position(&self) -> FVec2 {
+        match self {
+            RigidBody::Circle_(c, _) => c.position,
+        }
+    }
+    pub fn get_velocity(&self) -> FVec2 {
+        match self {
+            RigidBody::Circle_(c, _) => c.velocity,
+        }
+    }
+    pub fn update_position(&mut self, position: FVec2) {
+        match self {
+            RigidBody::Circle_(c, _) => c.position = position,
+        }
+    }
+    pub fn update_velocity(&mut self, velocity: FVec2) {
+        match self {
+            RigidBody::Circle_(c, _) => c.velocity = velocity,
+        }
+    }
+    fn get_debug(&self) -> String {
+        let inner_object = self.get_object();
+        inner_object.get_debug()
+    }
+    fn type_to_string(&self) -> &str {
+        match self {
+            RigidBody::Circle_(_, _) => "Circle",
+        }
     }
 }

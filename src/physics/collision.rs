@@ -1,4 +1,4 @@
-use super::rigidbody::{GenericObject, Updateable};
+use super::rigidbody::GenericObject;
 
 struct Collision {
     collision_type: CollisionObjectType,
@@ -10,7 +10,7 @@ pub enum CollisionObjectType {
     Object,
 }
 
-pub trait CollisionHandler<Obj: Updateable> {
+pub trait CollisionHandler {
     fn check_collision(&self) -> Option<CollisionObjectType> {
         None
     }

@@ -2,10 +2,7 @@ use serde::Serialize;
 
 use crate::FVec2;
 
-use super::{
-    lib::DELTA_TIME,
-    rigidbody::{GenericObject, Updateable},
-};
+use super::rigidbody::GenericObject;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Circle {
@@ -14,21 +11,12 @@ pub struct Circle {
     pub velocity: FVec2,
 }
 
-impl Updateable for Circle {
-    fn update_position(&mut self, velocity: FVec2) {
-        self.position += FVec2::new(velocity.x * DELTA_TIME, velocity.y * DELTA_TIME);
-    }
-    fn update_velocity(&mut self, acceleration: FVec2) {
-        self.velocity += FVec2::new(acceleration.x * DELTA_TIME, acceleration.y * DELTA_TIME);
-    }
-}
-
 impl GenericObject for Circle {
     fn get_debug(&self) -> String {
         format!(
             "r = {},
-            p = {},
-            v = {}",
+                p = {},
+                v = {}",
             self.radius, self.position, self.velocity
         )
     }
