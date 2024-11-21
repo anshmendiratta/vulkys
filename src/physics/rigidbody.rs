@@ -29,16 +29,16 @@ pub trait GenericObject {
 }
 
 type RBid = u8;
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum RigidBody {
     Circle_(Circle, RBid),
 }
 
 #[allow(dead_code)]
 impl RigidBody {
-    pub fn get_id(&self) -> Option<RBid> {
+    pub fn get_id(&self) -> RBid {
         match self {
-            RigidBody::Circle_(Circle { .. }, id) => Some(id.clone()),
+            RigidBody::Circle_(Circle { .. }, id) => id.clone(),
         }
     }
     pub fn get_object(&self) -> impl GenericObject {

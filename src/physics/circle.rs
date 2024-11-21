@@ -4,7 +4,7 @@ use crate::FVec2;
 
 use super::rigidbody::GenericObject;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Circle {
     pub radius: f32,
     pub position: FVec2,

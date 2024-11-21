@@ -63,6 +63,7 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::core::parse::parse_serde_value;
 use crate::physics::rigidbody::RigidBody;
+use crate::physics::scene::Scene;
 use crate::{FVec2, WINDOW_LENGTH};
 
 use super::shaders;
@@ -115,29 +116,11 @@ impl WindowEventHandler {
             graphics_pipeline,
         }
     }
-    pub fn run_with_objects(self, rigidbodies: Vec<RigidBody>) {
-        let polygons: Vec<Polygon> = rigidbodies
-            .iter()
-            .map(|body| {
-                generate_polygon_triangles(
-                    body.get_vertex_count(),
-                    body.get_position().to_custom_vertex(),
-                    body.get_radius(),
-                )
-            })
-            .collect();
-
-        let mut objects_hash: HashMap<u8, (RigidBody, Polygon)> =
-            HashMap::with_capacity_and_hasher(rigidbodies.len(), RandomState::new());
-        for (rigidbody, polygon) in std::iter::zip(rigidbodies, polygons) {
-            let key = rigidbody.get_id().unwrap();
-            objects_hash.insert(key, (rigidbody, polygon));
-        }
-
-        self.run_inner(objects_hash);
+    pub fn run_with_scene(self, scene: Scene) {
+        self.run_inner(scene);
     }
     // TODO: Have this take a HashMap<u8, (RigidBody, Polygon)> where the RBid: u8 binds them together
-    pub fn run_inner(mut self, objects_hash: HashMap<u8, (RigidBody, Polygon)>) {
+    pub fn run_inner(mut self, mut scene: Scene) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");
         let physical_device = vk_prims::select_physical_device(&self.windowcx);
         let surface =
@@ -158,15 +141,16 @@ impl WindowEventHandler {
         // NOTE: Length of these two vectors should be the same
         // TODO: Rewrite later, refactor too
         // Type: Vec<[CustomVertex; 3]>
-        let vertex_buffer_data: Vec<CustomVertex> = {
-            let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(objects_hash.len() * 3);
-            for (_, (_, polygon)) in objects_hash {
+        let mut vertex_buffer_data: Vec<CustomVertex> = {
+            let mut buffer_data: Vec<CustomVertex> =
+                Vec::with_capacity(scene.objects_hash.len() * 3);
+            for (_, (_, polygon)) in &scene.objects_hash {
                 buffer_data = ([buffer_data, polygon.destructure_into_list()]).concat();
             }
 
             buffer_data
         };
-        let vertex_buffer = Buffer::from_iter(
+        let mut vertex_buffer = Buffer::from_iter(
             memory_allocator.clone(),
             BufferCreateInfo {
                 usage: BufferUsage::VERTEX_BUFFER,
@@ -177,7 +161,7 @@ impl WindowEventHandler {
                     | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
             },
-            vertex_buffer_data,
+            vertex_buffer_data.clone(),
         )
         .unwrap();
 
@@ -198,7 +182,6 @@ impl WindowEventHandler {
         let mut fences: Vec<Option<Arc<FenceSignalFuture<_>>>> = vec![None; frames_in_flight];
         let mut previous_fence_i = 0;
 
-        let mut window_resized = false;
         let mut recreate_swapchain = false;
 
         self.windowcx
@@ -210,14 +193,8 @@ impl WindowEventHandler {
                 } => {
                     *control_flow = ControlFlow::Exit;
                 }
-                Event::WindowEvent {
-                    event: WindowEvent::Resized(_),
-                    ..
-                } => {
-                    window_resized = true;
-                }
                 Event::MainEventsCleared => {
-                    if window_resized || recreate_swapchain {
+                    if recreate_swapchain {
                         recreate_swapchain = false;
 
                         let new_dimensions = self.windowcx.window.inner_size();
@@ -231,26 +208,49 @@ impl WindowEventHandler {
                         self.swapchain = new_swapchain;
                         self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
 
-                        if window_resized {
-                            window_resized = false;
-
-                            self.windowcx.rendercx.viewport.extent = new_dimensions.into();
-                            self.graphics_pipeline = get_graphics_pipeline(
-                                self.vulkancx.device.clone(),
-                                vs.clone(),
-                                fs.clone(),
-                                self.render_pass.clone(),
-                                self.windowcx.rendercx.viewport.clone(),
-                            );
-                            command_buffers = get_command_buffers(
-                                &command_buffer_allocator,
-                                &queue,
-                                &self.graphics_pipeline,
-                                &self.framebuffers,
-                                &vertex_buffer,
-                            );
-                        }
+                        self.windowcx.rendercx.viewport.extent = new_dimensions.into();
+                        self.graphics_pipeline = get_graphics_pipeline(
+                            self.vulkancx.device.clone(),
+                            vs.clone(),
+                            fs.clone(),
+                            self.render_pass.clone(),
+                            self.windowcx.rendercx.viewport.clone(),
+                        );
+                        command_buffers = get_command_buffers(
+                            &command_buffer_allocator,
+                            &queue,
+                            &self.graphics_pipeline,
+                            &self.framebuffers,
+                            &vertex_buffer,
+                        );
                     }
+
+                    vertex_buffer_data = {
+                        let mut buffer_data: Vec<CustomVertex> =
+                            Vec::with_capacity(scene.objects_hash.len() * 3);
+                        for (_, (_, polygon)) in &scene.objects_hash {
+                            buffer_data = [buffer_data, polygon.destructure_into_list()].concat();
+                        }
+
+                        buffer_data
+                    };
+                    vertex_buffer = Buffer::from_iter(
+                        create_memory_allocator(self.vulkancx.device.clone()),
+                        BufferCreateInfo {
+                            usage: BufferUsage::VERTEX_BUFFER,
+                            ..Default::default()
+                        },
+                        AllocationCreateInfo {
+                            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                                | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                            ..Default::default()
+                        },
+                        vertex_buffer_data.clone(),
+                    )
+                    .unwrap();
+
+                    scene.update_objects();
+                    dbg!(&scene.objects);
 
                     let (image_i, suboptimal, acquire_future) =
                         match swapchain::acquire_next_image(self.swapchain.clone(), None)
