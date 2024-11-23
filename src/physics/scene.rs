@@ -62,18 +62,16 @@ impl Scene {
             object.update_velocity(updated_velocity);
             object.update_position(updated_position);
         }
-
-        self.recreate_polygons();
     }
-    pub fn recreate_polygons(&mut self) {
+    pub fn recreate_hash(&mut self) {
         let polygons: Vec<Polygon> = self.objects.iter().map(|body| body.to_polygon()).collect();
 
-        let mut objects_hash: HashMap<u8, (RigidBody, Polygon)> =
+        let mut objects_as_hash: HashMap<u8, (RigidBody, Polygon)> =
             HashMap::with_capacity_and_hasher(self.objects.len(), RandomState::new());
         for (rigidbody, polygon) in std::iter::zip(&self.objects, polygons) {
-            objects_hash.insert(rigidbody.get_id(), (rigidbody.clone(), polygon));
+            objects_as_hash.insert(rigidbody.get_id(), (rigidbody.clone(), polygon));
         }
 
-        self.objects_hash = objects_hash;
+        self.objects_hash = objects_as_hash;
     }
 }

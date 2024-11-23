@@ -20,4 +20,10 @@ impl GenericObject for Circle {
             self.radius, self.position, self.velocity
         )
     }
+    fn get_radius(&self) -> f32 {
+        self.radius
+    }
+    fn get_position(&self) -> FVec2 {
+        self.position
+    }
 }

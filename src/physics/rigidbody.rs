@@ -26,6 +26,8 @@ impl RigidBodySelection {
 
 pub trait GenericObject {
     fn get_debug(&self) -> String;
+    fn get_radius(&self) -> f32;
+    fn get_position(&self) -> FVec2;
 }
 
 type RBid = u8;
@@ -63,14 +65,14 @@ impl RigidBody {
         }
     }
     pub fn to_polygon(&self) -> Polygon {
-        let real_self = match self {
-            RigidBody::Circle_(circle, ..) => circle,
-        };
-        let center_coordinate = FVec2::new(real_self.position.x, real_self.position.y);
+        let inner_object = self.get_object();
+        let radius = inner_object.get_radius();
+        let position = inner_object.get_position();
+        let center_coordinate = FVec2::new(position.x, position.y);
         generate_polygon_triangles(
             self.get_vertex_count(),
             center_coordinate.to_custom_vertex(),
-            real_self.radius,
+            radius,
         )
     }
     pub fn get_radius(&self) -> f32 {

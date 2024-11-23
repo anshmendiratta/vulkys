@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::hash::RandomState;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use eframe::EventLoopBuilder;
 use egui::Vec2;
@@ -182,7 +183,7 @@ impl WindowEventHandler {
         let mut fences: Vec<Option<Arc<FenceSignalFuture<_>>>> = vec![None; frames_in_flight];
         let mut previous_fence_i = 0;
 
-        let mut recreate_swapchain = false;
+        let mut recreate_swapchain: bool = false;
 
         self.windowcx
             .event_loop
@@ -194,37 +195,6 @@ impl WindowEventHandler {
                     *control_flow = ControlFlow::Exit;
                 }
                 Event::MainEventsCleared => {
-                    if recreate_swapchain {
-                        recreate_swapchain = false;
-
-                        let new_dimensions = self.windowcx.window.inner_size();
-                        let (new_swapchain, new_images) = self
-                            .swapchain
-                            .recreate(SwapchainCreateInfo {
-                                image_extent: new_dimensions.into(),
-                                ..self.swapchain.create_info()
-                            })
-                            .expect("failed to recreate swapchain: {e}");
-                        self.swapchain = new_swapchain;
-                        self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
-
-                        self.windowcx.rendercx.viewport.extent = new_dimensions.into();
-                        self.graphics_pipeline = get_graphics_pipeline(
-                            self.vulkancx.device.clone(),
-                            vs.clone(),
-                            fs.clone(),
-                            self.render_pass.clone(),
-                            self.windowcx.rendercx.viewport.clone(),
-                        );
-                        command_buffers = get_command_buffers(
-                            &command_buffer_allocator,
-                            &queue,
-                            &self.graphics_pipeline,
-                            &self.framebuffers,
-                            &vertex_buffer,
-                        );
-                    }
-
                     vertex_buffer_data = {
                         let mut buffer_data: Vec<CustomVertex> =
                             Vec::with_capacity(scene.objects_hash.len() * 3);
@@ -250,7 +220,37 @@ impl WindowEventHandler {
                     .unwrap();
 
                     scene.update_objects();
-                    dbg!(&scene.objects);
+                    scene.recreate_hash();
+
+                    let (new_swapchain, new_images) = self
+                        .swapchain
+                        .recreate(SwapchainCreateInfo {
+                            image_extent: self.windowcx.window.inner_size().into(),
+                            ..self.swapchain.create_info()
+                        })
+                        .expect("failed to recreate swapchain: {e}");
+                    self.swapchain = new_swapchain;
+                    self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
+
+                    let new_dimensions = self.windowcx.window.inner_size();
+                    self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
+
+                    self.windowcx.rendercx.viewport.extent = new_dimensions.into();
+                    self.graphics_pipeline = get_graphics_pipeline(
+                        self.vulkancx.device.clone(),
+                        vs.clone(),
+                        fs.clone(),
+                        self.render_pass.clone(),
+                        self.windowcx.rendercx.viewport.clone(),
+                    );
+                    command_buffers = get_command_buffers(
+                        &command_buffer_allocator,
+                        &queue,
+                        &self.graphics_pipeline,
+                        &self.framebuffers,
+                        &vertex_buffer,
+                    );
+                    // }
 
                     let (image_i, suboptimal, acquire_future) =
                         match swapchain::acquire_next_image(self.swapchain.clone(), None)
