@@ -1,4 +1,5 @@
 use super::circle::Circle;
+use super::collision::{Collision, CollisionHandler};
 use crate::renderer::vk_proc_func::{generate_polygon_triangles, Polygon};
 use crate::FVec2;
 use serde::Serialize;
@@ -34,6 +35,24 @@ type RBid = u8;
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub enum RigidBody {
     Circle_(Circle, RBid),
+}
+
+impl CollisionHandler for RigidBody {
+    fn check_collisions(&self) -> (Option<Vec<Collision>>, (bool, bool)) {
+        match self {
+            RigidBody::Circle_(c, _) => c.check_collisions(),
+        }
+    }
+    fn resolve_object_collision(&mut self) {
+        match self {
+            RigidBody::Circle_(c, _) => return c.resolve_object_collision(),
+        }
+    }
+    fn resolve_world_collision(&mut self, has_crossed_boundaries: (bool, bool)) {
+        match self {
+            RigidBody::Circle_(c, _) => return c.resolve_world_collision(has_crossed_boundaries),
+        }
+    }
 }
 
 #[allow(dead_code)]

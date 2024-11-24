@@ -19,14 +19,14 @@ fn main() -> Result<(), eframe::Error> {
         Circle {
             radius: 0.25,
             position: FVec2::new(0.5, 0.5),
-            velocity: FVec2::new(0., 0.),
+            velocity: FVec2::new(1.5, 0.),
         },
         0,
     );
     let circle_2: RigidBody = RigidBody::Circle_(
         Circle {
             radius: 0.5,
-            position: FVec2::new(-0.5, -0.5),
+            position: FVec2::new(-0.5, -0.0),
             velocity: FVec2::new(0., 0.),
         },
         1,

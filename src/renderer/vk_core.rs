@@ -142,42 +142,42 @@ impl WindowEventHandler {
         // NOTE: Length of these two vectors should be the same
         // TODO: Rewrite later, refactor too
         // Type: Vec<[CustomVertex; 3]>
-        let mut vertex_buffer_data: Vec<CustomVertex> = {
-            let mut buffer_data: Vec<CustomVertex> =
-                Vec::with_capacity(scene.objects_hash.len() * 3);
-            for (_, (_, polygon)) in &scene.objects_hash {
-                buffer_data = ([buffer_data, polygon.destructure_into_list()]).concat();
-            }
+        // let mut vertex_buffer_data: Vec<CustomVertex> = {
+        //     let mut buffer_data: Vec<CustomVertex> =
+        //         Vec::with_capacity(scene.objects_hash.len() * 3);
+        //     for (_, (_, polygon)) in &scene.objects_hash {
+        //         buffer_data = ([buffer_data, polygon.destructure_into_list()]).concat();
+        //     }
 
-            buffer_data
-        };
-        let mut vertex_buffer = Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::VERTEX_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            vertex_buffer_data.clone(),
-        )
-        .unwrap();
+        //     buffer_data
+        // };
+        // let mut vertex_buffer = Buffer::from_iter(
+        //     memory_allocator.clone(),
+        //     BufferCreateInfo {
+        //         usage: BufferUsage::VERTEX_BUFFER,
+        //         ..Default::default()
+        //     },
+        //     AllocationCreateInfo {
+        //         memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+        //             | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+        //         ..Default::default()
+        //     },
+        //     vertex_buffer_data.clone(),
+        // )
+        // .unwrap();
 
         let vs = super::shaders::vertex_shader::load(self.vulkancx.device.clone()).unwrap();
         let fs = super::shaders::fragment_shader::load(self.vulkancx.device.clone()).unwrap();
 
         let command_buffer_allocator =
             create_command_buffer_allocator(self.vulkancx.device.clone());
-        let mut command_buffers = get_command_buffers(
-            &command_buffer_allocator,
-            &queue,
-            &self.graphics_pipeline,
-            &self.framebuffers,
-            &vertex_buffer,
-        );
+        // let mut command_buffers = get_command_buffers(
+        //     &command_buffer_allocator,
+        //     &queue,
+        //     &self.graphics_pipeline,
+        //     &self.framebuffers,
+        //     &vertex_buffer,
+        // );
 
         let frames_in_flight = self.images.len();
         let mut fences: Vec<Option<Arc<FenceSignalFuture<_>>>> = vec![None; frames_in_flight];
@@ -195,7 +195,7 @@ impl WindowEventHandler {
                     *control_flow = ControlFlow::Exit;
                 }
                 Event::MainEventsCleared => {
-                    vertex_buffer_data = {
+                    let vertex_buffer_data = {
                         let mut buffer_data: Vec<CustomVertex> =
                             Vec::with_capacity(scene.objects_hash.len() * 3);
                         for (_, (_, polygon)) in &scene.objects_hash {
@@ -204,7 +204,7 @@ impl WindowEventHandler {
 
                         buffer_data
                     };
-                    vertex_buffer = Buffer::from_iter(
+                    let vertex_buffer = Buffer::from_iter(
                         create_memory_allocator(self.vulkancx.device.clone()),
                         BufferCreateInfo {
                             usage: BufferUsage::VERTEX_BUFFER,
@@ -243,14 +243,13 @@ impl WindowEventHandler {
                         self.render_pass.clone(),
                         self.windowcx.rendercx.viewport.clone(),
                     );
-                    command_buffers = get_command_buffers(
+                    let command_buffers = get_command_buffers(
                         &command_buffer_allocator,
                         &queue,
                         &self.graphics_pipeline,
                         &self.framebuffers,
                         &vertex_buffer,
                     );
-                    // }
 
                     let (image_i, suboptimal, acquire_future) =
                         match swapchain::acquire_next_image(self.swapchain.clone(), None)
@@ -263,6 +262,8 @@ impl WindowEventHandler {
                             }
                             Err(e) => panic!("failed to acquire the next image: {e}"),
                         };
+
+                    let other_image_i = image_i ^ 1;
 
                     if suboptimal {
                         recreate_swapchain = true;
