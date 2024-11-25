@@ -3,6 +3,7 @@
 #![allow(unused_imports)]
 #![allow(clippy::single_match)]
 
+use ecolor::Color32;
 use tracing::{error, info, instrument::WithSubscriber, warn};
 use vulkano::pipeline::PipelineShaderStageCreateInfo;
 use vulkys::physics::rigidbody::RigidBody;
@@ -20,6 +21,7 @@ fn main() -> Result<(), eframe::Error> {
             radius: 0.25,
             position: FVec2::new(0.5, 0.5),
             velocity: FVec2::new(1.5, 0.),
+            color: Color32::GREEN,
         },
         0,
     );
@@ -28,6 +30,7 @@ fn main() -> Result<(), eframe::Error> {
             radius: 0.5,
             position: FVec2::new(-0.5, -0.0),
             velocity: FVec2::new(0., 0.),
+            color: Color32::RED,
         },
         1,
     );

@@ -1,3 +1,4 @@
+use ecolor::Color32;
 use serde::Serialize;
 
 use crate::FVec2;
@@ -13,6 +14,7 @@ pub struct Circle {
     pub radius: f32,
     pub position: FVec2,
     pub velocity: FVec2,
+    pub color: Color32,
 }
 
 impl GenericObject for Circle {
@@ -29,6 +31,9 @@ impl GenericObject for Circle {
     }
     fn get_position(&self) -> FVec2 {
         self.position
+    }
+    fn get_color(&self) -> Color32 {
+        self.color
     }
 }
 

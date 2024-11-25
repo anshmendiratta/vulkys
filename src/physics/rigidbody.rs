@@ -2,6 +2,7 @@ use super::circle::Circle;
 use super::collision::{Collision, CollisionHandler};
 use crate::renderer::vk_proc_func::{generate_polygon_triangles, Polygon};
 use crate::FVec2;
+use ecolor::Color32;
 use serde::Serialize;
 
 #[derive(PartialEq, Clone, Copy, Serialize)]
@@ -29,6 +30,7 @@ pub trait GenericObject {
     fn get_debug(&self) -> String;
     fn get_radius(&self) -> f32;
     fn get_position(&self) -> FVec2;
+    fn get_color(&self) -> Color32;
 }
 
 type RBid = u8;
@@ -69,12 +71,14 @@ impl RigidBody {
                     radius,
                     position,
                     velocity,
+                    color,
                 },
                 _,
             ) => Circle {
                 radius: *radius,
                 position: *position,
                 velocity: *velocity,
+                color: *color,
             },
         }
     }

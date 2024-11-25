@@ -8,6 +8,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
+use bytemuck::AnyBitPattern;
+use ecolor::Color32;
 use eframe::EventLoopBuilder;
 use egui::Vec2;
 use image::{ImageBuffer, Rgba};
@@ -139,45 +141,11 @@ impl WindowEventHandler {
         let queue = self.vulkancx.queue;
         let memory_allocator = create_memory_allocator(self.vulkancx.device.clone());
 
-        // NOTE: Length of these two vectors should be the same
-        // TODO: Rewrite later, refactor too
-        // Type: Vec<[CustomVertex; 3]>
-        // let mut vertex_buffer_data: Vec<CustomVertex> = {
-        //     let mut buffer_data: Vec<CustomVertex> =
-        //         Vec::with_capacity(scene.objects_hash.len() * 3);
-        //     for (_, (_, polygon)) in &scene.objects_hash {
-        //         buffer_data = ([buffer_data, polygon.destructure_into_list()]).concat();
-        //     }
-
-        //     buffer_data
-        // };
-        // let mut vertex_buffer = Buffer::from_iter(
-        //     memory_allocator.clone(),
-        //     BufferCreateInfo {
-        //         usage: BufferUsage::VERTEX_BUFFER,
-        //         ..Default::default()
-        //     },
-        //     AllocationCreateInfo {
-        //         memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-        //             | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-        //         ..Default::default()
-        //     },
-        //     vertex_buffer_data.clone(),
-        // )
-        // .unwrap();
-
         let vs = super::shaders::vertex_shader::load(self.vulkancx.device.clone()).unwrap();
         let fs = super::shaders::fragment_shader::load(self.vulkancx.device.clone()).unwrap();
 
         let command_buffer_allocator =
             create_command_buffer_allocator(self.vulkancx.device.clone());
-        // let mut command_buffers = get_command_buffers(
-        //     &command_buffer_allocator,
-        //     &queue,
-        //     &self.graphics_pipeline,
-        //     &self.framebuffers,
-        //     &vertex_buffer,
-        // );
 
         let frames_in_flight = self.images.len();
         let mut fences: Vec<Option<Arc<FenceSignalFuture<_>>>> = vec![None; frames_in_flight];
@@ -187,131 +155,135 @@ impl WindowEventHandler {
 
         self.windowcx
             .event_loop
-            .run(move |event, _, control_flow| match event {
-                Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => {
-                    *control_flow = ControlFlow::Exit;
-                }
-                Event::MainEventsCleared => {
-                    let vertex_buffer_data = {
-                        let mut buffer_data: Vec<CustomVertex> =
-                            Vec::with_capacity(scene.objects_hash.len() * 3);
-                        for (_, (_, polygon)) in &scene.objects_hash {
-                            buffer_data = [buffer_data, polygon.destructure_into_list()].concat();
-                        }
-
-                        buffer_data
-                    };
-                    let vertex_buffer = Buffer::from_iter(
-                        create_memory_allocator(self.vulkancx.device.clone()),
-                        BufferCreateInfo {
-                            usage: BufferUsage::VERTEX_BUFFER,
-                            ..Default::default()
-                        },
-                        AllocationCreateInfo {
-                            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                            ..Default::default()
-                        },
-                        vertex_buffer_data.clone(),
-                    )
-                    .unwrap();
-
-                    scene.update_objects();
-                    scene.recreate_hash();
-
-                    let (new_swapchain, new_images) = self
-                        .swapchain
-                        .recreate(SwapchainCreateInfo {
-                            image_extent: self.windowcx.window.inner_size().into(),
-                            ..self.swapchain.create_info()
-                        })
-                        .expect("failed to recreate swapchain: {e}");
-                    self.swapchain = new_swapchain;
-                    self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
-
-                    let new_dimensions = self.windowcx.window.inner_size();
-                    self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
-
-                    self.windowcx.rendercx.viewport.extent = new_dimensions.into();
-                    self.graphics_pipeline = get_graphics_pipeline(
-                        self.vulkancx.device.clone(),
-                        vs.clone(),
-                        fs.clone(),
-                        self.render_pass.clone(),
-                        self.windowcx.rendercx.viewport.clone(),
-                    );
-                    let command_buffers = get_command_buffers(
-                        &command_buffer_allocator,
-                        &queue,
-                        &self.graphics_pipeline,
-                        &self.framebuffers,
-                        &vertex_buffer,
-                    );
-
-                    let (image_i, suboptimal, acquire_future) =
-                        match swapchain::acquire_next_image(self.swapchain.clone(), None)
-                            .map_err(Validated::unwrap)
-                        {
-                            Ok(r) => r,
-                            Err(VulkanError::OutOfDate) => {
-                                recreate_swapchain = true;
-                                return;
+            .run(move |event, _, control_flow: &mut ControlFlow| {
+                match event {
+                    Event::WindowEvent {
+                        event: WindowEvent::CloseRequested,
+                        ..
+                    } => {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    Event::MainEventsCleared => {
+                        // NOTE: Length of these two vectors should be the same
+                        // TODO: Rewrite later, refactor too
+                        let vertex_buffer_data = {
+                            let mut buffer_data: Vec<CustomVertex> =
+                                Vec::with_capacity(scene.objects_hash.len() * 3);
+                            for (_, (_, polygon)) in &scene.objects_hash {
+                                buffer_data =
+                                    [buffer_data, polygon.destructure_into_list()].concat();
                             }
-                            Err(e) => panic!("failed to acquire the next image: {e}"),
+
+                            buffer_data
+                        };
+                        let vertex_buffer = Buffer::from_iter(
+                            create_memory_allocator(self.vulkancx.device.clone()),
+                            BufferCreateInfo {
+                                usage: BufferUsage::VERTEX_BUFFER,
+                                ..Default::default()
+                            },
+                            AllocationCreateInfo {
+                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                                ..Default::default()
+                            },
+                            vertex_buffer_data.clone(),
+                        )
+                        .unwrap();
+
+                        scene.update_objects();
+                        scene.recreate_hash();
+
+                        let (new_swapchain, new_images) = self
+                            .swapchain
+                            .recreate(SwapchainCreateInfo {
+                                image_extent: self.windowcx.window.inner_size().into(),
+                                ..self.swapchain.create_info()
+                            })
+                            .expect("failed to recreate swapchain: {e}");
+                        self.swapchain = new_swapchain;
+                        self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
+
+                        let new_dimensions = self.windowcx.window.inner_size();
+                        self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
+
+                        self.windowcx.rendercx.viewport.extent = new_dimensions.into();
+                        self.graphics_pipeline = get_graphics_pipeline(
+                            self.vulkancx.device.clone(),
+                            vs.clone(),
+                            fs.clone(),
+                            self.render_pass.clone(),
+                            self.windowcx.rendercx.viewport.clone(),
+                        );
+                        let command_buffers = get_command_buffers(
+                            &command_buffer_allocator,
+                            &queue,
+                            &self.graphics_pipeline,
+                            &self.framebuffers,
+                            &vertex_buffer,
+                        )
+                        .unwrap();
+
+                        let (image_i, suboptimal, acquire_future) =
+                            match swapchain::acquire_next_image(self.swapchain.clone(), None)
+                                .map_err(Validated::unwrap)
+                            {
+                                Ok(r) => r,
+                                Err(VulkanError::OutOfDate) => {
+                                    recreate_swapchain = true;
+                                    return;
+                                }
+                                Err(e) => panic!("failed to acquire the next image: {e}"),
+                            };
+
+                        let other_image_i = image_i ^ 1;
+
+                        if suboptimal {
+                            recreate_swapchain = true;
+                        }
+                        if let Some(image_fence) = &fences[image_i as usize] {
+                            image_fence.wait(None).unwrap();
+                        }
+                        let previous_fence = match fences[previous_fence_i as usize].clone() {
+                            None => {
+                                let mut now = sync::now(self.vulkancx.device.clone());
+                                now.cleanup_finished();
+
+                                now.boxed()
+                            }
+                            Some(fence) => fence.boxed(),
                         };
 
-                    let other_image_i = image_i ^ 1;
+                        let future = previous_fence
+                            .join(acquire_future)
+                            .then_execute(queue.clone(), command_buffers[image_i as usize].clone())
+                            .unwrap()
+                            .then_swapchain_present(
+                                queue.clone(),
+                                SwapchainPresentInfo::swapchain_image_index(
+                                    self.swapchain.clone(),
+                                    image_i,
+                                ),
+                            )
+                            .then_signal_fence_and_flush();
 
-                    if suboptimal {
-                        recreate_swapchain = true;
+                        fences[image_i as usize] = match future.map_err(Validated::unwrap) {
+                            Ok(value) => Some(Arc::new(value)),
+                            Err(VulkanError::OutOfDate) => {
+                                recreate_swapchain = true;
+                                None
+                            }
+                            Err(e) => {
+                                error!("failed to flush future: {e}");
+                                None
+                            }
+                        };
+
+                        previous_fence_i = image_i;
                     }
-
-                    if let Some(image_fence) = &fences[image_i as usize] {
-                        image_fence.wait(None).unwrap();
-                    }
-
-                    let previous_fence = match fences[previous_fence_i as usize].clone() {
-                        None => {
-                            let mut now = sync::now(self.vulkancx.device.clone());
-                            now.cleanup_finished();
-
-                            now.boxed()
-                        }
-                        Some(fence) => fence.boxed(),
-                    };
-
-                    let future = previous_fence
-                        .join(acquire_future)
-                        .then_execute(queue.clone(), command_buffers[image_i as usize].clone())
-                        .unwrap()
-                        .then_swapchain_present(
-                            queue.clone(),
-                            SwapchainPresentInfo::swapchain_image_index(
-                                self.swapchain.clone(),
-                                image_i,
-                            ),
-                        )
-                        .then_signal_fence_and_flush();
-
-                    fences[image_i as usize] = match future.map_err(Validated::unwrap) {
-                        Ok(value) => Some(Arc::new(value)),
-                        Err(VulkanError::OutOfDate) => {
-                            recreate_swapchain = true;
-                            None
-                        }
-                        Err(e) => {
-                            error!("failed to flush future: {e}");
-                            None
-                        }
-                    };
-
-                    previous_fence_i = image_i;
-                }
-                _ => (),
-            });
+                    _ => (),
+                };
+            })
     }
     pub fn vulkancx(&self) -> VulkanoContext {
         self.vulkancx.clone()
@@ -419,46 +391,51 @@ pub struct CustomVertex {
     pub position_in: FVec2,
 }
 
+#[derive(BufferContents)]
+#[repr(C)]
+pub struct Vec3 {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
 fn get_command_buffers(
     command_buffer_allocator: &StandardCommandBufferAllocator,
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
     framebuffers: &Vec<Arc<Framebuffer>>,
     vertex_buffer: &Subbuffer<[CustomVertex]>,
-) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
+) -> anyhow::Result<Vec<Arc<PrimaryAutoCommandBuffer>>> {
     framebuffers
         .iter()
-        .map(|framebuffer| {
-            let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-                command_buffer_allocator,
-                queue.queue_family_index(),
-                command_buffer::CommandBufferUsage::MultipleSubmit,
-            )
-            .unwrap();
-
-            command_buffer_builder
-                .begin_render_pass(
-                    RenderPassBeginInfo {
-                        clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],
-                        ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
-                    },
-                    SubpassBeginInfo {
-                        contents: command_buffer::SubpassContents::Inline,
-                        ..Default::default()
-                    },
+        .map(
+            |framebuffer| -> anyhow::Result<Arc<PrimaryAutoCommandBuffer>> {
+                let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
+                    command_buffer_allocator,
+                    queue.queue_family_index(),
+                    command_buffer::CommandBufferUsage::MultipleSubmit,
                 )
-                .unwrap()
-                .bind_pipeline_graphics(pipeline.clone())
-                .unwrap()
-                .bind_vertex_buffers(0, vertex_buffer.clone())
-                .unwrap()
-                .draw(vertex_buffer.len() as u32, 1, 0, 0)
-                .unwrap()
-                .end_render_pass(SubpassEndInfo::default())
                 .unwrap();
 
-            command_buffer_builder.build().unwrap()
-        })
+                command_buffer_builder
+                    .begin_render_pass(
+                        RenderPassBeginInfo {
+                            clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],
+                            ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
+                        },
+                        SubpassBeginInfo {
+                            contents: command_buffer::SubpassContents::Inline,
+                            ..Default::default()
+                        },
+                    )?
+                    .bind_pipeline_graphics(pipeline.clone())?
+                    .bind_vertex_buffers(0, vertex_buffer.clone())?
+                    .draw(vertex_buffer.len() as u32, 1, 0, 0)?
+                    .end_render_pass(SubpassEndInfo::default())?;
+
+                Ok(command_buffer_builder.build()?)
+            },
+        )
         .collect()
 }
 

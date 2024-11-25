@@ -1,3 +1,4 @@
+use ecolor::Color32;
 use serde_json::Value;
 
 use crate::{
@@ -54,12 +55,21 @@ fn rigidbody_from_value(object_type: &String, json: &Vec<Value>) -> Option<Rigid
             let velocity: FVec2 =
                 FVec2::new(x.as_f64().unwrap() as f32, y.as_f64().unwrap() as f32);
 
+            let color = json["color"].as_object().unwrap();
+            let (r, g, b) = (
+                color["r"].as_u64().unwrap(),
+                color["g"].as_f64().unwrap(),
+                color["b"].as_u64().unwrap(),
+            );
+            let color = Color32::from_rgb(r as u8, g as u8, b as u8);
+
             let radius = json["radius"].as_number().unwrap().as_f64().unwrap() as f32;
 
             let circle = Circle {
                 position,
                 velocity,
                 radius,
+                color,
             };
             return Some(RigidBody::Circle_(circle, rbid));
         }
