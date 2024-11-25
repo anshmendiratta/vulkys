@@ -1,5 +1,6 @@
 use std::ops::AddAssign;
 
+use ecolor::Color32;
 use renderer::vk_core::CustomVertex;
 use serde::{Deserialize, Serialize};
 
@@ -20,10 +21,16 @@ impl FVec2 {
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
-    pub fn to_custom_vertex(&self) -> CustomVertex {
+    pub fn to_custom_vertex(&self, color: Option<Color32>) -> CustomVertex {
         CustomVertex {
             position_in: *self,
-            color: [0, 0, 0, 0],
+            color: {
+                if let Some(color) = color {
+                    color.to_array()
+                } else {
+                    [0, 0, 0, 0]
+                }
+            },
         }
     }
 }

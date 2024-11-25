@@ -68,9 +68,9 @@ mod tests {
     #[test]
     pub fn check_destructuring() {
         let sample_in: Vec<[CustomVertex; 3]> = vec![[
-            FVec2::new(0., 0.).to_custom_vertex(),
-            FVec2::new(0., 0.).to_custom_vertex(),
-            FVec2::new(0., 0.).to_custom_vertex(),
+            FVec2::new(0., 0.).to_custom_vertex(None),
+            FVec2::new(0., 0.).to_custom_vertex(None),
+            FVec2::new(0., 0.).to_custom_vertex(None),
         ]];
 
         let function_out = Polygon::destructure_into_list(&sample_in);

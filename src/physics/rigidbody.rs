@@ -94,7 +94,7 @@ impl RigidBody {
         let center_coordinate = FVec2::new(position.x, position.y);
         generate_polygon_triangles(
             self.get_vertex_count(),
-            center_coordinate.to_custom_vertex(),
+            center_coordinate.to_custom_vertex(Some(self.get_color())),
             radius,
             self.get_color(),
         )
