@@ -2,12 +2,18 @@ use crate::FVec2;
 
 use super::vk_core::CustomVertex;
 
+use ecolor::Color32;
 use libm::{cos, sin};
 use std::f32::consts::PI;
 
 pub type Triangle = [CustomVertex; 3];
 pub type Polygon = Vec<Triangle>;
-pub fn generate_polygon_triangles(n: u8, with_center: CustomVertex, with_radius: f32) -> Polygon {
+pub fn generate_polygon_triangles(
+    n: u8,
+    with_center: CustomVertex,
+    with_radius: f32,
+    with_color: Color32,
+) -> Polygon {
     if vec![0, 1, 2].contains(&n) {
         return vec![[with_center.clone(), with_center.clone(), with_center]];
     }
@@ -25,6 +31,7 @@ pub fn generate_polygon_triangles(n: u8, with_center: CustomVertex, with_radius:
                 with_radius * (cos(angle.clone() as f64) as f32) + with_center.position_in.x,
                 with_radius * (sin(angle.clone() as f64) as f32) + with_center.position_in.y,
             ),
+            color: with_color.to_array(),
         })
         .collect();
     outer_coordinates.push(outer_coordinates[0].clone());
@@ -61,27 +68,24 @@ mod tests {
     #[test]
     pub fn check_destructuring() {
         let sample_in: Vec<[CustomVertex; 3]> = vec![[
-            CustomVertex {
-                position_in: FVec2::new(0., 0.),
-            },
-            CustomVertex {
-                position_in: FVec2::new(0., 0.),
-            },
-            CustomVertex {
-                position_in: FVec2::new(0., 0.),
-            },
+            FVec2::new(0., 0.).to_custom_vertex(),
+            FVec2::new(0., 0.).to_custom_vertex(),
+            FVec2::new(0., 0.).to_custom_vertex(),
         ]];
 
         let function_out = Polygon::destructure_into_list(&sample_in);
         let desired_out: Vec<CustomVertex> = vec![
             CustomVertex {
                 position_in: FVec2::new(0., 0.),
+                color: [0, 0, 0, 0],
             },
             CustomVertex {
                 position_in: FVec2::new(0., 0.),
+                color: [0, 0, 0, 0],
             },
             CustomVertex {
                 position_in: FVec2::new(0., 0.),
+                color: [0, 0, 0, 0],
             },
         ];
 

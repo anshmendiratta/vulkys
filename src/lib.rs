@@ -21,7 +21,10 @@ impl FVec2 {
         Self { x, y }
     }
     pub fn to_custom_vertex(&self) -> CustomVertex {
-        CustomVertex { position_in: *self }
+        CustomVertex {
+            position_in: *self,
+            color: [0, 0, 0, 0],
+        }
     }
 }
 

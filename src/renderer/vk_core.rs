@@ -2,6 +2,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::hash::RandomState;
 use std::path::Path;
@@ -389,6 +390,8 @@ impl VulkanoContext {
 pub struct CustomVertex {
     #[format(R32G32_SFLOAT)]
     pub position_in: FVec2,
+    #[format(R8G8B8A8_UNORM)]
+    pub color: [u8; 4],
 }
 
 #[derive(BufferContents)]
@@ -498,10 +501,10 @@ pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<R
         device,
         attachments: {
             color: {
-            format: swapchain.image_format(),
-            samples: 1,
-            load_op: Clear,
-            store_op: Store,
+                format: swapchain.image_format(),
+                samples: 1,
+                load_op: Clear,
+                store_op: Store,
         },
     },
         pass: {

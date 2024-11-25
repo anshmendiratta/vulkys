@@ -96,7 +96,13 @@ impl RigidBody {
             self.get_vertex_count(),
             center_coordinate.to_custom_vertex(),
             radius,
+            self.get_color(),
         )
+    }
+    pub fn get_color(&self) -> Color32 {
+        match self {
+            RigidBody::Circle_(c, _) => c.color,
+        }
     }
     pub fn get_radius(&self) -> f32 {
         match self {
