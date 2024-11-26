@@ -39,6 +39,7 @@ impl GenericObject for Circle {
 
 impl CollisionHandler for Circle {
     fn check_collisions(&self) -> (Option<Vec<Collision>>, (bool, bool)) {
+        // Check collisions with the world
         let y_pos_range = self.position.y - self.radius..self.position.y + self.radius;
         let x_pos_range = self.position.x - self.radius..self.position.x + self.radius;
         let in_x_bounds = WORLD_BOUNDS.0.contains(&x_pos_range.start)
@@ -47,7 +48,7 @@ impl CollisionHandler for Circle {
             && WORLD_BOUNDS.1.contains(&y_pos_range.end);
 
         if !(in_y_bounds && in_x_bounds) {
-            let collision = Collision::new(CollisionObjectType::World, None);
+            let collision = Collision::new(CollisionObjectType::World, None, None);
             return (Some(vec![collision]), (in_x_bounds, in_y_bounds));
         };
 
@@ -62,7 +63,6 @@ impl CollisionHandler for Circle {
             self.velocity.y *= -1. * COEFF_RESTITUTION;
         }
     }
-    fn resolve_object_collision(&mut self) {
-        todo!()
-    }
+    // NOTE: only handles other circles curently
+    // fn resolve_object_collision(&mut self, other_object: RigidBody) {}
 }

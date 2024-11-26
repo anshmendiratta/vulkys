@@ -45,11 +45,11 @@ impl CollisionHandler for RigidBody {
             RigidBody::Circle_(c, _) => c.check_collisions(),
         }
     }
-    fn resolve_object_collision(&mut self) {
-        match self {
-            RigidBody::Circle_(c, _) => return c.resolve_object_collision(),
-        }
-    }
+    // fn resolve_object_collision(&mut self) {
+    //     match self {
+    //         RigidBody::Circle_(c, _) => return c.resolve_object_collision(),
+    //     }
+    // }
     fn resolve_world_collision(&mut self, has_crossed_boundaries: (bool, bool)) {
         match self {
             RigidBody::Circle_(c, _) => return c.resolve_world_collision(has_crossed_boundaries),

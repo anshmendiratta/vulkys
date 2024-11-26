@@ -21,7 +21,7 @@ fn main() -> Result<(), eframe::Error> {
             radius: 0.25,
             position: FVec2::new(0.5, 0.5),
             velocity: FVec2::new(1.5, 0.),
-            color: Color32::GREEN,
+            color: Color32::from_rgb(100, 100, 100),
         },
         0,
     );
