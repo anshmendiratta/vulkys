@@ -1,8 +1,7 @@
 #![allow(unused_imports)]
-#![allow(unused_variables)]
-#![allow(dead_code)]
+// #![allow(unused_variables)]
+// #![allow(dead_code)]
 
-use std::any::Any;
 use std::collections::HashMap;
 use std::hash::RandomState;
 use std::path::Path;
@@ -11,7 +10,7 @@ use std::time::Duration;
 
 use bytemuck::AnyBitPattern;
 use ecolor::Color32;
-use eframe::EventLoopBuilder;
+use eframe::{EventLoopBuilder, UserEvent};
 use egui::Vec2;
 use image::{ImageBuffer, Rgba};
 use serde::Deserialize;
@@ -31,8 +30,9 @@ use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
 };
 use vulkano::command_buffer::{
-    self, AutoCommandBufferBuilder, ClearColorImageInfo, CopyBufferInfo, CopyImageToBufferInfo,
-    PrimaryAutoCommandBuffer, RenderPassBeginInfo, SubpassBeginInfo, SubpassEndInfo,
+    self, AutoCommandBufferBuilder, ClearColorImageInfo, CommandBufferExecFuture, CopyBufferInfo,
+    CopyImageToBufferInfo, PrimaryAutoCommandBuffer, RenderPassBeginInfo, SubpassBeginInfo,
+    SubpassEndInfo,
 };
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::{self, PersistentDescriptorSet, WriteDescriptorSet};
@@ -44,7 +44,8 @@ use vulkano::image::view::ImageView;
 use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{
-    AllocationCreateInfo, MemoryAllocator, MemoryTypeFilter, StandardMemoryAllocator,
+    AllocationCreateInfo, FreeListAllocator, GenericMemoryAllocator, MemoryAllocator,
+    MemoryTypeFilter, StandardMemoryAllocator,
 };
 use vulkano::pipeline::compute::{self, ComputePipelineCreateInfo};
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
@@ -56,13 +57,17 @@ use vulkano::pipeline::{
 };
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
-use vulkano::swapchain::{self, Surface, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo};
-use vulkano::sync::future::FenceSignalFuture;
+use vulkano::swapchain::{
+    self, PresentFuture, Surface, Swapchain, SwapchainAcquireFuture, SwapchainCreateInfo,
+    SwapchainPresentInfo,
+};
+use vulkano::sync::future::{FenceSignalFuture, JoinFuture};
 use vulkano::sync::{GpuFuture, PipelineStages};
 use vulkano::{library, single_pass_renderpass, sync, Validated, VulkanError, VulkanLibrary};
 use winit::dpi::{PhysicalSize, Size};
-use winit::event::{Event, WindowEvent};
+use winit::event::{Event, KeyboardInput, ScanCode, WindowEvent};
 use winit::event_loop::{self, ControlFlow, EventLoop};
+use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::{Window, WindowBuilder};
 
 use crate::core::parse::parse_serde_value;
@@ -71,264 +76,284 @@ use crate::physics::scene::Scene;
 use crate::{FVec2, WINDOW_LENGTH};
 
 use super::shaders;
-use super::vk_prims::{
+use super::vk_primitives::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
-    get_framebuffers, get_required_extensions, select_device_and_queue,
+    get_framebuffers, get_render_pass, get_required_extensions, select_device_and_queue,
 };
-use super::vk_proc_func::{generate_polygon_triangles, Polygon, PolygonMethods};
+use super::vk_procedural_functions::{generate_polygon_triangles, Polygon, PolygonMethods};
 
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     width: WINDOW_LENGTH as u32,
     height: WINDOW_LENGTH as u32,
 });
 
+type SwapchainJoinFuture = JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFuture>;
+type FenceFuture = FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
 pub struct WindowEventHandler {
-    vulkancx: VulkanoContext,
-    windowcx: WindowContext,
+    vk_cx: VulkanoContext,
+    window_cx: WindowContext,
+    render_cx: RenderContext,
+
+    fences: Vec<Option<Arc<FenceFuture>>>,
+    frames_in_flight: usize,
+    previous_fence_i: u32,
+
+    recreate_swapchain_flag: bool,
+}
+
+struct RenderContext {
+    vs: Arc<ShaderModule>,
+    fs: Arc<ShaderModule>,
+    render_pass: Arc<RenderPass>,
+    graphics_pipeline: Arc<GraphicsPipeline>,
+
     swapchain: Arc<Swapchain>,
     framebuffers: Vec<Arc<Framebuffer>>,
     images: Vec<Arc<Image>>,
-    render_pass: Arc<RenderPass>,
-    graphics_pipeline: Arc<GraphicsPipeline>,
-}
 
-impl WindowEventHandler {
-    pub fn new() -> Self {
-        let windowcx = WindowContext::new();
-        let vulkancx = VulkanoContext::with_window_context(&windowcx);
-        let required_extensions = Surface::required_extensions(&windowcx.event_loop);
-        let library = VulkanLibrary::new().expect("no local vulkan lib");
-        let (swapchain, images) = create_swapchain_and_images(&windowcx, &vulkancx);
-        let render_pass = get_render_pass(vulkancx.device.clone(), &swapchain);
-        let framebuffers = get_framebuffers(&images, &render_pass);
-        let vs = super::shaders::vertex_shader::load(vulkancx.device.clone()).unwrap();
-        let fs = super::shaders::fragment_shader::load(vulkancx.device.clone()).unwrap();
-        let graphics_pipeline = get_graphics_pipeline(
-            vulkancx.device.clone(),
-            vs,
-            fs,
-            render_pass.clone(),
-            windowcx.rendercx.viewport.clone(),
-        );
-        Self {
-            vulkancx,
-            windowcx,
-            swapchain,
-            framebuffers,
-            images,
-            render_pass,
-            graphics_pipeline,
-        }
-    }
-    pub fn run_with_scene(self, scene: Scene) {
-        self.run_inner(scene);
-    }
-    // TODO: Have this take a HashMap<u8, (RigidBody, Polygon)> where the RBid: u8 binds them together
-    pub fn run_inner(mut self, mut scene: Scene) {
-        let library = VulkanLibrary::new().expect("can't find vulkan library");
-        let physical_device = vk_prims::select_physical_device(&self.windowcx);
-        let surface =
-            Surface::from_window(self.windowcx.instance.clone(), self.windowcx.window.clone())
-                .expect("could not create window");
-        let caps = physical_device
-            .surface_capabilities(&surface, Default::default())
-            .expect("failed to get surface capabilities");
-        let dimensions = self.windowcx.window.inner_size();
-        let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
-        let image_format = physical_device
-            .surface_formats(&surface, Default::default())
-            .unwrap()[0]
-            .0;
-        let queue = self.vulkancx.queue;
-        let memory_allocator = create_memory_allocator(self.vulkancx.device.clone());
-
-        let vs = super::shaders::vertex_shader::load(self.vulkancx.device.clone()).unwrap();
-        let fs = super::shaders::fragment_shader::load(self.vulkancx.device.clone()).unwrap();
-
-        let command_buffer_allocator =
-            create_command_buffer_allocator(self.vulkancx.device.clone());
-
-        let frames_in_flight = self.images.len();
-        let mut fences: Vec<Option<Arc<FenceSignalFuture<_>>>> = vec![None; frames_in_flight];
-        let mut previous_fence_i = 0;
-
-        let mut recreate_swapchain: bool = false;
-
-        self.windowcx
-            .event_loop
-            .run(move |event, _, control_flow: &mut ControlFlow| {
-                match event {
-                    Event::WindowEvent {
-                        event: WindowEvent::CloseRequested,
-                        ..
-                    } => {
-                        *control_flow = ControlFlow::Exit;
-                    }
-                    Event::MainEventsCleared => {
-                        // NOTE: Length of these two vectors should be the same
-                        // TODO: Rewrite later, refactor too
-                        let vertex_buffer_data = {
-                            let mut buffer_data: Vec<CustomVertex> =
-                                Vec::with_capacity(scene.objects_hash.len() * 3);
-                            for (_, (_, polygon)) in &scene.objects_hash {
-                                buffer_data =
-                                    [buffer_data, polygon.destructure_into_list()].concat();
-                            }
-
-                            buffer_data
-                        };
-                        let vertex_buffer = Buffer::from_iter(
-                            create_memory_allocator(self.vulkancx.device.clone()),
-                            BufferCreateInfo {
-                                usage: BufferUsage::VERTEX_BUFFER,
-                                ..Default::default()
-                            },
-                            AllocationCreateInfo {
-                                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                                ..Default::default()
-                            },
-                            vertex_buffer_data.clone(),
-                        )
-                        .unwrap();
-
-                        scene.update_objects();
-                        scene.recreate_hash();
-
-                        let (new_swapchain, new_images) = self
-                            .swapchain
-                            .recreate(SwapchainCreateInfo {
-                                image_extent: self.windowcx.window.inner_size().into(),
-                                ..self.swapchain.create_info()
-                            })
-                            .expect("failed to recreate swapchain: {e}");
-                        self.swapchain = new_swapchain;
-                        self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
-
-                        let new_dimensions = self.windowcx.window.inner_size();
-                        self.framebuffers = get_framebuffers(&new_images, &self.render_pass);
-
-                        self.windowcx.rendercx.viewport.extent = new_dimensions.into();
-                        self.graphics_pipeline = get_graphics_pipeline(
-                            self.vulkancx.device.clone(),
-                            vs.clone(),
-                            fs.clone(),
-                            self.render_pass.clone(),
-                            self.windowcx.rendercx.viewport.clone(),
-                        );
-                        let command_buffers = get_command_buffers(
-                            &command_buffer_allocator,
-                            &queue,
-                            &self.graphics_pipeline,
-                            &self.framebuffers,
-                            &vertex_buffer,
-                        )
-                        .unwrap();
-
-                        let (image_i, suboptimal, acquire_future) =
-                            match swapchain::acquire_next_image(self.swapchain.clone(), None)
-                                .map_err(Validated::unwrap)
-                            {
-                                Ok(r) => r,
-                                Err(VulkanError::OutOfDate) => {
-                                    recreate_swapchain = true;
-                                    return;
-                                }
-                                Err(e) => panic!("failed to acquire the next image: {e}"),
-                            };
-
-                        let other_image_i = image_i ^ 1;
-
-                        if suboptimal {
-                            recreate_swapchain = true;
-                        }
-                        if let Some(image_fence) = &fences[image_i as usize] {
-                            image_fence.wait(None).unwrap();
-                        }
-                        let previous_fence = match fences[previous_fence_i as usize].clone() {
-                            None => {
-                                let mut now = sync::now(self.vulkancx.device.clone());
-                                now.cleanup_finished();
-
-                                now.boxed()
-                            }
-                            Some(fence) => fence.boxed(),
-                        };
-
-                        let future = previous_fence
-                            .join(acquire_future)
-                            .then_execute(queue.clone(), command_buffers[image_i as usize].clone())
-                            .unwrap()
-                            .then_swapchain_present(
-                                queue.clone(),
-                                SwapchainPresentInfo::swapchain_image_index(
-                                    self.swapchain.clone(),
-                                    image_i,
-                                ),
-                            )
-                            .then_signal_fence_and_flush();
-
-                        fences[image_i as usize] = match future.map_err(Validated::unwrap) {
-                            Ok(value) => Some(Arc::new(value)),
-                            Err(VulkanError::OutOfDate) => {
-                                recreate_swapchain = true;
-                                None
-                            }
-                            Err(e) => {
-                                error!("failed to flush future: {e}");
-                                None
-                            }
-                        };
-
-                        previous_fence_i = image_i;
-                    }
-                    _ => (),
-                };
-            })
-    }
-    pub fn vulkancx(&self) -> VulkanoContext {
-        self.vulkancx.clone()
-    }
-    pub fn windowcx(&self) -> &WindowContext {
-        &self.windowcx
-    }
-}
-
-pub struct RenderContext {
-    scale_factor: f64,
     viewport: Viewport,
 }
 
 impl RenderContext {
-    fn new(window_inner_size: PhysicalSize<u32>) -> Self {
-        let scale_factor = 1.0;
+    fn new(
+        device: Arc<Device>,
+        window_cx: &WindowContext,
+        vk_cx: &VulkanoContext,
+        event_loop: &EventLoop<()>,
+    ) -> Self {
+        let vs = super::shaders::vertex_shader::load(device.clone()).unwrap();
+        let fs = super::shaders::fragment_shader::load(device.clone()).unwrap();
+        let (swapchain, images) = create_swapchain_and_images(window_cx, vk_cx, event_loop);
+        let render_pass = get_render_pass(device.clone(), &swapchain);
+        let framebuffers = get_framebuffers(&images, &render_pass);
         let viewport = Viewport {
-            extent: window_inner_size.into(),
+            extent: [WINDOW_LENGTH; 2],
             ..Default::default()
         };
-        RenderContext {
-            scale_factor,
+        let graphics_pipeline = get_graphics_pipeline(
+            device.clone(),
+            vs.clone(),
+            fs.clone(),
+            render_pass.clone(),
+            viewport.clone(),
+        );
+
+        Self {
+            vs,
+            fs,
+            render_pass,
+            graphics_pipeline,
             viewport,
+            swapchain,
+            framebuffers,
+            images,
         }
-    }
-    fn scale_factor(&self) -> f64 {
-        self.scale_factor
     }
     fn viewport(&self) -> Viewport {
         self.viewport.clone()
     }
 }
 
+impl WindowEventHandler {
+    pub fn new(event_loop: &EventLoop<()>) -> Self {
+        let window_cx = WindowContext::new(event_loop);
+        let vk_cx = VulkanoContext::with_window_context(&window_cx, event_loop);
+        let required_extensions = Surface::required_extensions(event_loop);
+        let library = VulkanLibrary::new().expect("no local vulkan lib");
+        let (swapchain, images) = create_swapchain_and_images(&window_cx, &vk_cx, event_loop);
+        let render_pass = get_render_pass(vk_cx.device.clone(), &swapchain);
+        let framebuffers = get_framebuffers(&images, &render_pass);
+        let render_cx = RenderContext::new(vk_cx.device.clone(), &window_cx, &vk_cx, event_loop);
+
+        let frames_in_flight = render_cx.images.len();
+        let fences = vec![None; frames_in_flight];
+        let previous_fence_i = 0;
+
+        Self {
+            vk_cx,
+            window_cx,
+            render_cx,
+            frames_in_flight,
+            fences,
+            previous_fence_i,
+            recreate_swapchain_flag: false,
+        }
+    }
+
+    pub fn run_with_scene(mut self, mut scene: Scene, event_loop: EventLoop<()>) {
+        let library = VulkanLibrary::new().expect("can't find vulkan library");
+        let physical_device = vk_primitives::select_physical_device(&self.window_cx, &event_loop);
+        let surface = Surface::from_window(
+            self.window_cx.instance.clone(),
+            self.window_cx.window.clone(),
+        )
+        .expect("could not create window");
+        let caps = physical_device
+            .surface_capabilities(&surface, Default::default())
+            .expect("failed to get surface capabilities");
+        let dimensions = self.window_cx.window.inner_size();
+        let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
+        let image_format = physical_device
+            .surface_formats(&surface, Default::default())
+            .unwrap()[0]
+            .0;
+
+        event_loop.run(move |event, _, _| {
+            self.handle_window_event(&mut scene, &event);
+        })
+    }
+
+    pub fn handle_window_event(&mut self, scene: &mut Scene, event: &Event<()>) {
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => std::process::exit(0),
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput { input, .. },
+                ..
+            } => match input.scancode {
+                /* Code for Q */ 16 => std::process::exit(0),
+                _ => (),
+            },
+            Event::MainEventsCleared => {
+                // NOTE: Length of these two vectors should be the same
+                // TODO: Rewrite later, refactor too
+                let vertex_buffer_data = {
+                    let mut buffer_data: Vec<CustomVertex> =
+                        Vec::with_capacity(scene.objects_hash.len() * 3);
+                    for (_, (_, polygon)) in &scene.objects_hash {
+                        buffer_data = [buffer_data, polygon.destructure_into_list()].concat();
+                    }
+
+                    buffer_data
+                };
+                let vertex_buffer = Buffer::from_iter(
+                    create_memory_allocator(self.vk_cx.device.clone()),
+                    BufferCreateInfo {
+                        usage: BufferUsage::VERTEX_BUFFER,
+                        ..Default::default()
+                    },
+                    AllocationCreateInfo {
+                        memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                            | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                        ..Default::default()
+                    },
+                    vertex_buffer_data.clone(),
+                )
+                .unwrap();
+
+                scene.update_objects();
+                scene.recreate_hash();
+
+                let (new_swapchain, new_images) = self
+                    .render_cx
+                    .swapchain
+                    .recreate(SwapchainCreateInfo {
+                        image_extent: self.window_cx.window.inner_size().into(),
+                        ..self.render_cx.swapchain.create_info()
+                    })
+                    .expect("failed to recreate swapchain: {e}");
+                self.render_cx.swapchain = new_swapchain;
+                self.render_cx.framebuffers =
+                    get_framebuffers(&new_images, &self.render_cx.render_pass);
+                self.render_cx.viewport.extent = self.window_cx.window.inner_size().into();
+                self.render_cx.graphics_pipeline = get_graphics_pipeline(
+                    self.vk_cx.device.clone(),
+                    self.render_cx.vs.clone(),
+                    self.render_cx.fs.clone(),
+                    self.render_cx.render_pass.clone(),
+                    self.render_cx.viewport.clone(),
+                );
+                let command_buffers = get_command_buffers(
+                    &self.vk_cx.command_buffer_allocator,
+                    &self.vk_cx.queue,
+                    &self.render_cx.graphics_pipeline,
+                    &self.render_cx.framebuffers,
+                    &vertex_buffer,
+                )
+                .unwrap();
+
+                let (image_i, suboptimal, acquire_future) =
+                    match swapchain::acquire_next_image(self.render_cx.swapchain.clone(), None)
+                        .map_err(Validated::unwrap)
+                    {
+                        Ok(r) => r,
+                        Err(VulkanError::OutOfDate) => {
+                            self.recreate_swapchain_flag = true;
+                            return;
+                        }
+                        Err(e) => panic!("failed to acquire the next image: {e}"),
+                    };
+
+                let other_image_i = image_i ^ 1;
+
+                if suboptimal {
+                    self.recreate_swapchain_flag = true;
+                }
+                if let Some(image_fence) = &self.fences[image_i as usize] {
+                    image_fence.wait(None).unwrap();
+                }
+                let previous_fence = match self.fences[self.previous_fence_i as usize].clone() {
+                    None => {
+                        let mut now = sync::now(self.vk_cx.device.clone());
+                        now.cleanup_finished();
+
+                        now.boxed()
+                    }
+                    Some(fence) => fence.boxed(),
+                };
+
+                let future = previous_fence
+                    .join(acquire_future)
+                    .then_execute(
+                        self.vk_cx.queue.clone(),
+                        command_buffers[image_i as usize].clone(),
+                    )
+                    .unwrap()
+                    .then_swapchain_present(
+                        self.vk_cx.queue.clone(),
+                        SwapchainPresentInfo::swapchain_image_index(
+                            self.render_cx.swapchain.clone(),
+                            image_i,
+                        ),
+                    )
+                    .then_signal_fence_and_flush();
+
+                self.fences[image_i as usize] = match future.map_err(Validated::unwrap) {
+                    Ok(value) => Some(Arc::new(value)),
+                    Err(VulkanError::OutOfDate) => {
+                        // recreate_swapchain = true;
+                        None
+                    }
+                    Err(e) => {
+                        error!("failed to flush future: {e}");
+                        None
+                    }
+                };
+
+                self.previous_fence_i = image_i;
+            }
+            _ => (),
+        }
+    }
+    pub fn vulkancx(&self) -> VulkanoContext {
+        self.vk_cx.clone()
+    }
+    pub fn windowcx(&self) -> &WindowContext {
+        &self.window_cx
+    }
+}
+
 pub struct WindowContext {
+    // event_loop: EventLoop<()>,
     pub instance: Arc<Instance>,
     pub window: Arc<Window>,
-    event_loop: EventLoop<()>,
-    rendercx: RenderContext,
 }
 
 impl WindowContext {
-    pub fn new() -> Self {
-        let event_loop = EventLoop::new();
+    pub fn new(event_loop: &EventLoop<()>) -> Self {
+        // let event_loop = EventLoop::new();
         let window = Arc::new(
             WindowBuilder::new()
                 .with_title("vulkys")
@@ -347,21 +372,15 @@ impl WindowContext {
             },
         )
         .expect("failed to create instance");
-        let rendercx = RenderContext::new(window.inner_size());
 
-        Self {
-            instance,
-            window,
-            event_loop,
-            rendercx,
-        }
+        Self { instance, window }
     }
     pub fn window(&self) -> Arc<Window> {
         self.window.clone()
     }
-    pub fn event_loop(&self) -> &EventLoop<()> {
-        &self.event_loop
-    }
+    // pub fn event_loop(&self) -> &EventLoop<()> {
+    //     &self.event_loop
+    // }
 }
 
 #[derive(Clone)]
@@ -369,18 +388,26 @@ pub struct VulkanoContext {
     pub(crate) device: Arc<Device>,
     queue_family_index: u32,
     queue: Arc<Queue>,
+
+    memory_allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
+    command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
 }
 
 impl VulkanoContext {
-    pub fn with_window_context(win_ctx: &WindowContext) -> Self {
+    pub fn with_window_context(win_ctx: &WindowContext, event_loop: &EventLoop<()>) -> Self {
         let library = VulkanLibrary::new().expect("can't find vulkan library dll");
-        let (device, queue_family_index, queue) = vk_prims::select_device_and_queue(win_ctx);
-        let (_, required_extensions) = get_required_extensions(&win_ctx.event_loop());
+        let (device, queue_family_index, queue) =
+            vk_primitives::select_device_and_queue(win_ctx, event_loop);
+        let memory_allocator = create_memory_allocator(device.clone());
+        let command_buffer_allocator = create_command_buffer_allocator(device.clone());
 
         Self {
             device,
             queue_family_index,
             queue,
+
+            memory_allocator,
+            command_buffer_allocator: Arc::new(command_buffer_allocator),
         }
     }
 }
@@ -496,28 +523,9 @@ pub fn get_graphics_pipeline(
     .unwrap()
 }
 
-pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
-    vulkano::single_pass_renderpass!(
-        device,
-        attachments: {
-            color: {
-                format: swapchain.image_format(),
-                samples: 1,
-                load_op: Clear,
-                store_op: Store,
-        },
-    },
-        pass: {
-            color: [color],
-            depth_stencil: {},
-        }
-    )
-    .unwrap()
-}
-
 pub fn get_compute_pipeline(ctx: VulkanoContext) {
     let (device, queue_family_index, queue) = (ctx.device, ctx.queue_family_index, ctx.queue);
-    let memory_allocator = vk_prims::create_memory_allocator(device.clone());
+    let memory_allocator = vk_primitives::create_memory_allocator(device.clone());
 
     let shader = super::shaders::compute_shaders::load(device.clone())
         .expect("failed to create shader module");
@@ -571,7 +579,7 @@ pub fn get_compute_pipeline(ctx: VulkanoContext) {
     )
     .unwrap();
 
-    let command_buffer_allocator = vk_prims::create_command_buffer_allocator(device.clone());
+    let command_buffer_allocator = vk_primitives::create_command_buffer_allocator(device.clone());
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
         &command_buffer_allocator,
         queue_family_index,

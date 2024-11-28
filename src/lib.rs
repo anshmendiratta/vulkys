@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use std::ops::{AddAssign, Sub};
+use std::ops::{AddAssign, Mul, Sub};
 
 use ecolor::Color32;
 use renderer::vk_core::CustomVertex;
@@ -68,6 +68,17 @@ impl FVec2 {
         Self {
             x: self.x - 2. * rejection_from_other.x,
             y: self.y - 2. * rejection_from_other.y,
+        }
+    }
+}
+
+impl Mul<f32> for FVec2 {
+    type Output = Self;
+
+    fn mul(self, scalar: f32) -> Self::Output {
+        Self {
+            x: self.x * scalar,
+            y: self.y * scalar,
         }
     }
 }

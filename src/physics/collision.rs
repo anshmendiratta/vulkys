@@ -38,7 +38,6 @@ impl Collision {
         let unit_axis_of_seperation = vector_between_com.get_orthogonal_unit();
         let updated_secondary_velocity =
             second.get_velocity().mirror_along(unit_axis_of_seperation);
-        // .mirror_along(vector_between_com);
 
         updated_secondary_velocity
     }

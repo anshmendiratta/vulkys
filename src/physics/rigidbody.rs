@@ -1,6 +1,6 @@
 use super::circle::Circle;
 use super::collision::{Collision, CollisionHandler};
-use crate::renderer::vk_proc_func::{generate_polygon_triangles, Polygon};
+use crate::renderer::vk_procedural_functions::{generate_polygon_triangles, Polygon};
 use crate::FVec2;
 use ecolor::Color32;
 use serde::Serialize;

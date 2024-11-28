@@ -18,7 +18,9 @@ use vulkano::device::{
     Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
 };
 use vulkano::instance::InstanceExtensions;
-use vulkano::memory::allocator::StandardMemoryAllocator;
+use vulkano::memory::allocator::{
+    FreeListAllocator, GenericMemoryAllocator, StandardMemoryAllocator,
+};
 
 pub fn get_required_extensions(
     event_loop: &EventLoop<()>,
@@ -30,6 +32,25 @@ pub fn get_required_extensions(
     let required_extensions = Surface::required_extensions(&event_loop);
 
     (device_extensions, required_extensions)
+}
+
+pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
+    vulkano::single_pass_renderpass!(
+        device,
+        attachments: {
+            color: {
+                format: swapchain.image_format(),
+                samples: 1,
+                load_op: Clear,
+                store_op: Store,
+        },
+    },
+        pass: {
+            color: [color],
+            depth_stencil: {},
+        }
+    )
+    .unwrap()
 }
 
 pub fn get_framebuffers(
@@ -55,10 +76,11 @@ pub fn get_framebuffers(
 pub fn create_swapchain_and_images(
     windowcx: &WindowContext,
     vulkancx: &VulkanoContext,
+    event_loop: &EventLoop<()>,
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
     let surface = Surface::from_window(windowcx.instance.clone(), windowcx.window.clone())
         .expect("could not create window");
-    let physical_device = select_physical_device(windowcx);
+    let physical_device = select_physical_device(windowcx, event_loop);
     let device = vulkancx.device.clone();
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
@@ -86,12 +108,11 @@ pub fn create_swapchain_and_images(
     (swapchain, images)
 }
 
-pub fn select_physical_device(win_ctx: &WindowContext) -> Arc<PhysicalDevice> {
-    let (window, event_loop, instance) = (
-        win_ctx.window(),
-        win_ctx.event_loop(),
-        win_ctx.instance.clone(),
-    );
+pub fn select_physical_device(
+    win_ctx: &WindowContext,
+    event_loop: &EventLoop<()>,
+) -> Arc<PhysicalDevice> {
+    let (window, instance) = (win_ctx.window(), win_ctx.instance.clone());
     let (device_extensions, _) = get_required_extensions(event_loop);
     let library = VulkanLibrary::new().expect("no local vulkan lib");
     let surface =
@@ -122,13 +143,16 @@ pub fn select_physical_device(win_ctx: &WindowContext) -> Arc<PhysicalDevice> {
         .0
 }
 
-pub fn select_device_and_queue(win_ctx: &WindowContext) -> (Arc<Device>, u32, Arc<Queue>) {
+pub fn select_device_and_queue(
+    win_ctx: &WindowContext,
+    event_loop: &EventLoop<()>,
+) -> (Arc<Device>, u32, Arc<Queue>) {
     let device_extensions = DeviceExtensions {
         khr_swapchain: true,
         ..DeviceExtensions::empty()
     };
 
-    let physical_device = select_physical_device(win_ctx);
+    let physical_device = select_physical_device(win_ctx, event_loop);
     let queue_family_index = physical_device
         .queue_family_properties()
         .iter()
@@ -158,11 +182,7 @@ pub fn select_device_and_queue(win_ctx: &WindowContext) -> (Arc<Device>, u32, Ar
 
 pub fn create_memory_allocator(
     device: Arc<Device>,
-) -> Arc<
-    vulkano::memory::allocator::GenericMemoryAllocator<
-        vulkano::memory::allocator::FreeListAllocator,
-    >,
-> {
+) -> Arc<GenericMemoryAllocator<FreeListAllocator>> {
     Arc::new(StandardMemoryAllocator::new_default(device))
 }
 

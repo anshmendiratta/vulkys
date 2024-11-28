@@ -61,7 +61,7 @@ impl PolygonMethods for Polygon {
 mod tests {
     use super::PolygonMethods;
     use crate::{
-        renderer::{vk_core::CustomVertex, vk_proc_func::Polygon},
+        renderer::{vk_core::CustomVertex, vk_procedural_functions::Polygon},
         FVec2,
     };
 

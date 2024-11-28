@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::hash::RandomState;
 
+use winit::event_loop::EventLoop;
+
 use crate::{
-    renderer::{vk_core::WindowEventHandler, vk_proc_func::Polygon},
+    renderer::{vk_core::WindowEventHandler, vk_procedural_functions::Polygon},
     FVec2,
 };
 
@@ -19,6 +21,7 @@ pub struct Scene {
 }
 
 impl Scene {
+    /// Initializes a new scene with the `RigidBody`s passed in.
     pub fn with_objects(mut objects: Vec<RigidBody>) -> Self {
         // NOTE: correcting for the vulkan coordinate system; resetting to (0,0) being lower left
         objects.iter_mut().for_each(|obj| {
@@ -43,8 +46,9 @@ impl Scene {
         }
     }
     pub fn run(self) {
-        let windowcx_handler = WindowEventHandler::new();
-        windowcx_handler.run_with_scene(self);
+        let event_loop = EventLoop::new();
+        let windowcx_handler = WindowEventHandler::new(&event_loop);
+        windowcx_handler.run_with_scene(self, event_loop);
     }
     pub fn check_and_resolve_collision(&mut self) {
         // Checking for object-world collisions
