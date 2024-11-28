@@ -1,2 +1,10 @@
-2024-11-28T05:52:00.343736Z  WARN winit::platform_impl::platform::x11::util::randr: /home/luigi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/winit-0.28.7/src/platform_impl/linux/x11/util/randr.rs:23: XRandR reported that the display's 0mm in size, which is certifiably insane    
-2024-11-28T05:52:00.343820Z  INFO winit::platform_impl::platform::x11::window: /home/luigi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/winit-0.28.7/src/platform_impl/linux/x11/window.rs:156: Guessed window scale factor: 1    
+2024-11-28T06:15:09.307486Z  WARN winit::platform_impl::platform::x11::util::randr: /home/luigi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/winit-0.28.7/src/platform_impl/linux/x11/util/randr.rs:23: XRandR reported that the display's 0mm in size, which is certifiably insane    
+2024-11-28T06:15:09.307574Z  INFO winit::platform_impl::platform::x11::window: /home/luigi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/winit-0.28.7/src/platform_impl/linux/x11/window.rs:156: Guessed window scale factor: 1    
+2024-11-28T06:15:11.363113Z  INFO vulkys::physics::collision: src/physics/collision.rs:44: changed velocity of circle with r=0.1 from (-0.75, 5.5439987) to (2.9366765, -4.7617598)
+2024-11-28T06:15:11.363153Z  INFO vulkys::physics::collision: src/physics/collision.rs:44: changed velocity of circle with r=0.25 from (0.5, -4.3739944) to (-2.3878295, 3.6986613)
+2024-11-28T06:15:12.728238Z  INFO vulkys::physics::collision: src/physics/collision.rs:44: changed velocity of circle with r=0.1 from (2.9366765, -0.9997666) to (1.847177, 2.492296)
+2024-11-28T06:15:12.728268Z  INFO vulkys::physics::collision: src/physics/collision.rs:44: changed velocity of circle with r=0.25 from (-1.3499999, -3.5027947) to (-3.1023088, 2.1137052)
+2024-11-28T06:15:13.299529Z  INFO vulkys::physics::collision: src/physics/collision.rs:44: changed velocity of circle with r=0.25 from (2.1490464, 1.3493972) to (-1.4631577, 2.0732687)
+2024-11-28T06:15:13.299560Z  INFO vulkys::physics::collision: src/physics/collision.rs:44: changed velocity of circle with r=0.25 from (-3.1023088, 3.6976953) to (4.2875495, 2.2167969)
+2024-11-28T06:15:13.876671Z  INFO vulkys::physics::collision: src/physics/collision.rs:44: changed velocity of circle with r=0.25 from (4.2875495, 3.782787) to (-0.011374474, 5.7177286)
+2024-11-28T06:15:13.876698Z  INFO vulkys::physics::collision: src/physics/collision.rs:44: changed velocity of circle with r=0.1 from (1.847177, 5.624298) to (2.9852467, 5.112054)

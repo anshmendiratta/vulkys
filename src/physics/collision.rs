@@ -1,3 +1,5 @@
+use tracing::info;
+
 use crate::FVec2;
 
 use super::rigidbody::RigidBody;
@@ -38,6 +40,13 @@ impl Collision {
         let unit_axis_of_seperation = vector_between_com.get_orthogonal_unit();
         let updated_secondary_velocity =
             second.get_velocity().mirror_along(unit_axis_of_seperation);
+
+        info!(
+            "changed velocity of circle with r={} from {} to {}",
+            second.get_radius(),
+            second.get_velocity(),
+            updated_secondary_velocity
+        );
 
         updated_secondary_velocity
     }

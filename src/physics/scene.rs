@@ -1,10 +1,20 @@
-use std::collections::HashMap;
 use std::hash::RandomState;
+use std::{collections::HashMap, sync::Arc};
 
+use vulkano::buffer::{Buffer, Subbuffer};
+use vulkano::{
+    buffer::{BufferCreateInfo, BufferUsage},
+    device::Device,
+    memory::allocator::{AllocationCreateInfo, MemoryTypeFilter},
+};
 use winit::event_loop::EventLoop;
 
 use crate::{
-    renderer::{vk_core::WindowEventHandler, vk_procedural_functions::Polygon},
+    renderer::{
+        vk_core::{CustomVertex, WindowEventHandler},
+        vk_primitives::create_memory_allocator,
+        vk_procedural_functions::{Polygon, PolygonMethods},
+    },
     FVec2,
 };
 
@@ -45,11 +55,41 @@ impl Scene {
             objects_hash,
         }
     }
+
+    pub fn return_objects_as_vertex_buffer(
+        &self,
+        device: Arc<Device>,
+    ) -> Subbuffer<[CustomVertex]> {
+        let vertex_buffer_data = {
+            let mut buffer_data: Vec<CustomVertex> =
+                Vec::with_capacity(self.objects_hash.len() * 3);
+            for (_, (_, polygon)) in &self.objects_hash {
+                buffer_data = [buffer_data, polygon.destructure_into_list()].concat();
+            }
+            buffer_data
+        };
+        Buffer::from_iter(
+            create_memory_allocator(device.clone()),
+            BufferCreateInfo {
+                usage: BufferUsage::VERTEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            vertex_buffer_data.clone(),
+        )
+        .expect("scene: could not produce vertex buffer from objects")
+    }
+
     pub fn run(self) {
         let event_loop = EventLoop::new();
         let windowcx_handler = WindowEventHandler::new(&event_loop);
         windowcx_handler.run_with_scene(self, event_loop);
     }
+
     pub fn check_and_resolve_collision(&mut self) {
         // Checking for object-world collisions
         for object in &mut self.objects {
@@ -82,7 +122,7 @@ impl Scene {
             });
 
             object_collisions.iter_mut().for_each(|collision| {
-                let (ref_id, checking_id) = (
+                let (_ref_id, checking_id) = (
                     collision.get_primary().unwrap().get_id(),
                     collision.get_secondary().unwrap().get_id(),
                 );
@@ -102,6 +142,7 @@ impl Scene {
             self.recreate_objects_from_hash();
         }
     }
+
     pub fn update_objects(&mut self) {
         for object in &mut self.objects {
             let current_velocity = object.get_velocity();
@@ -120,6 +161,7 @@ impl Scene {
         }
         self.check_and_resolve_collision();
     }
+
     pub fn recreate_hash(&mut self) {
         let polygons: Vec<Polygon> = self.objects.iter().map(|body| body.to_polygon()).collect();
 
@@ -131,6 +173,7 @@ impl Scene {
 
         self.objects_hash = objects_as_hash;
     }
+
     pub fn recreate_objects_from_hash(&mut self) {
         self.objects.clear();
         for (rigidbody, _) in self.objects_hash.values() {

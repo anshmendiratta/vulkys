@@ -1,86 +1,55 @@
 #![allow(unused_imports)]
-// #![allow(unused_variables)]
-// #![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(dead_code)]
 
-use std::collections::HashMap;
-use std::hash::RandomState;
-use std::path::Path;
+use crate::renderer::vk_core::command_buffer::allocator::StandardCommandBufferAllocator;
+use crate::renderer::vk_primitives::get_graphics_pipeline;
 use std::sync::Arc;
-use std::time::Duration;
+use tracing::error;
+use vulkano::buffer::BufferContents;
+use vulkano::pipeline::graphics::vertex_input::Vertex;
 
-use bytemuck::AnyBitPattern;
-use ecolor::Color32;
-use eframe::{EventLoopBuilder, UserEvent};
 use egui::Vec2;
-use image::{ImageBuffer, Rgba};
 use serde::Deserialize;
-use serde_json::Value;
-use tracing::{error, event, info, span, Level};
-
-use vulkano::buffer::{BufferContents, Subbuffer};
-use vulkano::device::physical::PhysicalDeviceType;
-use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
-use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
-use vulkano::pipeline::graphics::multisample::MultisampleState;
-use vulkano::pipeline::graphics::rasterization::RasterizationState;
-use vulkano::pipeline::graphics::vertex_input::{Vertex, VertexDefinition};
 
 use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
-use vulkano::command_buffer::allocator::{
-    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
-};
-use vulkano::command_buffer::{
-    self, AutoCommandBufferBuilder, ClearColorImageInfo, CommandBufferExecFuture, CopyBufferInfo,
-    CopyImageToBufferInfo, PrimaryAutoCommandBuffer, RenderPassBeginInfo, SubpassBeginInfo,
-    SubpassEndInfo,
-};
+use vulkano::command_buffer::{self, AutoCommandBufferBuilder, CommandBufferExecFuture};
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-use vulkano::descriptor_set::{self, PersistentDescriptorSet, WriteDescriptorSet};
-use vulkano::device::{
-    Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
-};
-use vulkano::format::{self, Format};
-use vulkano::image::view::ImageView;
-use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
+use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
+use vulkano::device::{Device, Queue};
+use vulkano::image::Image;
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{
-    AllocationCreateInfo, FreeListAllocator, GenericMemoryAllocator, MemoryAllocator,
-    MemoryTypeFilter, StandardMemoryAllocator,
+    AllocationCreateInfo, FreeListAllocator, GenericMemoryAllocator, MemoryTypeFilter,
 };
-use vulkano::pipeline::compute::{self, ComputePipelineCreateInfo};
-use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
-use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
-use vulkano::pipeline::layout::{PipelineDescriptorSetLayoutCreateInfo, PipelineLayoutCreateInfo};
+use vulkano::pipeline::compute::ComputePipelineCreateInfo;
+use vulkano::pipeline::graphics::viewport::Viewport;
+use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
 use vulkano::pipeline::{
-    ComputePipeline, DynamicState, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout,
+    ComputePipeline, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout,
     PipelineShaderStageCreateInfo,
 };
-use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
+use vulkano::render_pass::{Framebuffer, RenderPass};
 use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{
     self, PresentFuture, Surface, Swapchain, SwapchainAcquireFuture, SwapchainCreateInfo,
     SwapchainPresentInfo,
 };
 use vulkano::sync::future::{FenceSignalFuture, JoinFuture};
-use vulkano::sync::{GpuFuture, PipelineStages};
-use vulkano::{library, single_pass_renderpass, sync, Validated, VulkanError, VulkanLibrary};
-use winit::dpi::{PhysicalSize, Size};
-use winit::event::{Event, KeyboardInput, ScanCode, WindowEvent};
-use winit::event_loop::{self, ControlFlow, EventLoop};
-use winit::platform::run_return::EventLoopExtRunReturn;
+use vulkano::sync::GpuFuture;
+use vulkano::{sync, Validated, VulkanError, VulkanLibrary};
+use winit::dpi::Size;
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
-use crate::core::parse::parse_serde_value;
-use crate::physics::rigidbody::RigidBody;
 use crate::physics::scene::Scene;
 use crate::{FVec2, WINDOW_LENGTH};
 
-use super::shaders;
 use super::vk_primitives::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
-    get_framebuffers, get_render_pass, get_required_extensions, select_device_and_queue,
+    get_command_buffers, get_framebuffers, get_render_pass, get_required_extensions,
 };
-use super::vk_procedural_functions::{generate_polygon_triangles, Polygon, PolygonMethods};
 
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     width: WINDOW_LENGTH as u32,
@@ -219,29 +188,8 @@ impl WindowEventHandler {
             Event::MainEventsCleared => {
                 // NOTE: Length of these two vectors should be the same
                 // TODO: Rewrite later, refactor too
-                let vertex_buffer_data = {
-                    let mut buffer_data: Vec<CustomVertex> =
-                        Vec::with_capacity(scene.objects_hash.len() * 3);
-                    for (_, (_, polygon)) in &scene.objects_hash {
-                        buffer_data = [buffer_data, polygon.destructure_into_list()].concat();
-                    }
-
-                    buffer_data
-                };
-                let vertex_buffer = Buffer::from_iter(
-                    create_memory_allocator(self.vk_cx.device.clone()),
-                    BufferCreateInfo {
-                        usage: BufferUsage::VERTEX_BUFFER,
-                        ..Default::default()
-                    },
-                    AllocationCreateInfo {
-                        memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                            | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                        ..Default::default()
-                    },
-                    vertex_buffer_data.clone(),
-                )
-                .unwrap();
+                let vertex_buffer =
+                    scene.return_objects_as_vertex_buffer(self.vk_cx.device.clone());
 
                 scene.update_objects();
                 scene.recreate_hash();
@@ -288,9 +236,7 @@ impl WindowEventHandler {
 
                 let other_image_i = image_i ^ 1;
 
-                if suboptimal {
-                    self.recreate_swapchain_flag = true;
-                }
+                self.recreate_swapchain_flag = if suboptimal { true } else { false };
                 if let Some(image_fence) = &self.fences[image_i as usize] {
                     image_fence.wait(None).unwrap();
                 }
@@ -298,7 +244,6 @@ impl WindowEventHandler {
                     None => {
                         let mut now = sync::now(self.vk_cx.device.clone());
                         now.cleanup_finished();
-
                         now.boxed()
                     }
                     Some(fence) => fence.boxed(),
@@ -323,7 +268,7 @@ impl WindowEventHandler {
                 self.fences[image_i as usize] = match future.map_err(Validated::unwrap) {
                     Ok(value) => Some(Arc::new(value)),
                     Err(VulkanError::OutOfDate) => {
-                        // recreate_swapchain = true;
+                        self.recreate_swapchain_flag = true;
                         None
                     }
                     Err(e) => {
@@ -346,14 +291,12 @@ impl WindowEventHandler {
 }
 
 pub struct WindowContext {
-    // event_loop: EventLoop<()>,
     pub instance: Arc<Instance>,
     pub window: Arc<Window>,
 }
 
 impl WindowContext {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
-        // let event_loop = EventLoop::new();
         let window = Arc::new(
             WindowBuilder::new()
                 .with_title("vulkys")
@@ -378,9 +321,6 @@ impl WindowContext {
     pub fn window(&self) -> Arc<Window> {
         self.window.clone()
     }
-    // pub fn event_loop(&self) -> &EventLoop<()> {
-    //     &self.event_loop
-    // }
 }
 
 #[derive(Clone)]
@@ -427,100 +367,6 @@ pub struct Vec3 {
     r: u8,
     g: u8,
     b: u8,
-}
-
-fn get_command_buffers(
-    command_buffer_allocator: &StandardCommandBufferAllocator,
-    queue: &Arc<Queue>,
-    pipeline: &Arc<GraphicsPipeline>,
-    framebuffers: &Vec<Arc<Framebuffer>>,
-    vertex_buffer: &Subbuffer<[CustomVertex]>,
-) -> anyhow::Result<Vec<Arc<PrimaryAutoCommandBuffer>>> {
-    framebuffers
-        .iter()
-        .map(
-            |framebuffer| -> anyhow::Result<Arc<PrimaryAutoCommandBuffer>> {
-                let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-                    command_buffer_allocator,
-                    queue.queue_family_index(),
-                    command_buffer::CommandBufferUsage::MultipleSubmit,
-                )
-                .unwrap();
-
-                command_buffer_builder
-                    .begin_render_pass(
-                        RenderPassBeginInfo {
-                            clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],
-                            ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
-                        },
-                        SubpassBeginInfo {
-                            contents: command_buffer::SubpassContents::Inline,
-                            ..Default::default()
-                        },
-                    )?
-                    .bind_pipeline_graphics(pipeline.clone())?
-                    .bind_vertex_buffers(0, vertex_buffer.clone())?
-                    .draw(vertex_buffer.len() as u32, 1, 0, 0)?
-                    .end_render_pass(SubpassEndInfo::default())?;
-
-                Ok(command_buffer_builder.build()?)
-            },
-        )
-        .collect()
-}
-
-pub fn get_graphics_pipeline(
-    device: Arc<Device>,
-    vertex_shader: Arc<ShaderModule>,
-    fragment_shader: Arc<ShaderModule>,
-    render_pass: Arc<RenderPass>,
-    viewport: Viewport,
-) -> Arc<GraphicsPipeline> {
-    let vs = vertex_shader.entry_point("main").unwrap();
-    let fs = fragment_shader.entry_point("main").unwrap();
-    let vertex_shader_state = CustomVertex::per_vertex()
-        .definition(&vs.info().input_interface)
-        .unwrap();
-    let stages = [
-        PipelineShaderStageCreateInfo::new(vs),
-        PipelineShaderStageCreateInfo::new(fs),
-    ];
-    let layout = PipelineLayout::new(
-        device.clone(),
-        PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
-            .into_pipeline_layout_create_info(device.clone())
-            .unwrap(),
-    )
-    .unwrap();
-    let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
-
-    GraphicsPipeline::new(
-        device.clone(),
-        None,
-        vulkano::pipeline::graphics::GraphicsPipelineCreateInfo {
-            stages: stages.into_iter().collect(),
-            vertex_input_state: Some(vertex_shader_state),
-            input_assembly_state: Some(InputAssemblyState {
-                topology: PrimitiveTopology::TriangleList,
-                ..Default::default()
-            }),
-            viewport_state: Some(ViewportState {
-                viewports: [viewport].into(),
-                ..Default::default()
-            }),
-            rasterization_state: Some(RasterizationState::default()),
-            multisample_state: Some(MultisampleState::default()),
-            color_blend_state: Some(
-                vulkano::pipeline::graphics::color_blend::ColorBlendState::with_attachment_states(
-                    subpass.num_color_attachments(),
-                    ColorBlendAttachmentState::default(),
-                ),
-            ),
-            subpass: Some(subpass.into()),
-            ..GraphicsPipelineCreateInfo::layout(layout)
-        },
-    )
-    .unwrap()
 }
 
 pub fn get_compute_pipeline(ctx: VulkanoContext) {

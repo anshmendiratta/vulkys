@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
     );
     let circle_2: RigidBody = RigidBody::Circle_(
         Circle {
-            radius: 0.5,
+            radius: 0.25,
             position: FVec2::new(-0.5, 0.0),
             velocity: FVec2::new(0.5, 0.),
             color: Color32::from_hex("#7FB069").unwrap(),

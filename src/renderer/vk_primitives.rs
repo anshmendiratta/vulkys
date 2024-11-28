@@ -1,15 +1,33 @@
 #![allow(unused_variables)]
 
 use std::sync::Arc;
+use vulkano::buffer::Subbuffer;
+use vulkano::command_buffer;
+use vulkano::command_buffer::AutoCommandBufferBuilder;
+use vulkano::command_buffer::PrimaryAutoCommandBuffer;
+use vulkano::command_buffer::RenderPassBeginInfo;
+use vulkano::command_buffer::SubpassBeginInfo;
+use vulkano::command_buffer::SubpassEndInfo;
+use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use vulkano::image::view::ImageView;
 use vulkano::image::{Image, ImageUsage};
-use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass};
+use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
+use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
+use vulkano::pipeline::graphics::multisample::MultisampleState;
+use vulkano::pipeline::graphics::rasterization::RasterizationState;
+use vulkano::pipeline::graphics::vertex_input::VertexDefinition;
+use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
+use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
+use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
+use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo};
+use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
+use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use vulkano::VulkanLibrary;
 use winit::event_loop::EventLoop;
 
-use super::vk_core::{VulkanoContext, WindowContext};
+use super::vk_core::{CustomVertex, VulkanoContext, WindowContext};
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
 };
@@ -191,4 +209,98 @@ pub fn create_command_buffer_allocator(device: Arc<Device>) -> StandardCommandBu
         device.clone(),
         StandardCommandBufferAllocatorCreateInfo::default(),
     )
+}
+
+pub fn get_command_buffers(
+    command_buffer_allocator: &StandardCommandBufferAllocator,
+    queue: &Arc<Queue>,
+    pipeline: &Arc<GraphicsPipeline>,
+    framebuffers: &Vec<Arc<Framebuffer>>,
+    vertex_buffer: &Subbuffer<[CustomVertex]>,
+) -> anyhow::Result<Vec<Arc<PrimaryAutoCommandBuffer>>> {
+    framebuffers
+        .iter()
+        .map(
+            |framebuffer| -> anyhow::Result<Arc<PrimaryAutoCommandBuffer>> {
+                let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
+                    command_buffer_allocator,
+                    queue.queue_family_index(),
+                    command_buffer::CommandBufferUsage::MultipleSubmit,
+                )
+                .unwrap();
+
+                command_buffer_builder
+                    .begin_render_pass(
+                        RenderPassBeginInfo {
+                            clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],
+                            ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
+                        },
+                        SubpassBeginInfo {
+                            contents: command_buffer::SubpassContents::Inline,
+                            ..Default::default()
+                        },
+                    )?
+                    .bind_pipeline_graphics(pipeline.clone())?
+                    .bind_vertex_buffers(0, vertex_buffer.clone())?
+                    .draw(vertex_buffer.len() as u32, 1, 0, 0)?
+                    .end_render_pass(SubpassEndInfo::default())?;
+
+                Ok(command_buffer_builder.build()?)
+            },
+        )
+        .collect()
+}
+
+pub fn get_graphics_pipeline(
+    device: Arc<Device>,
+    vertex_shader: Arc<ShaderModule>,
+    fragment_shader: Arc<ShaderModule>,
+    render_pass: Arc<RenderPass>,
+    viewport: Viewport,
+) -> Arc<GraphicsPipeline> {
+    let vs = vertex_shader.entry_point("main").unwrap();
+    let fs = fragment_shader.entry_point("main").unwrap();
+    let vertex_shader_state = CustomVertex::per_vertex()
+        .definition(&vs.info().input_interface)
+        .unwrap();
+    let stages = [
+        PipelineShaderStageCreateInfo::new(vs),
+        PipelineShaderStageCreateInfo::new(fs),
+    ];
+    let layout = PipelineLayout::new(
+        device.clone(),
+        PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
+            .into_pipeline_layout_create_info(device.clone())
+            .unwrap(),
+    )
+    .unwrap();
+    let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
+
+    GraphicsPipeline::new(
+        device.clone(),
+        None,
+        vulkano::pipeline::graphics::GraphicsPipelineCreateInfo {
+            stages: stages.into_iter().collect(),
+            vertex_input_state: Some(vertex_shader_state),
+            input_assembly_state: Some(InputAssemblyState {
+                topology: PrimitiveTopology::TriangleList,
+                ..Default::default()
+            }),
+            viewport_state: Some(ViewportState {
+                viewports: [viewport].into(),
+                ..Default::default()
+            }),
+            rasterization_state: Some(RasterizationState::default()),
+            multisample_state: Some(MultisampleState::default()),
+            color_blend_state: Some(
+                vulkano::pipeline::graphics::color_blend::ColorBlendState::with_attachment_states(
+                    subpass.num_color_attachments(),
+                    ColorBlendAttachmentState::default(),
+                ),
+            ),
+            subpass: Some(subpass.into()),
+            ..GraphicsPipelineCreateInfo::layout(layout)
+        },
+    )
+    .unwrap()
 }
