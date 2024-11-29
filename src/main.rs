@@ -18,7 +18,7 @@ fn main() -> anyhow::Result<()> {
         .write(true)
         .truncate(true)
         .create(true)
-        .open("sim.log")?;
+        .open("run.log")?;
     tracing_subscriber::fmt()
         .event_format(
             tracing_subscriber::fmt::format()
@@ -45,16 +45,16 @@ fn main() -> anyhow::Result<()> {
         Circle {
             radius: 0.25,
             position: FVec2::new(-0.5, 0.0),
-            velocity: FVec2::new(0.5, 0.),
+            velocity: FVec2::new(1.5, 0.),
             color: Color32::from_hex("#7FB069").unwrap(),
         },
         1,
     );
     let circle_3: RigidBody = RigidBody::Circle_(
         Circle {
-            radius: 0.1,
+            radius: 0.25,
             position: FVec2::new(0., 0.5),
-            velocity: FVec2::new(-0.75, 0.),
+            velocity: FVec2::new(-1.75, 0.),
             color: Color32::from_hex("#ECE4B7").unwrap(),
         },
         2,

@@ -1,6 +1,7 @@
 use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
+use tracing::{info, trace};
 use vulkano::buffer::{Buffer, Subbuffer};
 use vulkano::{
     buffer::{BufferCreateInfo, BufferUsage},
@@ -94,49 +95,66 @@ impl Scene {
         // Checking for object-world collisions
         for object in &mut self.objects {
             let world_collisions: (Option<Vec<Collision>>, (bool, bool)) =
-                object.check_collisions();
-            if let (Some(collision_types), (x, y)) = world_collisions {
-                match collision_types[0].get_collision_type() {
-                    CollisionObjectType::World => object.resolve_world_collision((x, y)),
-                    _ => (),
-                }
+                object.check_world_collisions();
+            if world_collisions.0.is_some() {
+                world_collisions.0.unwrap().iter().for_each(|collision| {
+                    match collision.get_collision_type() {
+                        CollisionObjectType::World => object.resolve_world_collision((
+                            world_collisions.1 .0,
+                            world_collisions.1 .1,
+                        )),
+                        _ => (),
+                    }
+                })
             }
         }
 
         let mut did_resolve_object_collisions: bool = false;
         // Checking for object-object collisions
+        let mut object_collisions: Vec<Collision> = Vec::new();
         for ref_object in &self.objects {
-            let mut object_collisions: Vec<Collision> = Vec::new();
             self.objects.iter().for_each(|checking_object| {
-                if checking_object == ref_object
-                    || (ref_object.get_position() - checking_object.get_position()).magnitude()
+                if /* skip checking itself */ checking_object == ref_object
+                    || /* no detected collision */ (ref_object.get_position() - checking_object.get_position()).magnitude()
                         >= (ref_object.get_radius() + checking_object.get_radius())
                 {
                     return;
                 }
-                object_collisions.push(Collision::new(
+
+                let new_collision = Collision::new(
                     CollisionObjectType::Object,
                     Some(ref_object.clone()),
                     Some(checking_object.clone()),
-                ));
-            });
-
-            object_collisions.iter_mut().for_each(|collision| {
-                let (_ref_id, checking_id) = (
-                    collision.get_primary().unwrap().get_id(),
-                    collision.get_secondary().unwrap().get_id(),
                 );
-                let updated_velocity = collision.resolve_objects_and_return_secondary_velocity();
-                self.objects_hash
-                    .entry(checking_id)
-                    .and_modify(|(affected_object, _)| {
-                        affected_object.update_velocity(updated_velocity);
-                    });
+                if !object_collisions.contains(&new_collision) {
+                    object_collisions.push(new_collision);
+                }
             });
+        }
 
-            if !object_collisions.is_empty() {
-                did_resolve_object_collisions = true;
-            }
+        object_collisions.iter_mut().for_each(|collision| {
+            let (ref_id, checking_id) = (
+                collision.get_primary().unwrap().get_id(),
+                collision.get_secondary().unwrap().get_id(),
+            );
+            let [[updated_ref_pos, updated_ref_vel], [updated_check_pos, updated_check_vel]] =
+                collision.resolve_objects_and_return_updates();
+
+            self.objects_hash
+                .entry(ref_id)
+                .and_modify(|(affected_object, _)| {
+                    affected_object.update_position(updated_ref_pos);
+                    affected_object.update_velocity(updated_ref_vel);
+                });
+            self.objects_hash
+                .entry(checking_id)
+                .and_modify(|(affected_object, _)| {
+                    affected_object.update_position(updated_check_pos);
+                    affected_object.update_velocity(updated_check_vel);
+                });
+        });
+        if !object_collisions.is_empty() {
+            did_resolve_object_collisions = true;
         }
         if did_resolve_object_collisions {
             self.recreate_objects_from_hash();

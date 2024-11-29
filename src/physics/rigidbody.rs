@@ -40,16 +40,11 @@ pub enum RigidBody {
 }
 
 impl CollisionHandler for RigidBody {
-    fn check_collisions(&self) -> (Option<Vec<Collision>>, (bool, bool)) {
+    fn check_world_collisions(&self) -> (Option<Vec<Collision>>, (bool, bool)) {
         match self {
-            RigidBody::Circle_(c, _) => c.check_collisions(),
+            RigidBody::Circle_(c, _) => c.check_world_collisions(),
         }
     }
-    // fn resolve_object_collision(&mut self) {
-    //     match self {
-    //         RigidBody::Circle_(c, _) => return c.resolve_object_collision(),
-    //     }
-    // }
     fn resolve_world_collision(&mut self, has_crossed_boundaries: (bool, bool)) {
         match self {
             RigidBody::Circle_(c, _) => return c.resolve_world_collision(has_crossed_boundaries),

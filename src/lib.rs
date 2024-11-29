@@ -1,9 +1,10 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use std::ops::{AddAssign, Mul, Sub};
+use std::ops::{Add, AddAssign, Mul, Sub};
 
 use ecolor::Color32;
+use libm::atan2f;
 use renderer::vk_core::CustomVertex;
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +24,12 @@ pub struct FVec2 {
 impl FVec2 {
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
+    }
+    pub fn scale(&mut self, scale_factor: f32) -> Self {
+        Self {
+            x: self.x * scale_factor,
+            y: self.y * scale_factor,
+        }
     }
     pub fn magnitude(&self) -> f32 {
         (self.x * self.x + self.y * self.y).powf(0.5)
@@ -70,6 +77,9 @@ impl FVec2 {
             y: self.y - 2. * rejection_from_other.y,
         }
     }
+    pub fn get_polar_angle(&self) -> f32 {
+        atan2f(self.y, self.x)
+    }
 }
 
 impl Mul<f32> for FVec2 {
@@ -90,6 +100,17 @@ impl Sub for FVec2 {
         Self {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
+        }
+    }
+}
+
+impl Add for FVec2 {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        FVec2 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
         }
     }
 }
@@ -127,5 +148,16 @@ mod tests {
         let desired_output = FVec2::new(1. / 2_f32.powf(0.5), -1. / 2_f32.powf(0.5));
 
         assert_eq!(desired_output, to_mirror.mirror_along(to_mirror_along));
+    }
+    #[test]
+    fn check_magnitude_of_mirror() {
+        let to_mirror = FVec2::new(1. / 2_f32.powf(0.5), 1. / 2_f32.powf(0.5));
+        let to_mirror_along = FVec2::new(1., 0.);
+        let desired_output = FVec2::new(1. / 2_f32.powf(0.5), -1. / 2_f32.powf(0.5));
+
+        assert_eq!(
+            to_mirror.magnitude(),
+            to_mirror.mirror_along(to_mirror_along).magnitude()
+        );
     }
 }
