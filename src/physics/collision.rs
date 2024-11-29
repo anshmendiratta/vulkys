@@ -41,11 +41,11 @@ impl Collision {
         self.secondary.clone()
     }
     #[doc = "Returns the updates as [[position, velocity]] for each object in the collision, marking the reference as 'primary'"]
-    pub fn resolve_objects_and_return_updates(&mut self) -> ObjectPosVelUpdates {
+    pub fn resolve_objects_and_return_updates(&self) -> ObjectPosVelUpdates {
         // NOTE: Only solving the circle case
         // NOTE: Both objects should also exist. Otherwise invalid construction
-        let primary = self.primary.as_mut().unwrap();
-        let secondary = self.secondary.as_mut().unwrap();
+        let primary = self.primary.clone().unwrap();
+        let secondary = self.secondary.clone().unwrap();
         let vector_between_com = primary.get_position() - secondary.get_position();
         let unit_axis_of_seperation = vector_between_com.get_orthogonal_unit();
         // NOTE: Uses https://en.wikipedia.org/wiki/Elastic_collision#Two-dimensional_collision_with_two_moving_objects

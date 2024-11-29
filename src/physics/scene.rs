@@ -129,7 +129,7 @@ impl Scene {
             });
         }
 
-        object_collisions.iter_mut().for_each(|collision| {
+        object_collisions.iter().for_each(|collision| {
             let (ref_id, checking_id) = (
                 collision.get_primary().unwrap().get_id(),
                 collision.get_secondary().unwrap().get_id(),

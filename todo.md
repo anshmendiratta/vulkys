@@ -1,12 +1,9 @@
 # todo
 
-- [x] finish vulkano book
-- [ ] get changing images in swapchain
+- [ ] copy images into swapchain so the current, un-updated ones are not being recreated
 - [ ] add fps counter for debugging and visuals
-- [ ] figure out the `vulkano::Future` business
-- [ ] get physics code right
-- [ ] plan for later
-- [ ] 
+- [ ] profile current program
+- [ ] transform computation into glsl for a compute shader
 - [ ] 
 - [ ] 
 - [ ] 
