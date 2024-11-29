@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign, Mul, Sub};
 use ecolor::Color32;
 use libm::atan2f;
 use renderer::vk_core::CustomVertex;
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize};
 
 pub mod core;
 pub mod gui;
@@ -15,7 +15,7 @@ pub mod renderer;
 
 const WINDOW_LENGTH: f32 = 1000.;
 
-#[derive(Clone, Copy, Deserialize, Serialize, Debug, PartialEq, bytemuck::AnyBitPattern)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::AnyBitPattern)]
 pub struct FVec2 {
     x: f32,
     y: f32,

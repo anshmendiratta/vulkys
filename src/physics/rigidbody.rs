@@ -3,9 +3,8 @@ use super::collision::{Collision, CollisionHandler};
 use crate::renderer::vk_procedural_functions::{generate_polygon_triangles, Polygon};
 use crate::FVec2;
 use ecolor::Color32;
-use serde::Serialize;
 
-#[derive(PartialEq, Clone, Copy, Serialize)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum RigidBodySelection {
     None,
     Circle_,
@@ -34,7 +33,7 @@ pub trait GenericObject {
 }
 
 type RBid = u8;
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RigidBody {
     Circle_(Circle, RBid),
 }

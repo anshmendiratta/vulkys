@@ -5,12 +5,11 @@
 use crate::renderer::vk_core::command_buffer::allocator::StandardCommandBufferAllocator;
 use crate::renderer::vk_primitives::get_graphics_pipeline;
 use std::sync::Arc;
-use tracing::error;
+use tracing::{error, info};
 use vulkano::buffer::BufferContents;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use egui::Vec2;
-use serde::Deserialize;
 
 use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
 use vulkano::command_buffer::{self, AutoCommandBufferBuilder, CommandBufferExecFuture};
@@ -68,6 +67,7 @@ pub struct WindowEventHandler {
     previous_fence_i: u32,
 
     recreate_swapchain_flag: bool,
+    is_paused_flag: bool,
 }
 
 struct RenderContext {
@@ -146,6 +146,7 @@ impl WindowEventHandler {
             fences,
             previous_fence_i,
             recreate_swapchain_flag: false,
+            is_paused_flag: false,
         }
     }
 
@@ -182,10 +183,19 @@ impl WindowEventHandler {
                 event: WindowEvent::KeyboardInput { input, .. },
                 ..
             } => match input.scancode {
-                /* Code for Q */ 16 => std::process::exit(0),
-                _ => (),
+                /* Code for q */ 16 => std::process::exit(0),
+                /* Code for p */
+                25 => {
+                    self.is_paused_flag = true;
+                    return;
+                }
+                /* Code for r */ 19 => self.is_paused_flag = false,
+                _ => info!("{} was pressed", input.scancode),
             },
             Event::MainEventsCleared => {
+                if self.is_paused_flag {
+                    return;
+                }
                 // NOTE: Length of these two vectors should be the same
                 // TODO: Rewrite later, refactor too
                 let vertex_buffer =
@@ -352,7 +362,7 @@ impl VulkanoContext {
     }
 }
 
-#[derive(BufferContents, Vertex, Debug, Clone, Deserialize, PartialEq)]
+#[derive(BufferContents, Vertex, Debug, Clone, PartialEq)]
 #[repr(C)]
 pub struct CustomVertex {
     #[format(R32G32_SFLOAT)]
