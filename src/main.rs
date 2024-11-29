@@ -36,26 +36,26 @@ fn main() -> anyhow::Result<()> {
         Circle {
             radius: 0.25,
             position: FVec2::new(0.5, 0.5),
-            velocity: FVec2::new(1.5, 0.),
-            color: Color32::from_hex("#D36135").unwrap(),
+            velocity: FVec2::new(-1.5, -1.0),
+            color: Color32::from_hex("#23F0C7").unwrap(),
         },
         0,
     );
     let circle_2: RigidBody = RigidBody::Circle_(
         Circle {
             radius: 0.25,
-            position: FVec2::new(-0.5, 0.0),
+            position: FVec2::new(-0.5, 0.65),
             velocity: FVec2::new(1.5, 0.),
-            color: Color32::from_hex("#7FB069").unwrap(),
+            color: Color32::from_hex("#EF767A").unwrap(),
         },
         1,
     );
     let circle_3: RigidBody = RigidBody::Circle_(
         Circle {
-            radius: 0.25,
-            position: FVec2::new(0., 0.5),
-            velocity: FVec2::new(-1.75, 0.),
-            color: Color32::from_hex("#ECE4B7").unwrap(),
+            radius: 0.3,
+            position: FVec2::new(0., -0.5),
+            velocity: FVec2::new(2.75, 2.6),
+            color: Color32::from_hex("#7D7ABC").unwrap(),
         },
         2,
     );

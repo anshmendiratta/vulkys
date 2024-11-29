@@ -1,7 +1,7 @@
 use libm::{cos, sin};
 use tracing::info;
 
-use crate::{physics::lib::COEFF_RESTITUTION, FVec2};
+use crate::FVec2;
 
 use super::rigidbody::RigidBody;
 
@@ -48,6 +48,7 @@ impl Collision {
         let secondary = self.secondary.as_mut().unwrap();
         let vector_between_com = primary.get_position() - secondary.get_position();
         let unit_axis_of_seperation = vector_between_com.get_orthogonal_unit();
+        // NOTE: Uses https://en.wikipedia.org/wiki/Elastic_collision#Two-dimensional_collision_with_two_moving_objects
         let updated_primary_velocity = primary.get_velocity()
             - (primary.get_position() - secondary.get_position()).scale(
                 (primary.get_velocity() - secondary.get_velocity())
@@ -61,7 +62,7 @@ impl Collision {
                     / vector_between_com.magnitude().powf(2.),
             );
 
-        // NOTE: check that the conservation of momentum still holds
+        // Check that the conservation of momentum still holds
         assert!(
             (primary.get_velocity() + secondary.get_velocity()
                 - updated_primary_velocity
@@ -86,30 +87,20 @@ impl Collision {
         let updated_secondary_position = secondary.get_position() + distance_to_move_secondary;
 
         info!(
-            "changed position of id={} circle with r={} from {} to {}",
+            "changed position and velocity of id={} circle with r={} from p={}->{}, v={}->{}",
             primary.get_id(),
             primary.get_radius(),
             primary.get_position(),
-            updated_primary_position
-        );
-        info!(
-            "changed velocity of id={} circle with r={} from {} to {}",
-            primary.get_id(),
-            primary.get_radius(),
+            updated_primary_position,
             primary.get_velocity(),
             updated_primary_velocity
         );
         info!(
-            "changed position of id={} circle with r={} from {} to {}",
+            "changed position and velocity of id={} circle with r={} from p={}->{}, v={}->{}",
             secondary.get_id(),
             secondary.get_radius(),
             secondary.get_position(),
-            updated_secondary_position
-        );
-        info!(
-            "changed velocity of id={} circle with r={} from {} to {}",
-            secondary.get_id(),
-            secondary.get_radius(),
+            updated_secondary_position,
             secondary.get_velocity(),
             updated_secondary_velocity
         );

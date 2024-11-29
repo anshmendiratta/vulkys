@@ -1,7 +1,6 @@
 use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
-use tracing::{info, trace};
 use vulkano::buffer::{Buffer, Subbuffer};
 use vulkano::{
     buffer::{BufferCreateInfo, BufferUsage},
@@ -96,17 +95,16 @@ impl Scene {
         for object in &mut self.objects {
             let world_collisions: (Option<Vec<Collision>>, (bool, bool)) =
                 object.check_world_collisions();
-            if world_collisions.0.is_some() {
-                world_collisions.0.unwrap().iter().for_each(|collision| {
-                    match collision.get_collision_type() {
-                        CollisionObjectType::World => object.resolve_world_collision((
-                            world_collisions.1 .0,
-                            world_collisions.1 .1,
-                        )),
-                        _ => (),
-                    }
-                })
+            if world_collisions.0.is_none() {
+                continue;
             }
+            world_collisions.0.unwrap().iter().for_each(|collision| {
+                match collision.get_collision_type() {
+                    CollisionObjectType::World => object
+                        .resolve_world_collision((world_collisions.1 .0, world_collisions.1 .1)),
+                    _ => (),
+                }
+            })
         }
 
         let mut did_resolve_object_collisions: bool = false;
@@ -120,7 +118,6 @@ impl Scene {
                 {
                     return;
                 }
-
                 let new_collision = Collision::new(
                     CollisionObjectType::Object,
                     Some(ref_object.clone()),
