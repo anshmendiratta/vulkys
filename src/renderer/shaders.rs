@@ -1,13 +1,19 @@
-pub mod compute_shaders {
+pub mod update_cs {
     vulkano_shaders::shader! {
         ty: "compute",
         src: r"
             #version 460
 
-            // layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-            // layout(binding = 0, set = 0) buffer P {
-            //     vec2 pos[];
-            // } positions;
+            layout(push_constant) uniform ComputeConstants {
+                float gravity;
+                float coeff_restitution;
+                float dt;
+            };
+            
+            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+            layout(binding = 0, set = 0) buffer P {
+                vec2 pos[];
+            } positions;
 
             layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
             layout(binding = 0, set = 0) buffer V {
@@ -16,16 +22,45 @@ pub mod compute_shaders {
 
             void main() {
                 uint x = gl_GlobalInvocationID.x;
-                float gravity = -1.0;
-                float dt = 10.0;
-                // positions.pos[x] += velocities.vel[x] * dt;
+                positions.pos[x] += velocities.vel[x] * dt;
                 velocities.vel[x] += vec2(gravity * dt);
             }
         ",
     }
 }
 
-pub mod vertex_shader {
+pub mod collision_cs {
+    vulkano_shaders::shader! {
+        ty: "compute",
+        src: r"
+            #version 460
+
+            layout(push_constant) uniform ComputeConstants {
+                float gravity;
+                float coeff_restitution;
+                float dt;
+            };
+            
+            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+            layout(binding = 0, set = 0) buffer P {
+                vec2 pos[];
+            } positions;
+
+            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+            layout(binding = 0, set = 0) buffer V {
+                vec2 vel[];
+            } velocities;
+
+            void main() {
+                uint x = gl_GlobalInvocationID.x;
+                // positions.pos[x] += velocities.vel[x] * dt;
+                // velocities.vel[x] += vec2(gravity * dt);
+            }
+        ",
+    }
+}
+
+pub mod vs {
     vulkano_shaders::shader! {
         ty: "vertex",
         src: r"
@@ -44,7 +79,7 @@ pub mod vertex_shader {
         ",
     }
 }
-pub mod fragment_shader {
+pub mod fs {
     vulkano_shaders::shader! {
         ty: "fragment",
         src: r"

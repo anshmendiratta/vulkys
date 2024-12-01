@@ -4,20 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# gui
 egui = "0.21.0"
 eframe = "0.21.3"
+# vulkan and related
+vulkano = "0.34.1"
+vulkano-shaders = "0.34.0"
+winit = {version = "0.28.0", default-features = true}
+image = "0.24"
+bytemuck = { version ="1.20.0", features = ["derive"]}
+# util
+anyhow = "1.0.93"
 tracing-subscriber = "0.3"
 tracing = "0.1.40"
 libm = "0.2.6"
-vulkano = "0.34.1"
-vulkano-shaders = "0.34.0"
-image = "0.24"
-winit = {version = "0.28.0", default-features = true}
-serde_json = "1.0.133"
-serde = { version = "1.0.215", features = ["derive"]}
-bytemuck = { version ="1.20.0", features = ["derive"]}
 ecolor = {version = "0.29.1", features = ["serde"]}
-anyhow = "1.0.93"
 
 [profile.dev]
 opt-level = 1
