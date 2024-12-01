@@ -5,14 +5,17 @@
 use crate::renderer::vk_core::command_buffer::allocator::StandardCommandBufferAllocator;
 use crate::renderer::vk_primitives::get_graphics_pipeline;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tracing::{error, info};
-use vulkano::buffer::BufferContents;
+use vulkano::buffer::{BufferContents, Subbuffer};
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use egui::Vec2;
 
 use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
-use vulkano::command_buffer::{self, AutoCommandBufferBuilder, CommandBufferExecFuture};
+use vulkano::command_buffer::{
+    self, AutoCommandBufferBuilder, CommandBufferExecFuture, PrimaryAutoCommandBuffer,
+};
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
 use vulkano::device::{Device, Queue};
@@ -23,7 +26,7 @@ use vulkano::memory::allocator::{
 };
 use vulkano::pipeline::compute::ComputePipelineCreateInfo;
 use vulkano::pipeline::graphics::viewport::Viewport;
-use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
+use vulkano::pipeline::layout::{PipelineDescriptorSetLayoutCreateInfo, PushConstantRange};
 use vulkano::pipeline::{
     ComputePipeline, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout,
     PipelineShaderStageCreateInfo,
@@ -70,6 +73,10 @@ pub struct WindowEventHandler {
     is_paused_flag: bool,
 }
 
+struct PerformanceStats {
+    framerate: u32,
+}
+
 struct RenderContext {
     vs: Arc<ShaderModule>,
     fs: Arc<ShaderModule>,
@@ -90,8 +97,8 @@ impl RenderContext {
         vk_cx: &VulkanoContext,
         event_loop: &EventLoop<()>,
     ) -> Self {
-        let vs = super::shaders::vertex_shader::load(device.clone()).unwrap();
-        let fs = super::shaders::fragment_shader::load(device.clone()).unwrap();
+        let vs = super::shaders::vs::load(device.clone()).unwrap();
+        let fs = super::shaders::fs::load(device.clone()).unwrap();
         let (swapchain, images) = create_swapchain_and_images(window_cx, vk_cx, event_loop);
         let render_pass = get_render_pass(device.clone(), &swapchain);
         let framebuffers = get_framebuffers(&images, &render_pass);
@@ -118,6 +125,12 @@ impl RenderContext {
             images,
         }
     }
+    // pub fn update_images(&mut self, device: Arc<Device>, scene: &mut Scene) -> anyhow::Result<()> {
+    //     let update_cs = super::shaders::update_cs::load(device.clone())?;
+    //     let collision_cs = super::shaders::collision_cs::load(device.clone())?;
+
+    //     Ok(())
+    // }
     fn viewport(&self) -> Viewport {
         self.viewport.clone()
     }
@@ -170,7 +183,7 @@ impl WindowEventHandler {
 
         event_loop.run(move |event, _, _| {
             self.handle_window_event(&mut scene, &event);
-        })
+        });
     }
 
     pub fn handle_window_event(&mut self, scene: &mut Scene, event: &Event<()>) {
@@ -379,46 +392,36 @@ pub struct Vec3 {
     b: u8,
 }
 
-pub fn get_compute_pipeline(ctx: VulkanoContext) {
-    let (device, queue_family_index, queue) = (ctx.device, ctx.queue_family_index, ctx.queue);
+pub fn get_compute_command_buffer(
+    vulkano_ctx: VulkanoContext,
+    shader: Arc<ShaderModule>,
+    data: Subbuffer<FVec2>,
+    push_constants: Option<super::shaders::update_cs::ComputeConstants>,
+) -> anyhow::Result<
+    AutoCommandBufferBuilder<
+        PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>,
+        Arc<StandardCommandBufferAllocator>,
+    >,
+> {
+    let (device, queue_family_index, queue) = (
+        vulkano_ctx.device,
+        vulkano_ctx.queue_family_index,
+        vulkano_ctx.queue,
+    );
     let memory_allocator = vk_primitives::create_memory_allocator(device.clone());
-
-    let shader = super::shaders::compute_shaders::load(device.clone())
-        .expect("failed to create shader module");
-    let cs = shader.entry_point("main").unwrap();
-
-    let stage = PipelineShaderStageCreateInfo::new(cs);
+    let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
     let layout = PipelineLayout::new(
         device.clone(),
         PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
             .into_pipeline_layout_create_info(device.clone())
             .unwrap(),
-    )
-    .unwrap();
-
-    let data: Vec<Vec2> = Vec::from([Vec2::new(0.0, 0.0); 64]);
-    let data_buffer = Buffer::from_iter(
-        memory_allocator,
-        BufferCreateInfo {
-            usage: BufferUsage::STORAGE_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            memory_type_filter: MemoryTypeFilter::PREFER_HOST
-                | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-            ..Default::default()
-        },
-        data,
-    )
-    .unwrap();
-
+    )?;
     let compute_pipeline = ComputePipeline::new(
         device.clone(),
         None,
         ComputePipelineCreateInfo::stage_layout(stage, layout),
     )
     .expect("failed to create compute pipeline");
-
     let descriptor_set_allocator =
         StandardDescriptorSetAllocator::new(device.clone(), Default::default());
     let pipeline_layout = compute_pipeline.layout();
@@ -426,42 +429,31 @@ pub fn get_compute_pipeline(ctx: VulkanoContext) {
     let descriptor_set_layout_index = 0;
     let descriptor_set_layout = descriptor_set_layouts
         .get(descriptor_set_layout_index)
-        .unwrap();
+        .expect("compute shader: descriptor set lauout index out of bounds");
     let descriptor_set = PersistentDescriptorSet::new(
         &descriptor_set_allocator,
         descriptor_set_layout.clone(),
-        [WriteDescriptorSet::buffer(0, data_buffer.clone())],
+        [WriteDescriptorSet::buffer(0, data.clone())],
         [],
-    )
-    .unwrap();
-
-    let command_buffer_allocator = vk_primitives::create_command_buffer_allocator(device.clone());
+    )?;
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-        &command_buffer_allocator,
+        &vulkano_ctx.command_buffer_allocator,
         queue_family_index,
         command_buffer::CommandBufferUsage::OneTimeSubmit,
-    )
-    .unwrap();
+    )?;
 
     command_buffer_builder
-        .bind_pipeline_compute(compute_pipeline.clone())
-        .unwrap()
+        .bind_pipeline_compute(compute_pipeline.clone())?
         .bind_descriptor_sets(
             PipelineBindPoint::Compute,
             compute_pipeline.layout().clone(),
             0,
             descriptor_set,
-        )
-        .unwrap()
-        .dispatch([1, 1, 1])
-        .unwrap();
+        )?;
+    if let Some(constants) = push_constants {
+        command_buffer_builder.push_constants(pipeline_layout.clone(), 0, constants)?;
+    };
+    command_buffer_builder.dispatch([1, 1, 1])?;
 
-    let command_buffer = command_buffer_builder.build().unwrap();
-    let future = sync::now(device.clone())
-        .then_execute(queue, command_buffer)
-        .unwrap()
-        .then_signal_fence_and_flush()
-        .unwrap();
-
-    future.wait(None).unwrap();
+    Ok(command_buffer_builder)
 }
