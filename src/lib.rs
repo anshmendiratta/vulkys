@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign, Mul, Sub};
 use ecolor::Color32;
 use libm::atan2f;
 use renderer::vk_core::CustomVertex;
-// use serde::{Deserialize, Serialize};
+use vulkano::buffer::BufferContents;
 
 pub mod core;
 pub mod gui;
@@ -15,24 +15,19 @@ pub mod renderer;
 
 const WINDOW_LENGTH: f32 = 1000.;
 
-#[derive(Clone, Copy, Debug, PartialEq, bytemuck::AnyBitPattern)]
+#[derive(Clone, Copy, Debug, PartialEq, BufferContents)]
+#[repr(C)]
 pub struct FVec2 {
     x: f32,
     y: f32,
 }
 
+unsafe impl Sync for FVec2 {}
+unsafe impl Send for FVec2 {}
+
 impl FVec2 {
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
-    }
-    pub fn scale(&mut self, scale_factor: f32) -> Self {
-        Self {
-            x: self.x * scale_factor,
-            y: self.y * scale_factor,
-        }
-    }
-    pub fn magnitude(&self) -> f32 {
-        (self.x * self.x + self.y * self.y).powf(0.5)
     }
     pub fn to_custom_vertex(&self, color: Option<Color32>) -> CustomVertex {
         CustomVertex {
@@ -43,6 +38,18 @@ impl FVec2 {
                 [0, 0, 0, 0]
             },
         }
+    }
+    pub fn as_array(&self) -> [f32; 2] {
+        [self.x, self.y]
+    }
+    pub fn scale(&mut self, scale_factor: f32) -> Self {
+        Self {
+            x: self.x * scale_factor,
+            y: self.y * scale_factor,
+        }
+    }
+    pub fn magnitude(&self) -> f32 {
+        (self.x * self.x + self.y * self.y).powf(0.5)
     }
     pub fn get_unit(&self) -> Self {
         let magnitude = self.magnitude();

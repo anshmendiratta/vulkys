@@ -1,34 +1,3 @@
-pub mod update_cs {
-    vulkano_shaders::shader! {
-        ty: "compute",
-        src: r"
-            #version 460
-
-            layout(push_constant) uniform ComputeConstants {
-                float gravity;
-                float coeff_restitution;
-                float dt;
-            };
-            
-            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-            layout(binding = 0, set = 0) buffer P {
-                vec2 pos[];
-            } positions;
-
-            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-            layout(binding = 0, set = 0) buffer V {
-                vec2 vel[];
-            } velocities;
-
-            void main() {
-                uint x = gl_GlobalInvocationID.x;
-                positions.pos[x] += velocities.vel[x] * dt;
-                velocities.vel[x] += vec2(gravity * dt);
-            }
-        ",
-    }
-}
-
 pub mod collision_cs {
     vulkano_shaders::shader! {
         ty: "compute",

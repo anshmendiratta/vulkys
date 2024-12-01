@@ -9,6 +9,7 @@ use vulkano::{
 };
 use winit::event_loop::EventLoop;
 
+use crate::renderer::vk_core::{get_compute_command_buffer, VulkanoContext};
 use crate::{
     renderer::{
         vk_core::{CustomVertex, WindowEventHandler},
@@ -23,6 +24,36 @@ use super::{
     lib::{DELTA_TIME, GRAVITY_ACCELERATION},
     rigidbody::RigidBody,
 };
+
+pub mod update_cs {
+    vulkano_shaders::shader! {
+        ty: "compute",
+        src: r"
+            #version 460
+
+            layout(push_constant) uniform ComputeConstants {
+                float gravity;
+                float dt;
+            };
+            
+            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+            layout(binding = 0, set = 0) buffer P {
+                vec2 pos[];
+            } positions;
+
+            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+            layout(binding = 0, set = 0) buffer V {
+                vec2 vel[];
+            } velocities;
+
+            void main() {
+                uint x = gl_GlobalInvocationID.x;
+                positions.pos[x] += velocities.vel[x] * dt;
+                velocities.vel[x] += vec2(gravity * dt);
+            }
+        ",
+    }
+}
 
 pub struct Scene {
     pub objects: Vec<RigidBody>,
@@ -158,7 +189,50 @@ impl Scene {
         }
     }
 
-    pub fn update_objects(&mut self) {
+    pub fn update_objects(&mut self, vk_ctx: &VulkanoContext) {
+        let update_shader = update_cs::load(vk_ctx.device.clone()).unwrap();
+        let object_positions: Vec<_> = self
+            .objects
+            .clone()
+            .iter()
+            .map(|obj| obj.get_position().to_custom_vertex(None))
+            .collect();
+        let object_velocities: Vec<FVec2> = self
+            .objects
+            .clone()
+            .iter()
+            .map(|obj| obj.get_velocity())
+            .collect();
+        let object_positions_buffer = Buffer::from_iter(
+            vk_ctx.get_memory_allocator(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
+                ..Default::default()
+            },
+            object_positions.clone(),
+        )
+        .unwrap();
+        let object_velocities_buffer = Buffer::from_iter(
+            vk_ctx.get_memory_allocator(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
+                ..Default::default()
+            },
+            object_velocities.clone(),
+        )
+        .unwrap();
+        let update_command_buffer =
+            get_compute_command_buffer(vk_ctx, update_shader, object_positions_buffer);
+
+        // let object_velocities_buffer = Buffer::from_iter();
         for object in &mut self.objects {
             let current_velocity = object.get_velocity();
             let updated_velocity = FVec2::new(

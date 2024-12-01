@@ -45,7 +45,7 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
-use crate::physics::scene::Scene;
+use crate::physics::scene::{update_cs, Scene};
 use crate::{FVec2, WINDOW_LENGTH};
 
 use super::vk_primitives::{
@@ -206,20 +206,17 @@ impl WindowEventHandler {
                 _ => info!("{} was pressed", input.scancode),
             },
             Event::MainEventsCleared => {
-<<<<<<< HEAD
                 // // NOTE: Length of these two vectors should be the same
                 // // TODO: Rewrite later, refactor too
-=======
                 if self.is_paused_flag {
                     return;
                 }
                 // NOTE: Length of these two vectors should be the same
                 // TODO: Rewrite later, refactor too
->>>>>>> a820c998fd0eaa04590163d2e3773f1910bf3e4e
                 let vertex_buffer =
                     scene.return_objects_as_vertex_buffer(self.vk_cx.device.clone());
 
-                scene.update_objects();
+                scene.update_objects(&self.vk_cx);
                 scene.recreate_hash();
 
                 let (new_swapchain, new_images) = self
@@ -289,22 +286,20 @@ impl WindowEventHandler {
                             image_i,
                         ),
                     )
-                    // .then_signal_fence_and_flush();
-                    .then_signal_fence()
-                    .flush();
+                    .then_signal_fence_and_flush();
 
-                // FIX: crashes on MoltenVK
-                // self.fences[image_i as usize] = match future.map_err(Validated::unwrap) {
-                //     Ok(value) => Some(Arc::new(value)),
-                //     Err(VulkanError::OutOfDate) => {
-                //         self.recreate_swapchain_flag = true;
-                //         None
-                //     }
-                //     Err(e) => {
-                //         error!("failed to flush future: {e}");
-                //         None
-                //     }
-                // };
+                self.fences[image_i as usize] = match future.map_err(Validated::unwrap) {
+                    Ok(value) => Some(Arc::new(value)),
+                    Err(VulkanError::OutOfDate) => {
+                        // FIX: crashes on MoltenVK
+                        // self.recreate_swapchain_flag = true;
+                        None
+                    }
+                    Err(e) => {
+                        error!("failed to flush future: {e}");
+                        None
+                    }
+                };
 
                 self.previous_fence_i = image_i;
             }
@@ -379,6 +374,12 @@ impl VulkanoContext {
             command_buffer_allocator: Arc::new(command_buffer_allocator),
         }
     }
+    pub fn get_memory_allocator(&self) -> Arc<GenericMemoryAllocator<FreeListAllocator>> {
+        self.memory_allocator.clone()
+    }
+    pub fn get_command_buffer_allocator(&self) -> Arc<StandardCommandBufferAllocator> {
+        self.command_buffer_allocator.clone()
+    }
 }
 
 #[derive(BufferContents, Vertex, Debug, Clone, PartialEq)]
@@ -399,21 +400,18 @@ pub struct Vec3 {
 }
 
 pub fn get_compute_command_buffer(
-    vulkano_ctx: VulkanoContext,
+    vk_ctx: VulkanoContext,
     shader: Arc<ShaderModule>,
     data: Subbuffer<FVec2>,
-    push_constants: Option<super::shaders::update_cs::ComputeConstants>,
+    push_constants: Option<update_cs::ComputeConstants>,
 ) -> anyhow::Result<
     AutoCommandBufferBuilder<
         PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>,
         Arc<StandardCommandBufferAllocator>,
     >,
 > {
-    let (device, queue_family_index, queue) = (
-        vulkano_ctx.device,
-        vulkano_ctx.queue_family_index,
-        vulkano_ctx.queue,
-    );
+    let (device, queue_family_index, queue) =
+        (vk_ctx.device, vk_ctx.queue_family_index, vk_ctx.queue);
     let memory_allocator = vk_primitives::create_memory_allocator(device.clone());
     let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
     let layout = PipelineLayout::new(
@@ -443,7 +441,7 @@ pub fn get_compute_command_buffer(
         [],
     )?;
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-        &vulkano_ctx.command_buffer_allocator,
+        &vk_ctx.command_buffer_allocator,
         queue_family_index,
         command_buffer::CommandBufferUsage::OneTimeSubmit,
     )?;
