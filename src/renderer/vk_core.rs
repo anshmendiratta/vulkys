@@ -186,8 +186,8 @@ impl WindowEventHandler {
                 _ => (),
             },
             Event::MainEventsCleared => {
-                // NOTE: Length of these two vectors should be the same
-                // TODO: Rewrite later, refactor too
+                // // NOTE: Length of these two vectors should be the same
+                // // TODO: Rewrite later, refactor too
                 let vertex_buffer =
                     scene.return_objects_as_vertex_buffer(self.vk_cx.device.clone());
 
@@ -234,8 +234,6 @@ impl WindowEventHandler {
                         Err(e) => panic!("failed to acquire the next image: {e}"),
                     };
 
-                let other_image_i = image_i ^ 1;
-
                 self.recreate_swapchain_flag = if suboptimal { true } else { false };
                 if let Some(image_fence) = &self.fences[image_i as usize] {
                     image_fence.wait(None).unwrap();
@@ -263,19 +261,22 @@ impl WindowEventHandler {
                             image_i,
                         ),
                     )
-                    .then_signal_fence_and_flush();
+                    // .then_signal_fence_and_flush();
+                    .then_signal_fence()
+                    .flush();
 
-                self.fences[image_i as usize] = match future.map_err(Validated::unwrap) {
-                    Ok(value) => Some(Arc::new(value)),
-                    Err(VulkanError::OutOfDate) => {
-                        self.recreate_swapchain_flag = true;
-                        None
-                    }
-                    Err(e) => {
-                        error!("failed to flush future: {e}");
-                        None
-                    }
-                };
+                // FIX: crashes on MoltenVK
+                // self.fences[image_i as usize] = match future.map_err(Validated::unwrap) {
+                //     Ok(value) => Some(Arc::new(value)),
+                //     Err(VulkanError::OutOfDate) => {
+                //         self.recreate_swapchain_flag = true;
+                //         None
+                //     }
+                //     Err(e) => {
+                //         error!("failed to flush future: {e}");
+                //         None
+                //     }
+                // };
 
                 self.previous_fence_i = image_i;
             }
