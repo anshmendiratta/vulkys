@@ -22,8 +22,8 @@ pub struct FVec2 {
     y: f32,
 }
 
-unsafe impl Sync for FVec2 {}
-unsafe impl Send for FVec2 {}
+// unsafe impl Sync for FVec2 {}
+// unsafe impl Send for FVec2 {}
 
 impl FVec2 {
     pub fn new(x: f32, y: f32) -> Self {

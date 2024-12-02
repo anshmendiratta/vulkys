@@ -206,8 +206,6 @@ impl WindowEventHandler {
                 _ => info!("{} was pressed", input.scancode),
             },
             Event::MainEventsCleared => {
-                // // NOTE: Length of these two vectors should be the same
-                // // TODO: Rewrite later, refactor too
                 if self.is_paused_flag {
                     return;
                 }
@@ -253,7 +251,7 @@ impl WindowEventHandler {
                     {
                         Ok(r) => r,
                         Err(VulkanError::OutOfDate) => {
-                            self.recreate_swapchain_flag = true;
+                            // self.recreate_swapchain_flag = true;
                             return;
                         }
                         Err(e) => panic!("failed to acquire the next image: {e}"),
@@ -374,6 +372,9 @@ impl VulkanoContext {
             command_buffer_allocator: Arc::new(command_buffer_allocator),
         }
     }
+    pub fn get_queue(&self) -> Arc<Queue> {
+        self.queue.clone()
+    }
     pub fn get_memory_allocator(&self) -> Arc<GenericMemoryAllocator<FreeListAllocator>> {
         self.memory_allocator.clone()
     }
@@ -399,10 +400,10 @@ pub struct Vec3 {
     b: u8,
 }
 
-pub fn get_compute_command_buffer(
+pub fn get_compute_command_buffer<T: BufferContents>(
     vk_ctx: VulkanoContext,
     shader: Arc<ShaderModule>,
-    data: Subbuffer<FVec2>,
+    data: Subbuffer<[T]>,
     push_constants: Option<update_cs::ComputeConstants>,
 ) -> anyhow::Result<
     AutoCommandBufferBuilder<
@@ -433,7 +434,7 @@ pub fn get_compute_command_buffer(
     let descriptor_set_layout_index = 0;
     let descriptor_set_layout = descriptor_set_layouts
         .get(descriptor_set_layout_index)
-        .expect("compute shader: descriptor set lauout index out of bounds");
+        .expect("compute shader: descriptor set layout index out of bounds");
     let descriptor_set = PersistentDescriptorSet::new(
         &descriptor_set_allocator,
         descriptor_set_layout.clone(),

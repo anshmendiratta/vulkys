@@ -2,6 +2,7 @@ use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
 use vulkano::buffer::{Buffer, Subbuffer};
+use vulkano::sync::{self, GpuFuture};
 use vulkano::{
     buffer::{BufferCreateInfo, BufferUsage},
     device::Device,
@@ -36,20 +37,27 @@ pub mod update_cs {
                 float dt;
             };
             
-            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-            layout(binding = 0, set = 0) buffer P {
-                vec2 pos[];
-            } positions;
+            // layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+            // layout(binding = 0, set = 0) buffer P {
+            //     vec2 pos[];
+            // } positions;
 
-            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-            layout(binding = 0, set = 0) buffer V {
-                vec2 vel[];
-            } velocities;
+            layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+            layout(binding = 0, set = 0) buffer J {
+                vec2 join[2];
+            } joined;
+
+            // layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+            // vec2 position;
+            // layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+            // vec2 velocity;
 
             void main() {
-                uint x = gl_GlobalInvocationID.x;
-                positions.pos[x] += velocities.vel[x] * dt;
-                velocities.vel[x] += vec2(gravity * dt);
+                // uint x = gl_GlobalInvocationID.x;
+                // position += 
+                // velocity += vec2(0., gravity * dt);
+                // joined.join[0] += vec2(joined.join[1].x * dt, joined.join[1].y * dt);
+                // joined.join[1] += vec2(0., gravity * dt);
             }
         ",
     }
@@ -191,62 +199,57 @@ impl Scene {
 
     pub fn update_objects(&mut self, vk_ctx: &VulkanoContext) {
         let update_shader = update_cs::load(vk_ctx.device.clone()).unwrap();
-        let object_positions: Vec<_> = self
-            .objects
-            .clone()
-            .iter()
-            .map(|obj| obj.get_position().to_custom_vertex(None))
-            .collect();
-        let object_velocities: Vec<FVec2> = self
-            .objects
-            .clone()
-            .iter()
-            .map(|obj| obj.get_velocity())
-            .collect();
-        let object_positions_buffer = Buffer::from_iter(
-            vk_ctx.get_memory_allocator(),
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
-                ..Default::default()
-            },
-            object_positions.clone(),
-        )
-        .unwrap();
-        let object_velocities_buffer = Buffer::from_iter(
-            vk_ctx.get_memory_allocator(),
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
-                ..Default::default()
-            },
-            object_velocities.clone(),
-        )
-        .unwrap();
-        let update_command_buffer =
-            get_compute_command_buffer(vk_ctx, update_shader, object_positions_buffer);
-
-        // let object_velocities_buffer = Buffer::from_iter();
+        let push_constants = update_cs::ComputeConstants {
+            gravity: GRAVITY_ACCELERATION,
+            dt: self.dt,
+        };
         for object in &mut self.objects {
-            let current_velocity = object.get_velocity();
-            let updated_velocity = FVec2::new(
-                current_velocity.x,
-                current_velocity.y + GRAVITY_ACCELERATION * self.dt,
-            );
-            let current_position = object.get_position();
-            let updated_position = FVec2::new(
-                current_position.x + current_velocity.x * self.dt,
-                current_position.y + current_velocity.y * self.dt,
-            );
+            let object_buffer = Buffer::from_iter(
+                vk_ctx.get_memory_allocator(),
+                BufferCreateInfo {
+                    usage: BufferUsage::STORAGE_BUFFER,
+                    ..Default::default()
+                },
+                AllocationCreateInfo {
+                    memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                        | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+                    ..Default::default()
+                },
+                [
+                    object.get_position().as_array(),
+                    object.get_velocity().as_array(),
+                ],
+            )
+            .unwrap();
+            let update_command_buffer = get_compute_command_buffer(
+                vk_ctx.clone(),
+                update_shader.clone(),
+                object_buffer.clone(),
+                Some(push_constants),
+            )
+            .unwrap()
+            .build()
+            .unwrap();
 
-            object.update_velocity(updated_velocity);
-            object.update_position(updated_position);
+            // let future = sync::now(vk_ctx.device.clone())
+            //     .then_execute(vk_ctx.get_queue().clone(), update_command_buffer)
+            //     .unwrap()
+            //     .then_signal_fence_and_flush()
+            //     .unwrap();
+
+            // let mut updated_position: FVec2 = FVec2::new(0., 0.);
+            // let mut updated_velocity: FVec2 = FVec2::new(0., 0.);
+            // let object_buffer_contents = object_buffer.read().unwrap();
+            // for (idx, val) in object_buffer_contents.iter().enumerate() {
+            //     match idx {
+            //         0 => updated_position = FVec2::new(val[0], val[1]),
+            //         1 => updated_velocity = FVec2::new(val[0], val[1]),
+            //         _ => unreachable!(),
+            //     }
+            // }
+
+            // object.update_velocity(updated_velocity);
+            // object.update_position(updated_position);
         }
         self.check_and_resolve_collision();
     }
