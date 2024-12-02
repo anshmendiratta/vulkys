@@ -1,6 +1,8 @@
+use core::ascii;
 use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
+use eframe::glow::MAX_COMBINED_TESS_EVALUATION_UNIFORM_COMPONENTS;
 use vulkano::buffer::{Buffer, Subbuffer};
 use vulkano::sync::{self, GpuFuture};
 use vulkano::{
@@ -37,15 +39,11 @@ pub mod update_cs {
                 float dt;
             };
             
-            // layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-            // layout(binding = 0, set = 0) buffer P {
-            //     vec2 pos[];
-            // } positions;
+            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+            layout(binding = 0, set = 0) buffer P {
+                vec2 pos[[]];
+            } positions;
 
-            layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-            layout(binding = 0, set = 0) buffer J {
-                vec2 join[2];
-            } joined;
 
             // layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
             // vec2 position;
@@ -203,53 +201,49 @@ impl Scene {
             gravity: GRAVITY_ACCELERATION,
             dt: self.dt,
         };
-        for object in &mut self.objects {
-            let object_buffer = Buffer::from_iter(
-                vk_ctx.get_memory_allocator(),
-                BufferCreateInfo {
-                    usage: BufferUsage::STORAGE_BUFFER,
-                    ..Default::default()
-                },
-                AllocationCreateInfo {
-                    memory_type_filter: MemoryTypeFilter::PREFER_HOST
-                        | MemoryTypeFilter::HOST_RANDOM_ACCESS,
-                    ..Default::default()
-                },
-                [
-                    object.get_position().as_array(),
-                    object.get_velocity().as_array(),
-                ],
-            )
-            .unwrap();
-            let update_command_buffer = get_compute_command_buffer(
-                vk_ctx.clone(),
-                update_shader.clone(),
-                object_buffer.clone(),
-                Some(push_constants),
-            )
+        let objects_buffer: Subbuffer<[[[f32; 2]; 2]]> = Buffer::from_iter(
+            vk_ctx.get_memory_allocator(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+                ..Default::default()
+            },
+            self.objects
+                .clone()
+                .iter()
+                .map(|obj| [obj.get_position().as_array(), obj.get_velocity().as_array()]),
+        )
+        .unwrap();
+        let update_command_buffer = get_compute_command_buffer(
+            vk_ctx.clone(),
+            update_shader.clone(),
+            objects_buffer.clone(),
+            Some(push_constants),
+        )
+        .unwrap()
+        .build()
+        .unwrap();
+
+        let future = sync::now(vk_ctx.device.clone())
+            .then_execute(vk_ctx.get_queue().clone(), update_command_buffer)
             .unwrap()
-            .build()
+            .then_signal_fence_and_flush()
             .unwrap();
 
-            // let future = sync::now(vk_ctx.device.clone())
-            //     .then_execute(vk_ctx.get_queue().clone(), update_command_buffer)
-            //     .unwrap()
-            //     .then_signal_fence_and_flush()
-            //     .unwrap();
-
-            // let mut updated_position: FVec2 = FVec2::new(0., 0.);
-            // let mut updated_velocity: FVec2 = FVec2::new(0., 0.);
-            // let object_buffer_contents = object_buffer.read().unwrap();
-            // for (idx, val) in object_buffer_contents.iter().enumerate() {
-            //     match idx {
-            //         0 => updated_position = FVec2::new(val[0], val[1]),
-            //         1 => updated_velocity = FVec2::new(val[0], val[1]),
-            //         _ => unreachable!(),
-            //     }
-            // }
-
-            // object.update_velocity(updated_velocity);
-            // object.update_position(updated_position);
+        let object_buffer_contents = objects_buffer.read().unwrap();
+        for (idx, updated_pair) in object_buffer_contents.iter().enumerate() {
+            self.objects[idx].update_position(FVec2 {
+                x: updated_pair[0][0],
+                y: updated_pair[0][1],
+            });
+            self.objects[idx].update_velocity(FVec2 {
+                x: updated_pair[1][0],
+                y: updated_pair[1][1],
+            });
         }
         self.check_and_resolve_collision();
     }
