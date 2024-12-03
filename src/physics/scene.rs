@@ -246,15 +246,12 @@ impl Scene {
         .build()
         .unwrap();
 
-        let future = async {
-            sync::now(vk_ctx.get_device().clone())
-                .then_execute(vk_ctx.get_queue().clone(), update_command_buffer)
-                .unwrap()
-                .then_signal_fence_and_flush()
-                .unwrap()
-                .await
-                .unwrap();
-        };
+        let future = sync::now(vk_ctx.get_device().clone())
+            .then_execute(vk_ctx.get_queue().clone(), update_command_buffer)
+            .unwrap()
+            .then_signal_fence_and_flush()
+            .unwrap();
+        future.wait(None).unwrap();
 
         let object_positions_reader = object_positions_buffer.read().unwrap();
         let object_velocities_reader = object_velocities_buffer.read().unwrap();

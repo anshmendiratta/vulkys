@@ -182,6 +182,12 @@ impl WindowEventHandler {
             .0;
 
         event_loop.run(move |event, _, _| {
+            // dbg!(scene
+            //     .objects
+            //     .clone()
+            //     .iter()
+            //     .map(|o| o.get_position())
+            //     .collect::<Vec<_>>());
             self.handle_window_event(&mut scene, &event);
         });
     }
