@@ -69,12 +69,20 @@ pub struct WindowEventHandler {
     frames_in_flight: usize,
     previous_fence_i: u32,
 
+    perf_stats: PerformanceStats,
+
     recreate_swapchain_flag: bool,
     is_paused_flag: bool,
 }
 
 struct PerformanceStats {
-    framerate: u32,
+    framerates: Vec<f32>,
+}
+
+impl PerformanceStats {
+    fn new() -> Self {
+        Self { framerates: vec![] }
+    }
 }
 
 struct RenderContext {
@@ -147,6 +155,7 @@ impl WindowEventHandler {
         let framebuffers = get_framebuffers(&images, &render_pass);
         let render_cx = RenderContext::new(vk_cx.device.clone(), &window_cx, &vk_cx, event_loop);
 
+        let perf_stats = PerformanceStats::new();
         let frames_in_flight = render_cx.images.len();
         let fences = vec![None; frames_in_flight];
         let previous_fence_i = 0;
@@ -158,6 +167,7 @@ impl WindowEventHandler {
             frames_in_flight,
             fences,
             previous_fence_i,
+            perf_stats,
             recreate_swapchain_flag: false,
             is_paused_flag: false,
         }
@@ -186,7 +196,10 @@ impl WindowEventHandler {
             self.handle_window_event(&mut scene, &event);
             let time_after_update = Instant::now();
             let fps = 1_f32 / (time_after_update - time_before_update).as_secs_f32();
-            dbg!(fps);
+            self.perf_stats.framerates.push(fps);
+            if fps < 100000. {
+                info!("fps: {fps}");
+            }
         });
     }
 
@@ -200,7 +213,17 @@ impl WindowEventHandler {
                 event: WindowEvent::KeyboardInput { input, .. },
                 ..
             } => match input.scancode {
-                /* Code for q */ 16 => std::process::exit(0),
+                /* Code for q */
+                16 => {
+                    let temp = self.perf_stats.framerates.clone();
+                    let frame_counts: Vec<&f32> =
+                        temp.iter().filter(|fps| **fps < 100000_f32).collect();
+                    let fps_avg =
+                        frame_counts.clone().into_iter().sum::<f32>() / (frame_counts.len() as f32);
+                    dbg!("fps avg: {}", fps_avg);
+
+                    std::process::exit(0);
+                }
                 /* Code for p */
                 25 => {
                     self.is_paused_flag = true;
@@ -398,12 +421,4 @@ pub struct CustomVertex {
     pub position_in: FVec2,
     #[format(R8G8B8A8_UNORM)]
     pub color: [u8; 4],
-}
-
-#[derive(BufferContents)]
-#[repr(C)]
-pub struct Vec3 {
-    r: u8,
-    g: u8,
-    b: u8,
 }
