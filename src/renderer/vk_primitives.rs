@@ -67,6 +67,7 @@ pub fn get_compute_command_buffer<T: BufferContents>(
     shader: Arc<ShaderModule>,
     data: Vec<Subbuffer<[T]>>,
     push_constants: Option<update_cs::ComputeConstants>,
+    work_group_counts: [u32; 3],
 ) -> anyhow::Result<
     AutoCommandBufferBuilder<
         PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>,
@@ -128,7 +129,7 @@ pub fn get_compute_command_buffer<T: BufferContents>(
     if let Some(constants) = push_constants {
         command_buffer_builder.push_constants(pipeline_layout.clone(), 0, constants)?;
     };
-    command_buffer_builder.dispatch([1, 1, 1])?;
+    command_buffer_builder.dispatch(work_group_counts)?;
 
     Ok(command_buffer_builder)
 }
@@ -292,7 +293,7 @@ pub fn create_command_buffer_allocator(device: Arc<Device>) -> StandardCommandBu
     )
 }
 
-pub fn get_command_buffers(
+pub fn get_render_command_buffers(
     command_buffer_allocator: &StandardCommandBufferAllocator,
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,

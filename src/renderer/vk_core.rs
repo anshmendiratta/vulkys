@@ -50,7 +50,7 @@ use crate::{FVec2, WINDOW_LENGTH};
 
 use super::vk_primitives::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
-    get_command_buffers, get_framebuffers, get_render_pass, get_required_extensions,
+    get_framebuffers, get_render_command_buffers, get_render_pass, get_required_extensions,
 };
 
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
@@ -182,13 +182,11 @@ impl WindowEventHandler {
             .0;
 
         event_loop.run(move |event, _, _| {
-            // dbg!(scene
-            //     .objects
-            //     .clone()
-            //     .iter()
-            //     .map(|o| o.get_position())
-            //     .collect::<Vec<_>>());
+            let time_before_update = Instant::now();
             self.handle_window_event(&mut scene, &event);
+            let time_after_update = Instant::now();
+            let fps = 1_f32 / (time_after_update - time_before_update).as_secs_f32();
+            dbg!(fps);
         });
     }
 
@@ -215,11 +213,6 @@ impl WindowEventHandler {
                 if self.is_paused_flag {
                     return;
                 }
-                // NOTE: Length of these two vectors should be the same
-                // TODO: Rewrite later, refactor too
-                let vertex_buffer =
-                    scene.return_objects_as_vertex_buffer(self.vk_cx.device.clone());
-
                 scene.update_objects(&self.vk_cx);
                 scene.recreate_hash();
 
@@ -242,7 +235,10 @@ impl WindowEventHandler {
                     self.render_cx.render_pass.clone(),
                     self.render_cx.viewport.clone(),
                 );
-                let command_buffers = get_command_buffers(
+
+                let vertex_buffer =
+                    scene.return_objects_as_vertex_buffer(self.vk_cx.device.clone());
+                let command_buffers = get_render_command_buffers(
                     &self.vk_cx.command_buffer_allocator,
                     &self.vk_cx.queue,
                     &self.render_cx.graphics_pipeline,

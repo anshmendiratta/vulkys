@@ -38,11 +38,11 @@ pub mod update_cs {
                 float dt;
             };
             
-            layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
             layout(binding = 0, set = 0) buffer P {
                 vec2 pos[];
             } positions;
-            layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
             layout(binding = 1, set = 0) buffer V {
                 vec2 vel[];
             } velocities;
@@ -241,6 +241,7 @@ impl Scene {
                 object_velocities_buffer.clone(),
             ],
             Some(push_constants),
+            [self.objects.len() as u32, 1, 1],
         )
         .unwrap()
         .build()
