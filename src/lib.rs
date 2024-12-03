@@ -89,6 +89,15 @@ impl FVec2 {
     }
 }
 
+impl From<&[f32; 2]> for FVec2 {
+    fn from(value: &[f32; 2]) -> Self {
+        FVec2 {
+            x: value[0],
+            y: value[1],
+        }
+    }
+}
+
 impl Mul<f32> for FVec2 {
     type Output = Self;
 

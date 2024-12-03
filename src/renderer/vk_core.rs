@@ -347,7 +347,7 @@ impl WindowContext {
 
 #[derive(Clone)]
 pub struct VulkanoContext {
-    pub(crate) device: Arc<Device>,
+    device: Arc<Device>,
     queue_family_index: u32,
     queue: Arc<Queue>,
 
@@ -372,8 +372,14 @@ impl VulkanoContext {
             command_buffer_allocator: Arc::new(command_buffer_allocator),
         }
     }
+    pub fn get_device(&self) -> Arc<Device> {
+        self.device.clone()
+    }
     pub fn get_queue(&self) -> Arc<Queue> {
         self.queue.clone()
+    }
+    pub fn get_queue_family_index(&self) -> u32 {
+        self.queue_family_index
     }
     pub fn get_memory_allocator(&self) -> Arc<GenericMemoryAllocator<FreeListAllocator>> {
         self.memory_allocator.clone()
@@ -398,67 +404,4 @@ pub struct Vec3 {
     r: u8,
     g: u8,
     b: u8,
-}
-
-pub fn get_compute_command_buffer<T: BufferContents>(
-    vk_ctx: VulkanoContext,
-    shader: Arc<ShaderModule>,
-    data: Subbuffer<[T]>,
-    push_constants: Option<update_cs::ComputeConstants>,
-) -> anyhow::Result<
-    AutoCommandBufferBuilder<
-        PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>,
-        Arc<StandardCommandBufferAllocator>,
-    >,
-> {
-    let (device, queue_family_index, queue) =
-        (vk_ctx.device, vk_ctx.queue_family_index, vk_ctx.queue);
-    let memory_allocator = vk_primitives::create_memory_allocator(device.clone());
-    let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
-    let layout = PipelineLayout::new(
-        device.clone(),
-        PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
-            .into_pipeline_layout_create_info(device.clone())
-            .unwrap(),
-    )?;
-    let compute_pipeline = ComputePipeline::new(
-        device.clone(),
-        None,
-        ComputePipelineCreateInfo::stage_layout(stage, layout),
-    )
-    .expect("failed to create compute pipeline");
-    let descriptor_set_allocator =
-        StandardDescriptorSetAllocator::new(device.clone(), Default::default());
-    let pipeline_layout = compute_pipeline.layout();
-    let descriptor_set_layouts = pipeline_layout.set_layouts();
-    let descriptor_set_layout_index = 0;
-    let descriptor_set_layout = descriptor_set_layouts
-        .get(descriptor_set_layout_index)
-        .expect("compute shader: descriptor set layout index out of bounds");
-    let descriptor_set = PersistentDescriptorSet::new(
-        &descriptor_set_allocator,
-        descriptor_set_layout.clone(),
-        [WriteDescriptorSet::buffer(0, data.clone())],
-        [],
-    )?;
-    let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-        &vk_ctx.command_buffer_allocator,
-        queue_family_index,
-        command_buffer::CommandBufferUsage::OneTimeSubmit,
-    )?;
-
-    command_buffer_builder
-        .bind_pipeline_compute(compute_pipeline.clone())?
-        .bind_descriptor_sets(
-            PipelineBindPoint::Compute,
-            compute_pipeline.layout().clone(),
-            0,
-            descriptor_set,
-        )?;
-    if let Some(constants) = push_constants {
-        command_buffer_builder.push_constants(pipeline_layout.clone(), 0, constants)?;
-    };
-    command_buffer_builder.dispatch([1, 1, 1])?;
-
-    Ok(command_buffer_builder)
 }

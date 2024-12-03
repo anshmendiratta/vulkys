@@ -1,8 +1,6 @@
-use core::ascii;
 use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
-use eframe::glow::MAX_COMBINED_TESS_EVALUATION_UNIFORM_COMPONENTS;
 use vulkano::buffer::{Buffer, Subbuffer};
 use vulkano::sync::{self, GpuFuture};
 use vulkano::{
@@ -12,7 +10,8 @@ use vulkano::{
 };
 use winit::event_loop::EventLoop;
 
-use crate::renderer::vk_core::{get_compute_command_buffer, VulkanoContext};
+use crate::renderer::vk_core::VulkanoContext;
+use crate::renderer::vk_primitives::get_compute_command_buffer;
 use crate::{
     renderer::{
         vk_core::{CustomVertex, WindowEventHandler},
@@ -39,23 +38,22 @@ pub mod update_cs {
                 float dt;
             };
             
-            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+            layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
             layout(binding = 0, set = 0) buffer P {
-                vec2 pos[[]];
+                vec2 pos[];
             } positions;
-
-
-            // layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-            // vec2 position;
-            // layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-            // vec2 velocity;
+            layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+            layout(binding = 1, set = 0) buffer V {
+                vec2 vel[];
+            } velocities;
 
             void main() {
-                // uint x = gl_GlobalInvocationID.x;
-                // position += 
-                // velocity += vec2(0., gravity * dt);
-                // joined.join[0] += vec2(joined.join[1].x * dt, joined.join[1].y * dt);
-                // joined.join[1] += vec2(0., gravity * dt);
+                uint idx = gl_GlobalInvocationID.x;
+                vec2 position_change = vec2(velocities.vel[idx] * dt);
+                vec2 velocity_change = vec2(0, gravity * dt);
+
+                positions.pos[idx] += position_change;
+                velocities.vel[idx] += velocity_change;
             }
         ",
     }
@@ -196,12 +194,12 @@ impl Scene {
     }
 
     pub fn update_objects(&mut self, vk_ctx: &VulkanoContext) {
-        let update_shader = update_cs::load(vk_ctx.device.clone()).unwrap();
+        let update_shader = update_cs::load(vk_ctx.get_device().clone()).unwrap();
         let push_constants = update_cs::ComputeConstants {
             gravity: GRAVITY_ACCELERATION,
             dt: self.dt,
         };
-        let objects_buffer: Subbuffer<[[[f32; 2]; 2]]> = Buffer::from_iter(
+        let object_positions_buffer = Buffer::from_iter(
             vk_ctx.get_memory_allocator(),
             BufferCreateInfo {
                 usage: BufferUsage::STORAGE_BUFFER,
@@ -209,41 +207,65 @@ impl Scene {
             },
             AllocationCreateInfo {
                 memory_type_filter: MemoryTypeFilter::PREFER_HOST
-                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
             },
             self.objects
                 .clone()
                 .iter()
-                .map(|obj| [obj.get_position().as_array(), obj.get_velocity().as_array()]),
+                .map(|obj| obj.get_position().as_array()),
+        )
+        .unwrap();
+        let object_velocities_buffer = Buffer::from_iter(
+            vk_ctx.get_memory_allocator(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            self.objects
+                .clone()
+                .iter()
+                .map(|obj| obj.get_velocity().as_array()),
         )
         .unwrap();
         let update_command_buffer = get_compute_command_buffer(
             vk_ctx.clone(),
             update_shader.clone(),
-            objects_buffer.clone(),
+            vec![
+                object_positions_buffer.clone(),
+                object_velocities_buffer.clone(),
+            ],
             Some(push_constants),
         )
         .unwrap()
         .build()
         .unwrap();
 
-        let future = sync::now(vk_ctx.device.clone())
-            .then_execute(vk_ctx.get_queue().clone(), update_command_buffer)
-            .unwrap()
-            .then_signal_fence_and_flush()
-            .unwrap();
+        let future = async {
+            sync::now(vk_ctx.get_device().clone())
+                .then_execute(vk_ctx.get_queue().clone(), update_command_buffer)
+                .unwrap()
+                .then_signal_fence_and_flush()
+                .unwrap()
+                .await
+                .unwrap();
+        };
 
-        let object_buffer_contents = objects_buffer.read().unwrap();
-        for (idx, updated_pair) in object_buffer_contents.iter().enumerate() {
-            self.objects[idx].update_position(FVec2 {
-                x: updated_pair[0][0],
-                y: updated_pair[0][1],
-            });
-            self.objects[idx].update_velocity(FVec2 {
-                x: updated_pair[1][0],
-                y: updated_pair[1][1],
-            });
+        let object_positions_reader = object_positions_buffer.read().unwrap();
+        let object_velocities_reader = object_velocities_buffer.read().unwrap();
+        for (idx, (updated_position, updated_velocity)) in std::iter::zip(
+            object_positions_reader.iter(),
+            object_velocities_reader.iter(),
+        )
+        .enumerate()
+        {
+            self.objects[idx].update_position(updated_position.into());
+            self.objects[idx].update_velocity(updated_velocity.into());
         }
         self.check_and_resolve_collision();
     }

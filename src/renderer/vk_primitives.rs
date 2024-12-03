@@ -1,6 +1,7 @@
 #![allow(unused_variables)]
 
 use std::sync::Arc;
+use vulkano::buffer::BufferContents;
 use vulkano::buffer::Subbuffer;
 use vulkano::command_buffer;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
@@ -8,7 +9,12 @@ use vulkano::command_buffer::PrimaryAutoCommandBuffer;
 use vulkano::command_buffer::RenderPassBeginInfo;
 use vulkano::command_buffer::SubpassBeginInfo;
 use vulkano::command_buffer::SubpassEndInfo;
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
+use vulkano::descriptor_set::PersistentDescriptorSet;
+use vulkano::descriptor_set::WriteDescriptorSet;
+use vulkano::pipeline::compute::ComputePipelineCreateInfo;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
+use vulkano::pipeline::PipelineBindPoint;
 
 use vulkano::image::view::ImageView;
 use vulkano::image::{Image, ImageUsage};
@@ -20,12 +26,16 @@ use vulkano::pipeline::graphics::vertex_input::VertexDefinition;
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
+use vulkano::pipeline::ComputePipeline;
+use vulkano::pipeline::Pipeline;
 use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo};
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use vulkano::VulkanLibrary;
 use winit::event_loop::EventLoop;
+
+use crate::physics::scene::update_cs;
 
 use super::vk_core::{CustomVertex, VulkanoContext, WindowContext};
 use vulkano::command_buffer::allocator::{
@@ -50,6 +60,77 @@ pub fn get_required_extensions(
     let required_extensions = Surface::required_extensions(&event_loop);
 
     (device_extensions, required_extensions)
+}
+
+pub fn get_compute_command_buffer<T: BufferContents>(
+    vk_ctx: VulkanoContext,
+    shader: Arc<ShaderModule>,
+    data: Vec<Subbuffer<[T]>>,
+    push_constants: Option<update_cs::ComputeConstants>,
+) -> anyhow::Result<
+    AutoCommandBufferBuilder<
+        PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>,
+        Arc<StandardCommandBufferAllocator>,
+    >,
+> {
+    let (device, queue_family_index, queue) = (
+        vk_ctx.get_device(),
+        vk_ctx.get_queue_family_index(),
+        vk_ctx.get_queue(),
+    );
+    let memory_allocator = create_memory_allocator(device.clone());
+    let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
+    let layout = PipelineLayout::new(
+        device.clone(),
+        PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
+            .into_pipeline_layout_create_info(device.clone())
+            .unwrap(),
+    )?;
+    let compute_pipeline = ComputePipeline::new(
+        device.clone(),
+        None,
+        ComputePipelineCreateInfo::stage_layout(stage, layout),
+    )
+    .expect("failed to create compute pipeline");
+    let descriptor_set_allocator =
+        StandardDescriptorSetAllocator::new(device.clone(), Default::default());
+    let pipeline_layout = compute_pipeline.layout();
+    let descriptor_set_layouts = pipeline_layout.set_layouts();
+    let descriptor_set_layout_index = 0;
+    let descriptor_set_layout = descriptor_set_layouts
+        .get(descriptor_set_layout_index)
+        .expect("compute shader: descriptor set layout index out of bounds");
+    let descriptor_set = PersistentDescriptorSet::new(
+        &descriptor_set_allocator,
+        descriptor_set_layout.clone(),
+        {
+            let mut write_descriptor_sets: Vec<WriteDescriptorSet> = vec![];
+            for (idx, datum) in data.iter().enumerate() {
+                write_descriptor_sets.push(WriteDescriptorSet::buffer(idx as u32, datum.clone()));
+            }
+            write_descriptor_sets
+        },
+        [],
+    )?;
+    let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
+        &vk_ctx.get_command_buffer_allocator(),
+        queue_family_index,
+        command_buffer::CommandBufferUsage::OneTimeSubmit,
+    )?;
+    command_buffer_builder
+        .bind_pipeline_compute(compute_pipeline.clone())?
+        .bind_descriptor_sets(
+            PipelineBindPoint::Compute,
+            compute_pipeline.layout().clone(),
+            0,
+            descriptor_set,
+        )?;
+    if let Some(constants) = push_constants {
+        command_buffer_builder.push_constants(pipeline_layout.clone(), 0, constants)?;
+    };
+    command_buffer_builder.dispatch([1, 1, 1])?;
+
+    Ok(command_buffer_builder)
 }
 
 pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
@@ -99,7 +180,7 @@ pub fn create_swapchain_and_images(
     let surface = Surface::from_window(windowcx.instance.clone(), windowcx.window.clone())
         .expect("could not create window");
     let physical_device = select_physical_device(windowcx, event_loop);
-    let device = vulkancx.device.clone();
+    let device = vulkancx.get_device().clone();
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
