@@ -45,7 +45,7 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
-use crate::physics::scene::{update_cs, Scene};
+use crate::physics::scene::{update_with_collision_cs, Scene};
 use crate::{FVec2, WINDOW_LENGTH};
 
 use super::vk_primitives::{

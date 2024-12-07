@@ -27,7 +27,7 @@ use super::{
     rigidbody::RigidBody,
 };
 
-pub mod update_cs {
+pub mod update_with_collision_cs {
     vulkano_shaders::shader! {
         ty: "compute",
         src: r"
@@ -36,26 +36,82 @@ pub mod update_cs {
             layout(push_constant) uniform ComputeConstants {
                 float gravity;
                 float dt;
+                uint num_objects;
             };
             
             layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
             layout(binding = 0, set = 0) buffer P {
-                vec2 pos[];
+                vec2 p[];
             } positions;
+
             layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
             layout(binding = 1, set = 0) buffer V {
-                vec2 vel[];
+                vec2 v[];
             } velocities;
 
+            layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+            layout(binding = 2, set = 0) buffer R {
+                // Had to pass in [radius, 0.0] to satisfy my `get_compute_command_buffer` function
+                vec2 r[];
+            } radii;
+
+            struct CollisionID {
+                int y;  
+            };
+
+            CollisionID find_collisions(uint ref_object_id) {
+                CollisionID collision_id;
+                collision_id.y = -1;
+
+                for (int idx = 0; idx < num_objects; idx++) {
+                    if (idx == ref_object_id) {
+                        break;
+                    }
+                    vec2 other_position = positions.p[idx];
+                    vec2 vector_between_coms = positions.p[ref_object_id] - positions.p[idx]; 
+                    float distance_between_coms = length(vector_between_coms);
+                    float radius_ref = radii.r[ref_object_id][0];
+                    float radius_other = radii.r[idx][0];
+
+                    if (distance_between_coms < (radius_ref + radius_other)) {
+                        collision_id.y = idx;
+                    }
+                }
+                
+                return collision_id;
+            }
+
+            void resolve_collision(uint object_one_id, uint object_two_id) {
+                vec2 object_one_position = positions.p[object_one_id];
+                vec2 object_one_velocity = velocities.v[object_one_id];
+                vec2 object_two_position = positions.p[object_two_id];
+                vec2 object_two_velocity = velocities.v[object_two_id];
+
+                vec2 updated_velocity_one = object_one_velocity - (dot(object_one_velocity - object_two_velocity, object_one_position - object_two_position))
+                / (pow(length(object_two_position - object_one_position), 2)) * (object_one_position - object_two_position);
+                vec2 updated_velocity_two = object_two_velocity - (dot(object_two_velocity - object_one_velocity, object_two_position - object_one_position))
+                / (pow(length(object_two_position - object_one_position), 2)) * (object_two_position - object_one_position);
+
+                velocities.v[object_one_id] = updated_velocity_one;
+                velocities.v[object_two_id] = updated_velocity_two;
+            }
+
             void main() {
-                uint idx = gl_GlobalInvocationID.x;
-                vec2 position_change = vec2(velocities.vel[idx] * dt);
+                uint x = gl_GlobalInvocationID.x;
+                vec2 position_change = vec2(velocities.v[x] * dt);
                 vec2 velocity_change = vec2(0, gravity * dt);
 
-                positions.pos[idx] += position_change;
-                velocities.vel[idx] += velocity_change;
+                positions.p[x] += position_change;
+                velocities.v[x] += velocity_change;
+
+                CollisionID collision = find_collisions(x);
+                if (collision.y == -1) {
+                    return;
+                }
+
+                resolve_collision(x, collision.y);
             }
-        ",
+            ",
     }
 }
 
@@ -125,7 +181,7 @@ impl Scene {
         windowcx_handler.run_with_scene(self, event_loop);
     }
 
-    pub fn check_and_resolve_collision(&mut self) {
+    pub fn check_and_world_resolve_collisions(&mut self) {
         // Checking for object-world collisions
         for object in &mut self.objects {
             let world_collisions: (Option<Vec<Collision>>, (bool, bool)) =
@@ -141,6 +197,7 @@ impl Scene {
                 }
             })
         }
+        self.recreate_objects_from_hash();
 
         let mut did_resolve_object_collisions: bool = false;
         // Checking for object-object collisions
@@ -194,10 +251,11 @@ impl Scene {
     }
 
     pub fn update_objects(&mut self, vk_ctx: &VulkanoContext) {
-        let update_shader = update_cs::load(vk_ctx.get_device().clone()).unwrap();
-        let push_constants = update_cs::ComputeConstants {
+        let update_shader = update_with_collision_cs::load(vk_ctx.get_device().clone()).unwrap();
+        let push_constants = update_with_collision_cs::ComputeConstants {
             gravity: GRAVITY_ACCELERATION,
             dt: self.dt,
+            num_objects: self.objects.len() as u32,
         };
         let object_positions_buffer = Buffer::from_iter(
             vk_ctx.get_memory_allocator(),
@@ -233,12 +291,31 @@ impl Scene {
                 .map(|obj| obj.get_velocity().as_array()),
         )
         .unwrap();
+        let object_radii_buffer = Buffer::from_iter(
+            vk_ctx.get_memory_allocator(),
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_HOST
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            self.objects
+                .clone()
+                .iter()
+                .map(|obj| [obj.get_radius(), 0.]),
+        )
+        .unwrap();
         let update_command_buffer = get_compute_command_buffer(
             vk_ctx.clone(),
             update_shader.clone(),
             vec![
                 object_positions_buffer.clone(),
                 object_velocities_buffer.clone(),
+                // FIX: Remove need for the radii buffer to be [f32; 2].
+                object_radii_buffer.clone(),
             ],
             Some(push_constants),
             [self.objects.len() as u32, 1, 1],
@@ -265,7 +342,9 @@ impl Scene {
             self.objects[idx].update_position(updated_position.into());
             self.objects[idx].update_velocity(updated_velocity.into());
         }
-        self.check_and_resolve_collision();
+        self.check_and_world_resolve_collisions();
+
+        dbg!(self.objects.clone());
     }
 
     pub fn recreate_hash(&mut self) {

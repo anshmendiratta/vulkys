@@ -35,7 +35,7 @@ use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use vulkano::VulkanLibrary;
 use winit::event_loop::EventLoop;
 
-use crate::physics::scene::update_cs;
+use crate::physics::scene::update_with_collision_cs;
 
 use super::vk_core::{CustomVertex, VulkanoContext, WindowContext};
 use vulkano::command_buffer::allocator::{
@@ -66,7 +66,7 @@ pub fn get_compute_command_buffer<T: BufferContents>(
     vk_ctx: VulkanoContext,
     shader: Arc<ShaderModule>,
     data: Vec<Subbuffer<[T]>>,
-    push_constants: Option<update_cs::ComputeConstants>,
+    push_constants: Option<update_with_collision_cs::ComputeConstants>,
     work_group_counts: [u32; 3],
 ) -> anyhow::Result<
     AutoCommandBufferBuilder<
