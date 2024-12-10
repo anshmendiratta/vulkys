@@ -2,8 +2,10 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use crate::physics::lib::{DELTA_TIME, GRAVITY_ACCELERATION};
 use crate::renderer::vk_core::command_buffer::allocator::StandardCommandBufferAllocator;
 use crate::renderer::vk_primitives::get_graphics_pipeline;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{error, info};
@@ -45,12 +47,13 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
-use crate::physics::scene::{update_with_collision_cs, Scene};
+use crate::physics::scene::{self, update_with_collision_cs, Scene};
 use crate::{FVec2, WINDOW_LENGTH};
 
 use super::vk_primitives::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
-    get_framebuffers, get_render_command_buffers, get_render_pass, get_required_extensions,
+    get_compute_command_buffer, get_framebuffers, get_render_command_buffers, get_render_pass,
+    get_required_extensions,
 };
 
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
@@ -61,16 +64,28 @@ const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
 type SwapchainJoinFuture = JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFuture>;
 type FenceFuture = FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
 pub struct WindowEventHandler {
-    vk_cx: VulkanoContext,
-    window_cx: WindowContext,
-    render_cx: RenderContext,
+    vk_ctx: VulkanoContext,
+    window_ctx: WindowContext,
+    render_ctx: RenderContext,
+
+    runtime_buffers: RuntimeBuffers,
 
     fences: Vec<Option<Arc<FenceFuture>>>,
     frames_in_flight: usize,
     previous_fence_i: u32,
 
     perf_stats: PerformanceStats,
+    sim_flags: SimulationFlags,
+}
 
+#[derive(Clone)]
+pub struct RuntimeBuffers {
+    pub objects_positions: Subbuffer<[[f32; 2]]>,
+    pub objects_velocities: Subbuffer<[[f32; 2]]>,
+    pub objects_radii: Subbuffer<[[f32; 2]]>,
+}
+
+struct SimulationFlags {
     recreate_swapchain_flag: bool,
     is_paused_flag: bool,
 }
@@ -83,9 +98,14 @@ impl PerformanceStats {
     fn new() -> Self {
         Self { framerates: vec![] }
     }
+    fn avg(&self) -> f32 {
+        self.framerates.iter().sum::<f32>() / self.framerates.len() as f32
+    }
 }
 
 struct RenderContext {
+    cs: Arc<ShaderModule>,
+    pub compute_command_buffer: Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
     vs: Arc<ShaderModule>,
     fs: Arc<ShaderModule>,
     render_pass: Arc<RenderPass>,
@@ -100,29 +120,53 @@ struct RenderContext {
 
 impl RenderContext {
     fn new(
-        device: Arc<Device>,
-        window_cx: &WindowContext,
-        vk_cx: &VulkanoContext,
         event_loop: &EventLoop<()>,
+        window_ctx: &WindowContext,
+        vk_ctx: &VulkanoContext,
+        runtime_buffers: &RuntimeBuffers,
+        num_objects: u32,
     ) -> Self {
-        let vs = super::shaders::vs::load(device.clone()).unwrap();
-        let fs = super::shaders::fs::load(device.clone()).unwrap();
-        let (swapchain, images) = create_swapchain_and_images(window_cx, vk_cx, event_loop);
-        let render_pass = get_render_pass(device.clone(), &swapchain);
+        let cs = scene::update_with_collision_cs::load(vk_ctx.get_device().clone()).unwrap();
+        let vs = super::shaders::vs::load(vk_ctx.get_device().clone()).unwrap();
+        let fs = super::shaders::fs::load(vk_ctx.get_device().clone()).unwrap();
+        let (swapchain, images) = create_swapchain_and_images(window_ctx, vk_ctx, event_loop);
+        let render_pass = get_render_pass(vk_ctx.get_device().clone(), &swapchain);
         let framebuffers = get_framebuffers(&images, &render_pass);
         let viewport = Viewport {
             extent: [WINDOW_LENGTH; 2],
             ..Default::default()
         };
         let graphics_pipeline = get_graphics_pipeline(
-            device.clone(),
+            vk_ctx.get_device().clone(),
             vs.clone(),
             fs.clone(),
             render_pass.clone(),
             viewport.clone(),
         );
 
+        let push_constants = update_with_collision_cs::ComputeConstants {
+            gravity: GRAVITY_ACCELERATION,
+            dt: DELTA_TIME,
+            num_objects,
+        };
+        let compute_command_buffer = get_compute_command_buffer(
+            vk_ctx.clone(),
+            cs.clone(),
+            vec![
+                runtime_buffers.objects_positions.clone(),
+                runtime_buffers.objects_velocities.clone(),
+                // FIX: Remove need for the radii buffer to be [f32; 2].
+                runtime_buffers.objects_radii.clone(),
+            ],
+            Some(push_constants),
+            [num_objects, 1, 1],
+        )
+        .unwrap()
+        .build()
+        .unwrap();
+
         Self {
+            cs,
             vs,
             fs,
             render_pass,
@@ -131,60 +175,69 @@ impl RenderContext {
             swapchain,
             framebuffers,
             images,
+            compute_command_buffer,
         }
     }
-    // pub fn update_images(&mut self, device: Arc<Device>, scene: &mut Scene) -> anyhow::Result<()> {
-    //     let update_cs = super::shaders::update_cs::load(device.clone())?;
-    //     let collision_cs = super::shaders::collision_cs::load(device.clone())?;
-
-    //     Ok(())
-    // }
     fn viewport(&self) -> Viewport {
         self.viewport.clone()
     }
 }
 
 impl WindowEventHandler {
-    pub fn new(event_loop: &EventLoop<()>) -> Self {
-        let window_cx = WindowContext::new(event_loop);
-        let vk_cx = VulkanoContext::with_window_context(&window_cx, event_loop);
+    pub fn new(
+        event_loop: &EventLoop<()>,
+        runtime_buffers: RuntimeBuffers,
+        vk_ctx: VulkanoContext,
+        window_ctx: WindowContext,
+        num_objects: u32,
+    ) -> Self {
         let required_extensions = Surface::required_extensions(event_loop);
         let library = VulkanLibrary::new().expect("no local vulkan lib");
-        let (swapchain, images) = create_swapchain_and_images(&window_cx, &vk_cx, event_loop);
-        let render_pass = get_render_pass(vk_cx.device.clone(), &swapchain);
+        let (swapchain, images) = create_swapchain_and_images(&window_ctx, &vk_ctx, event_loop);
+        let render_pass = get_render_pass(vk_ctx.device.clone(), &swapchain);
         let framebuffers = get_framebuffers(&images, &render_pass);
-        let render_cx = RenderContext::new(vk_cx.device.clone(), &window_cx, &vk_cx, event_loop);
+        let render_ctx = RenderContext::new(
+            event_loop,
+            &window_ctx,
+            &vk_ctx,
+            &runtime_buffers,
+            num_objects,
+        );
 
         let perf_stats = PerformanceStats::new();
-        let frames_in_flight = render_cx.images.len();
+        let sim_flags = SimulationFlags {
+            recreate_swapchain_flag: false,
+            is_paused_flag: false,
+        };
+        let frames_in_flight = render_ctx.images.len();
         let fences = vec![None; frames_in_flight];
         let previous_fence_i = 0;
 
         Self {
-            vk_cx,
-            window_cx,
-            render_cx,
+            vk_ctx,
+            window_ctx,
+            render_ctx,
             frames_in_flight,
             fences,
             previous_fence_i,
             perf_stats,
-            recreate_swapchain_flag: false,
-            is_paused_flag: false,
+            sim_flags,
+            runtime_buffers,
         }
     }
 
     pub fn run_with_scene(mut self, mut scene: Scene, event_loop: EventLoop<()>) {
         let library = VulkanLibrary::new().expect("can't find vulkan library");
-        let physical_device = vk_primitives::select_physical_device(&self.window_cx, &event_loop);
+        let physical_device = vk_primitives::select_physical_device(&self.window_ctx, &event_loop);
         let surface = Surface::from_window(
-            self.window_cx.instance.clone(),
-            self.window_cx.window.clone(),
+            self.window_ctx.instance.clone(),
+            self.window_ctx.window.clone(),
         )
         .expect("could not create window");
         let caps = physical_device
             .surface_capabilities(&surface, Default::default())
             .expect("failed to get surface capabilities");
-        let dimensions = self.window_cx.window.inner_size();
+        let dimensions = self.window_ctx.window.inner_size();
         let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
         let image_format = physical_device
             .surface_formats(&surface, Default::default())
@@ -194,16 +247,29 @@ impl WindowEventHandler {
         event_loop.run(move |event, _, _| {
             let time_before_update = Instant::now();
             self.handle_window_event(&mut scene, &event);
-            let time_after_update = Instant::now();
-            let fps = 1_f32 / (time_after_update - time_before_update).as_secs_f32();
-            self.perf_stats.framerates.push(fps);
-            if fps < 100000. {
-                info!("fps: {fps}");
+            let fps = 1_f32 / time_before_update.elapsed().as_secs_f32();
+            if fps < 10000. {
+                self.perf_stats.framerates.push(fps);
             }
         });
     }
 
     pub fn handle_window_event(&mut self, scene: &mut Scene, event: &Event<()>) {
+        let mut os_scancodes: HashMap<char, u32> = HashMap::new();
+        #[cfg(target_arch = "x86_64")]
+        {
+            os_scancodes.insert('q', 16);
+            os_scancodes.insert('p', 25);
+            os_scancodes.insert('r', 19);
+        }
+        // #[cfg(target_arch = "aarch64")]
+        {
+            // FIX: Add scancodes for MacOS
+            // os_scancodes.insert('q', 16);
+            // os_scancodes.insert('p', 25);
+            // os_scancodes.insert('r', 19);
+        }
+
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -214,64 +280,65 @@ impl WindowEventHandler {
                 ..
             } => match input.scancode {
                 /* Code for q */
-                16 => {
-                    let temp = self.perf_stats.framerates.clone();
-                    let frame_counts: Vec<&f32> =
-                        temp.iter().filter(|fps| **fps < 100000_f32).collect();
-                    let fps_avg =
-                        frame_counts.clone().into_iter().sum::<f32>() / (frame_counts.len() as f32);
-                    dbg!("fps avg: {}", fps_avg);
-
+                val if val == os_scancodes.get(&'q').unwrap().clone() => {
+                    dbg!("fps avg: {}", self.perf_stats.avg());
+                    info!("10 fps samples: {:?}", self.perf_stats.framerates);
                     std::process::exit(0);
                 }
-                /* Code for p */
-                25 => {
-                    self.is_paused_flag = true;
+                val if val == os_scancodes.get(&'p').unwrap().clone() => {
+                    self.sim_flags.is_paused_flag = true;
                     return;
                 }
-                /* Code for r */ 19 => self.is_paused_flag = false,
+                val if val == os_scancodes.get(&'r').unwrap().clone() => {
+                    self.sim_flags.is_paused_flag = false
+                }
                 _ => info!("{} was pressed", input.scancode),
             },
             Event::MainEventsCleared => {
-                if self.is_paused_flag {
+                if self.sim_flags.is_paused_flag {
                     return;
                 }
-                scene.update_objects(&self.vk_cx);
-                scene.recreate_hash();
+
+                scene.update_with_buffers(
+                    self.vk_ctx.get_device(),
+                    self.vk_ctx.get_queue(),
+                    self.render_ctx.compute_command_buffer.clone(),
+                    self.runtime_buffers.clone(),
+                );
 
                 let (new_swapchain, new_images) = self
-                    .render_cx
+                    .render_ctx
                     .swapchain
                     .recreate(SwapchainCreateInfo {
-                        image_extent: self.window_cx.window.inner_size().into(),
-                        ..self.render_cx.swapchain.create_info()
+                        image_extent: self.window_ctx.window.inner_size().into(),
+                        ..self.render_ctx.swapchain.create_info()
                     })
                     .expect("failed to recreate swapchain: {e}");
-                self.render_cx.swapchain = new_swapchain;
-                self.render_cx.framebuffers =
-                    get_framebuffers(&new_images, &self.render_cx.render_pass);
-                self.render_cx.viewport.extent = self.window_cx.window.inner_size().into();
-                self.render_cx.graphics_pipeline = get_graphics_pipeline(
-                    self.vk_cx.device.clone(),
-                    self.render_cx.vs.clone(),
-                    self.render_cx.fs.clone(),
-                    self.render_cx.render_pass.clone(),
-                    self.render_cx.viewport.clone(),
+                self.render_ctx.swapchain = new_swapchain;
+                self.render_ctx.framebuffers =
+                    get_framebuffers(&new_images, &self.render_ctx.render_pass);
+                self.render_ctx.viewport.extent = self.window_ctx.window.inner_size().into();
+                self.render_ctx.graphics_pipeline = get_graphics_pipeline(
+                    self.vk_ctx.device.clone(),
+                    self.render_ctx.vs.clone(),
+                    self.render_ctx.fs.clone(),
+                    self.render_ctx.render_pass.clone(),
+                    self.render_ctx.viewport.clone(),
                 );
 
                 let vertex_buffer =
-                    scene.return_objects_as_vertex_buffer(self.vk_cx.device.clone());
+                    scene.return_objects_as_vertex_buffer(self.vk_ctx.device.clone());
                 let command_buffers = get_render_command_buffers(
-                    &self.vk_cx.command_buffer_allocator,
-                    &self.vk_cx.queue,
-                    &self.render_cx.graphics_pipeline,
-                    &self.render_cx.framebuffers,
+                    &self.vk_ctx.command_buffer_allocator,
+                    &self.vk_ctx.queue,
+                    &self.render_ctx.graphics_pipeline,
+                    &self.render_ctx.framebuffers,
                     &vertex_buffer,
                 )
                 .unwrap();
 
                 let (image_i, suboptimal, acquire_future) =
-                    match swapchain::acquire_next_image(self.render_cx.swapchain.clone(), None)
+                    match swapchain::acquire_next_image(self.render_ctx.swapchain.clone(), None)
                         .map_err(Validated::unwrap)
                     {
                         Ok(r) => r,
@@ -282,13 +349,13 @@ impl WindowEventHandler {
                         Err(e) => panic!("failed to acquire the next image: {e}"),
                     };
 
-                self.recreate_swapchain_flag = if suboptimal { true } else { false };
+                self.sim_flags.recreate_swapchain_flag = if suboptimal { true } else { false };
                 if let Some(image_fence) = &self.fences[image_i as usize] {
                     image_fence.wait(None).unwrap();
                 }
                 let previous_fence = match self.fences[self.previous_fence_i as usize].clone() {
                     None => {
-                        let mut now = sync::now(self.vk_cx.device.clone());
+                        let mut now = sync::now(self.vk_ctx.device.clone());
                         now.cleanup_finished();
                         now.boxed()
                     }
@@ -298,14 +365,14 @@ impl WindowEventHandler {
                 let future = previous_fence
                     .join(acquire_future)
                     .then_execute(
-                        self.vk_cx.queue.clone(),
+                        self.vk_ctx.queue.clone(),
                         command_buffers[image_i as usize].clone(),
                     )
                     .unwrap()
                     .then_swapchain_present(
-                        self.vk_cx.queue.clone(),
+                        self.vk_ctx.queue.clone(),
                         SwapchainPresentInfo::swapchain_image_index(
-                            self.render_cx.swapchain.clone(),
+                            self.render_ctx.swapchain.clone(),
                             image_i,
                         ),
                     )
@@ -330,10 +397,10 @@ impl WindowEventHandler {
         }
     }
     pub fn vulkancx(&self) -> VulkanoContext {
-        self.vk_cx.clone()
+        self.vk_ctx.clone()
     }
     pub fn windowcx(&self) -> &WindowContext {
-        &self.window_cx
+        &self.window_ctx
     }
 }
 

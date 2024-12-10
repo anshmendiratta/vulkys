@@ -1,5 +1,5 @@
 use super::circle::Circle;
-use super::collision::{Collision, CollisionHandler};
+use super::collision::{Collision, CollisionHandler, WorldCollisionInfo};
 use crate::renderer::vk_procedural_functions::{generate_polygon_triangles, Polygon};
 use crate::FVec2;
 use ecolor::Color32;
@@ -39,12 +39,12 @@ pub enum RigidBody {
 }
 
 impl CollisionHandler for RigidBody {
-    fn check_world_collisions(&self) -> (Option<Vec<Collision>>, (bool, bool)) {
+    fn check_world_collisions(&self) -> Option<Collision> {
         match self {
             RigidBody::Circle_(c, _) => c.check_world_collisions(),
         }
     }
-    fn resolve_world_collision(&mut self, has_crossed_boundaries: (bool, bool)) {
+    fn resolve_world_collision(&mut self, has_crossed_boundaries: WorldCollisionInfo) {
         match self {
             RigidBody::Circle_(c, _) => return c.resolve_world_collision(has_crossed_boundaries),
         }

@@ -116,7 +116,7 @@ pub fn get_compute_command_buffer<T: BufferContents>(
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
         &vk_ctx.get_command_buffer_allocator(),
         queue_family_index,
-        command_buffer::CommandBufferUsage::OneTimeSubmit,
+        command_buffer::CommandBufferUsage::MultipleSubmit,
     )?;
     command_buffer_builder
         .bind_pipeline_compute(compute_pipeline.clone())?

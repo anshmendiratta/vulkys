@@ -9,6 +9,8 @@ use tracing_subscriber::util::SubscriberInitExt;
 use vulkano::pipeline::PipelineShaderStageCreateInfo;
 use vulkys::physics::rigidbody::RigidBody;
 use vulkys::physics::scene::Scene;
+use vulkys::renderer::vk_core::VulkanoContext;
+use vulkys::renderer::vk_primitives::create_memory_allocator;
 use vulkys::{physics::circle::Circle, renderer::vk_core::WindowEventHandler};
 
 use vulkys::FVec2;

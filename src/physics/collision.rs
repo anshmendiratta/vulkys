@@ -14,7 +14,7 @@ pub struct Collision {
 
 #[derive(Clone, Debug)]
 pub enum CollisionObjectType {
-    World,
+    World(WorldCollisionInfo),
     Object,
 }
 
@@ -140,7 +140,13 @@ impl PartialEq for Collision {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct WorldCollisionInfo {
+    pub crossed_x: bool,
+    pub crossed_y: bool,
+}
+
 pub trait CollisionHandler {
-    fn check_world_collisions(&self) -> (Option<Vec<Collision>>, (bool, bool));
-    fn resolve_world_collision(&mut self, crossed_boundaries_xy: (bool, bool));
+    fn check_world_collisions(&self) -> Option<Collision>;
+    fn resolve_world_collision(&mut self, crossed_boundaries_xy: WorldCollisionInfo);
 }
