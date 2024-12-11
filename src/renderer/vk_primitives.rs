@@ -37,6 +37,7 @@ use winit::event_loop::EventLoop;
 
 use crate::physics::scene::update_with_collision_cs;
 
+use super::shaders::vs;
 use super::vk_core::{CustomVertex, VulkanoContext, WindowContext};
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,

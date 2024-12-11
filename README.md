@@ -7,19 +7,25 @@ An easy-to-use but extensive physics engine meant to be accessible to those with
 1. Vulkan (tested v1.3.292)
 2. [The Rust programming language](https://www.rust-lang.org/) (stable)
 
-`cargo r` should run fine. Do not run on release.
+## Usage
+
+1. Create objects in `main.rs`. Create a scene with said objects in a `Vec<RigidBody>` using `Scene::with_objects` and then use `scene.run()`.
+2. `cargo r` should run fine. Do not run on release.
+
+Example mains in `examples/`.
 
 ### Compatibility
-- Windows: runtime error
-- MacOS (MoltenVK): runtime error
-- Ubuntu: Complete
+- Ubuntu (WSL): Complete
+- Windows: image format runtime error
+- MacOS (MoltenVK): seldom runtime errors
 
 ## Commits
 
-Although not uploaded to GitHub with the intention of maintenance or feature-requests, pull requests (PRs) are welcome.
+Although not uploaded to GitHub with the intention of maintenance or feature-requests, pull requests (PRs) and issues are welcome.
 
 ## Goals
 - [ ] Copy images into swapchain so the current, un-updated ones are not being recreated
+- [ ] Document more thoroughly
 
 ### Performance
 - [x] ~~Profile current program~~
@@ -29,3 +35,4 @@ Although not uploaded to GitHub with the intention of maintenance or feature-req
 
 ### QoL
 - [ ] Anti-aliasing for objects
+- [ ] Use textures for objects
