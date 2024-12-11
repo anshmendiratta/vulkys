@@ -5,9 +5,9 @@ An easy-to-use but extensive physics engine meant to be accessible to those with
 ## Requirements
 
 1. Vulkan (tested v1.3.292)
+2. [The Rust programming language](https://www.rust-lang.org/) (stable)
 
-`cargo r` should run fine.
-If you are new to Rust and don't have it installed, follow https://www.rust-lang.org/.
+`cargo r` should run fine. Do not run on release.
 
 ### Compatibility
 - Windows: runtime error
