@@ -28,7 +28,7 @@ Although not uploaded to GitHub with the intention of maintenance or feature-req
 ## Goals
 - [ ] Copy images into swapchain so the current, un-updated ones are not being recreated.
 - [ ] Document more thoroughly.
-- [ ] Allow choice of timestep and gravity. Normalize these values to be somewhat intuitive.
+- [x] Allow choice of timestep and gravity. Normalize these values to be somewhat intuitive.
 - [ ] Add new object types.
 
 ### Performance

@@ -8,7 +8,7 @@ use tracing::{error, info, instrument::WithSubscriber, warn};
 use tracing_subscriber::util::SubscriberInitExt;
 use vulkano::pipeline::PipelineShaderStageCreateInfo;
 use vulkys::physics::rigidbody::RigidBody;
-use vulkys::physics::scene::Scene;
+use vulkys::physics::scene::{Scene, SceneInfo};
 use vulkys::renderer::vk_core::VulkanoContext;
 use vulkys::renderer::vk_primitives::create_memory_allocator;
 use vulkys::{physics::circle::Circle, renderer::vk_core::WindowEventHandler};
@@ -32,40 +32,6 @@ fn main() -> anyhow::Result<()> {
         .with_file(true)
         .with_writer(log_file)
         .init();
-
-    // Initialize objects
-    let circle_1: RigidBody = RigidBody::Circle_(
-        Circle {
-            radius: 0.25,
-            position: FVec2::new(0.5, 0.5),
-            velocity: FVec2::new(-1.5, -1.0),
-            color: Color32::from_hex("#23F0C7").unwrap(),
-        },
-        0,
-    );
-    let circle_2: RigidBody = RigidBody::Circle_(
-        Circle {
-            radius: 0.25,
-            position: FVec2::new(-0.5, 0.65),
-            velocity: FVec2::new(1.5, 0.),
-            color: Color32::from_hex("#EF767A").unwrap(),
-        },
-        1,
-    );
-    let circle_3: RigidBody = RigidBody::Circle_(
-        Circle {
-            radius: 0.3,
-            position: FVec2::new(0., -0.5),
-            velocity: FVec2::new(2.75, 2.6),
-            color: Color32::from_hex("#7D7ABC").unwrap(),
-        },
-        2,
-    );
-    let objects: Vec<RigidBody> = vec![circle_1, circle_2, circle_3];
-    // Initialize scene
-    let scene: Scene = Scene::with_objects(objects);
-    // Running simulation
-    scene.run();
 
     Ok(())
 }

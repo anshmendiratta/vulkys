@@ -2,37 +2,24 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use crate::physics::lib::{DELTA_TIME, GRAVITY_ACCELERATION};
+use crate::renderer::shaders::update_cs;
+use crate::renderer::shaders::update_cs::ComputeConstants;
 use crate::renderer::vk_core::command_buffer::allocator::StandardCommandBufferAllocator;
 use crate::renderer::vk_primitives::get_graphics_pipeline;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tracing::{error, info};
 use vulkano::buffer::{BufferContents, Subbuffer};
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
-use egui::Vec2;
-
-use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
-use vulkano::command_buffer::{
-    self, AutoCommandBufferBuilder, CommandBufferExecFuture, PrimaryAutoCommandBuffer,
-};
-use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
+use vulkano::command_buffer::{self, CommandBufferExecFuture, PrimaryAutoCommandBuffer};
 use vulkano::device::{Device, Queue};
 use vulkano::image::Image;
 use vulkano::instance::{Instance, InstanceCreateInfo};
-use vulkano::memory::allocator::{
-    AllocationCreateInfo, FreeListAllocator, GenericMemoryAllocator, MemoryTypeFilter,
-};
-use vulkano::pipeline::compute::ComputePipelineCreateInfo;
+use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
 use vulkano::pipeline::graphics::viewport::Viewport;
-use vulkano::pipeline::layout::{PipelineDescriptorSetLayoutCreateInfo, PushConstantRange};
-use vulkano::pipeline::{
-    ComputePipeline, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout,
-    PipelineShaderStageCreateInfo,
-};
+use vulkano::pipeline::GraphicsPipeline;
 use vulkano::render_pass::{Framebuffer, RenderPass};
 use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{
@@ -47,7 +34,7 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
-use crate::physics::scene::{self, update_with_collision_cs, Scene};
+use crate::physics::scene::{self, Scene};
 use crate::{FVec2, WINDOW_LENGTH};
 
 use super::vk_primitives::{
@@ -105,7 +92,7 @@ impl PerformanceStats {
 
 struct RenderContext {
     cs: Arc<ShaderModule>,
-    pub compute_command_buffer: Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
+    compute_command_buffer: Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
     vs: Arc<ShaderModule>,
     fs: Arc<ShaderModule>,
     render_pass: Arc<RenderPass>,
@@ -124,9 +111,9 @@ impl RenderContext {
         window_ctx: &WindowContext,
         vk_ctx: &VulkanoContext,
         runtime_buffers: &RuntimeBuffers,
-        num_objects: u32,
+        push_constants: ComputeConstants,
     ) -> Self {
-        let cs = scene::update_with_collision_cs::load(vk_ctx.get_device().clone()).unwrap();
+        let cs = update_cs::load(vk_ctx.get_device().clone()).unwrap();
         let vs = super::shaders::vs::load(vk_ctx.get_device().clone()).unwrap();
         let fs = super::shaders::fs::load(vk_ctx.get_device().clone()).unwrap();
         let (swapchain, images) = create_swapchain_and_images(window_ctx, vk_ctx, event_loop);
@@ -136,6 +123,7 @@ impl RenderContext {
             extent: [WINDOW_LENGTH; 2],
             ..Default::default()
         };
+
         let graphics_pipeline = get_graphics_pipeline(
             vk_ctx.get_device().clone(),
             vs.clone(),
@@ -143,12 +131,6 @@ impl RenderContext {
             render_pass.clone(),
             viewport.clone(),
         );
-
-        let push_constants = update_with_collision_cs::ComputeConstants {
-            gravity: GRAVITY_ACCELERATION,
-            dt: DELTA_TIME,
-            num_objects,
-        };
         let compute_command_buffer = get_compute_command_buffer(
             vk_ctx.clone(),
             cs.clone(),
@@ -159,7 +141,7 @@ impl RenderContext {
                 runtime_buffers.objects_radii.clone(),
             ],
             Some(push_constants),
-            [num_objects, 1, 1],
+            [push_constants.num_objects, 1, 1],
         )
         .unwrap()
         .build()
@@ -189,7 +171,7 @@ impl WindowEventHandler {
         runtime_buffers: RuntimeBuffers,
         vk_ctx: VulkanoContext,
         window_ctx: WindowContext,
-        num_objects: u32,
+        push_constants: ComputeConstants,
     ) -> Self {
         let required_extensions = Surface::required_extensions(event_loop);
         let library = VulkanLibrary::new().expect("no local vulkan lib");
@@ -201,7 +183,7 @@ impl WindowEventHandler {
             &window_ctx,
             &vk_ctx,
             &runtime_buffers,
-            num_objects,
+            push_constants,
         );
 
         let perf_stats = PerformanceStats::new();

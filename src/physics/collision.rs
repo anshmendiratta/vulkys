@@ -142,8 +142,23 @@ impl PartialEq for Collision {
 
 #[derive(Clone, Debug)]
 pub struct WorldCollisionInfo {
-    pub crossed_x: bool,
-    pub crossed_y: bool,
+    crossed_x: bool,
+    crossed_y: bool,
+}
+
+impl WorldCollisionInfo {
+    pub fn new(crossed_x: bool, crossed_y: bool) -> Self {
+        Self {
+            crossed_x,
+            crossed_y,
+        }
+    }
+    pub fn get_crossed_x(&self) -> bool {
+        self.crossed_x
+    }
+    pub fn get_crossed_y(&self) -> bool {
+        self.crossed_y
+    }
 }
 
 pub trait CollisionHandler {

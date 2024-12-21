@@ -38,7 +38,6 @@ impl GenericObject for Circle {
 
 impl CollisionHandler for Circle {
     fn check_world_collisions(&self) -> Option<Collision> {
-        // Check collisions with the world
         let y_pos_range = self.position.y - self.radius..self.position.y + self.radius;
         let x_pos_range = self.position.x - self.radius..self.position.x + self.radius;
         let in_x_bounds = WORLD_BOUNDS.0.contains(&x_pos_range.start)
@@ -47,10 +46,7 @@ impl CollisionHandler for Circle {
             && WORLD_BOUNDS.1.contains(&y_pos_range.end);
 
         if !(in_y_bounds && in_x_bounds) {
-            let world_collision = WorldCollisionInfo {
-                crossed_x: in_x_bounds,
-                crossed_y: in_y_bounds,
-            };
+            let world_collision = WorldCollisionInfo::new(in_x_bounds, in_y_bounds);
             let collision = Collision::new(CollisionObjectType::World(world_collision), None, None);
             return Some(collision);
         };
@@ -60,7 +56,7 @@ impl CollisionHandler for Circle {
     fn resolve_world_collision(&mut self, in_boundaries_xy: WorldCollisionInfo) {
         let mut distance_to_offset = FVec2::new(0., 0.);
         let position = self.get_position();
-        if !in_boundaries_xy.crossed_x {
+        if !in_boundaries_xy.get_crossed_x() {
             self.velocity.x *= -1. * COEFF_RESTITUTION;
             if position.x + self.get_radius() > WORLD_BOUNDS.0.end {
                 distance_to_offset.x = WORLD_BOUNDS.0.end - position.x - self.get_radius();
@@ -68,7 +64,7 @@ impl CollisionHandler for Circle {
                 distance_to_offset.x = -WORLD_BOUNDS.0.start - position.x + self.get_radius();
             }
         }
-        if !in_boundaries_xy.crossed_y {
+        if !in_boundaries_xy.get_crossed_y() {
             self.velocity.y *= -1. * COEFF_RESTITUTION;
             if position.y + self.get_radius() > WORLD_BOUNDS.1.end {
                 distance_to_offset.y = WORLD_BOUNDS.1.end - position.y - self.get_radius();
