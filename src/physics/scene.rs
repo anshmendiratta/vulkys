@@ -1,3 +1,4 @@
+use crate::renderer::vk_core::handler::App;
 use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
@@ -16,10 +17,11 @@ use vulkano::{
 use winit::event_loop::EventLoop;
 
 use crate::renderer::shaders::update_cs;
-use crate::renderer::vk_core::{RuntimeBuffers, VulkanoContext, WindowContext};
+use crate::renderer::vk_core::handler::RuntimeBuffers;
+use crate::renderer::vk_core::{VulkanoContext, WindowContext};
 use crate::{
     renderer::{
-        vk_core::{CustomVertex, WindowEventHandler},
+        vk_core::CustomVertex,
         vk_primitives::create_memory_allocator,
         vk_procedural_functions::{Polygon, PolygonMethods},
     },
@@ -173,7 +175,7 @@ impl Scene {
             dt: self.dt,
             num_objects: self.objects.len() as u32,
         };
-        let mut window_ctx_handler = WindowEventHandler::new(
+        let mut window_ctx_handler = App::new(
             &event_loop,
             self.return_compute_shader_buffers(vk_ctx.memory_allocator()),
             vk_ctx,

@@ -1,29 +1,22 @@
-use crate::renderer::shaders::update_cs;
-use crate::renderer::shaders::update_cs::ComputeConstants;
 use crate::renderer::vk_core::command_buffer::allocator::StandardCommandBufferAllocator;
 use crate::renderer::vk_primitives::get_graphics_pipeline;
 use eframe::WindowAttributes;
+use handler::App;
 use std::sync::Arc;
 use tracing::{error, info};
-use vulkano::buffer::{BufferContents, Subbuffer};
+use vulkano::buffer::BufferContents;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
+use vulkano::swapchain;
+use vulkano::swapchain::Surface;
+use vulkano::swapchain::SwapchainCreateInfo;
+use vulkano::swapchain::SwapchainPresentInfo;
+use vulkano::sync::GpuFuture;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
-use vulkano::command_buffer::{self, CommandBufferExecFuture, PrimaryAutoCommandBuffer};
+use vulkano::command_buffer::{self};
 use vulkano::device::{Device, Queue};
-use vulkano::image::Image;
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
-use vulkano::pipeline::graphics::viewport::Viewport;
-use vulkano::pipeline::GraphicsPipeline;
-use vulkano::render_pass::{Framebuffer, RenderPass};
-use vulkano::shader::ShaderModule;
-use vulkano::swapchain::{
-    self, PresentFuture, Surface, Swapchain, SwapchainAcquireFuture, SwapchainCreateInfo,
-    SwapchainPresentInfo,
-};
-use vulkano::sync::future::{FenceSignalFuture, JoinFuture};
-use vulkano::sync::GpuFuture;
 use vulkano::{sync, Validated, VulkanError, VulkanLibrary};
 use winit::application::ApplicationHandler;
 use winit::dpi::Size;
@@ -31,13 +24,11 @@ use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
-use crate::physics::scene::Scene;
 use crate::{FVec2, WINDOW_LENGTH};
 
 use super::vk_primitives::{
-    self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
-    get_compute_command_buffer, get_framebuffers, get_render_command_buffers, get_render_pass,
-    get_required_extensions,
+    self, create_command_buffer_allocator, create_memory_allocator, get_framebuffers,
+    get_render_command_buffers, get_required_extensions,
 };
 
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
@@ -45,74 +36,208 @@ const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     height: WINDOW_LENGTH as u32,
 });
 
-#[derive(Clone)]
-pub struct RuntimeBuffers {
-    pub objects_positions: Subbuffer<[[f32; 2]]>,
-    pub objects_velocities: Subbuffer<[[f32; 2]]>,
-    pub objects_radii: Subbuffer<[[f32; 2]]>,
-}
+pub mod handler {
+    use std::sync::Arc;
 
-struct SimulationFlags {
-    recreate_swapchain_flag: bool,
-    is_paused_flag: bool,
-}
+    use vulkano::{
+        buffer::Subbuffer,
+        command_buffer::{
+            allocator::StandardCommandBufferAllocator, CommandBufferExecFuture,
+            PrimaryAutoCommandBuffer,
+        },
+        image::Image,
+        pipeline::{graphics::viewport::Viewport, GraphicsPipeline},
+        render_pass::{Framebuffer, RenderPass},
+        shader::ShaderModule,
+        swapchain::{PresentFuture, Surface, Swapchain, SwapchainAcquireFuture},
+        sync::{
+            future::{FenceSignalFuture, JoinFuture},
+            GpuFuture,
+        },
+        VulkanLibrary,
+    };
+    use winit::event_loop::EventLoop;
 
-struct PerformanceStats {
-    framerates: Vec<f32>,
-}
+    use crate::{
+        physics::scene::Scene,
+        renderer::{
+            shaders::update_cs::{self, ComputeConstants},
+            vk_primitives::{
+                self, create_swapchain_and_images, get_compute_command_buffer, get_framebuffers,
+                get_graphics_pipeline, get_render_pass, get_required_extensions,
+            },
+        },
+        WINDOW_LENGTH,
+    };
 
-impl PerformanceStats {
-    fn new() -> Self {
-        Self { framerates: vec![] }
+    use super::{VulkanoContext, WindowContext};
+
+    type SwapchainJoinFuture = JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFuture>;
+    type FenceFuture =
+        FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
+    pub struct App {
+        pub scene: Scene,
+        pub vkcx: VulkanoContext,
+        pub wincx: WindowContext,
+        pub rcx: RenderContext,
+        pub runtime_buffers: RuntimeBuffers,
+        pub fences: Vec<Option<Arc<FenceFuture>>>,
+        pub frames_in_flight: usize,
+        pub previous_fence_i: u32,
+        pub perf_stats: PerformanceStats,
+        pub sim_flags: SimulationFlags,
     }
-    fn avg(&self) -> f32 {
-        self.framerates.iter().sum::<f32>() / self.framerates.len() as f32
+
+    impl App {
+        pub fn new(
+            event_loop: &EventLoop<()>,
+            runtime_buffers: RuntimeBuffers,
+            vkcx: VulkanoContext,
+            wincx: WindowContext,
+            scene: Scene,
+            push_constants: ComputeConstants,
+        ) -> anyhow::Result<Self> {
+            let (_, required_extensions) = get_required_extensions(event_loop);
+            let library = VulkanLibrary::new().expect("no local vulkan lib");
+            let (swapchain, images) = create_swapchain_and_images(&wincx, &vkcx, event_loop);
+            let render_pass = get_render_pass(vkcx.device().clone(), &swapchain);
+            let framebuffers = get_framebuffers(&images, &render_pass);
+            let surface = Surface::from_window(wincx.instance().clone(), wincx.window().clone())
+                .expect("could not create window");
+            let physical_device = vk_primitives::select_physical_device(&wincx, &event_loop);
+            let caps = physical_device
+                .surface_capabilities(&surface, Default::default())
+                .expect("failed to get surface capabilities");
+            let dimensions = wincx.window().clone().inner_size();
+            let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
+            let image_format = physical_device
+                .surface_formats(&surface, Default::default())
+                .unwrap()[0]
+                .0;
+            let cs = update_cs::load(vkcx.device().clone())?;
+            let vs = crate::renderer::shaders::vs::load(vkcx.device().clone())?;
+            let fs = crate::renderer::shaders::fs::load(vkcx.device().clone())?;
+            let (swapchain, images) = create_swapchain_and_images(&wincx, &vkcx, event_loop);
+            let render_pass = get_render_pass(vkcx.device().clone(), &swapchain);
+            let viewport = Viewport {
+                extent: [WINDOW_LENGTH; 2],
+                ..Default::default()
+            };
+            let graphics_pipeline = get_graphics_pipeline(
+                vkcx.device().clone(),
+                vs.clone(),
+                fs.clone(),
+                render_pass.clone(),
+                viewport.clone(),
+            );
+            let compute_command_buffer = get_compute_command_buffer(
+                vkcx.clone(),
+                cs.clone(),
+                vec![
+                    runtime_buffers.objects_positions.clone(),
+                    runtime_buffers.objects_velocities.clone(),
+                    // FIX: Remove need for the radii buffer to be [f32; 2].
+                    runtime_buffers.objects_radii.clone(),
+                ],
+                Some(push_constants),
+                [push_constants.num_objects, 1, 1],
+            )?
+            .build()?;
+            let render_ctx = RenderContext {
+                cs,
+                compute_command_buffer,
+                vs,
+                fs,
+                render_pass,
+                graphics_pipeline,
+                swapchain,
+                framebuffers,
+                images,
+                viewport,
+            };
+            let perf_stats = PerformanceStats::new();
+            let sim_flags = SimulationFlags {
+                recreate_swapchain_flag: false,
+                is_paused_flag: false,
+            };
+            let frames_in_flight = render_ctx.images.len();
+            let fences = vec![None; frames_in_flight];
+            let previous_fence_i = 0;
+
+            Ok(Self {
+                vkcx,
+                wincx,
+                rcx: render_ctx,
+                frames_in_flight,
+                fences,
+                previous_fence_i,
+                perf_stats,
+                sim_flags,
+                runtime_buffers,
+                scene,
+            })
+        }
+
+        pub fn vulkancx(&self) -> VulkanoContext {
+            self.vkcx.clone()
+        }
+        pub fn windowcx(&self) -> &WindowContext {
+            &self.wincx
+        }
+    }
+
+    pub struct RenderContext {
+        cs: Arc<ShaderModule>,
+        pub compute_command_buffer:
+            Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
+        pub vs: Arc<ShaderModule>,
+        pub fs: Arc<ShaderModule>,
+        pub render_pass: Arc<RenderPass>,
+        pub graphics_pipeline: Arc<GraphicsPipeline>,
+        pub swapchain: Arc<Swapchain>,
+        pub framebuffers: Vec<Arc<Framebuffer>>,
+        pub images: Vec<Arc<Image>>,
+        pub viewport: Viewport,
+    }
+
+    pub struct SimulationFlags {
+        pub recreate_swapchain_flag: bool,
+        pub is_paused_flag: bool,
+    }
+
+    pub struct PerformanceStats {
+        framerates: Vec<f32>,
+    }
+
+    #[derive(Clone)]
+    pub struct RuntimeBuffers {
+        pub objects_positions: Subbuffer<[[f32; 2]]>,
+        pub objects_velocities: Subbuffer<[[f32; 2]]>,
+        pub objects_radii: Subbuffer<[[f32; 2]]>,
+    }
+
+    impl PerformanceStats {
+        pub fn new() -> Self {
+            Self { framerates: vec![] }
+        }
+        pub fn avg(&self) -> f32 {
+            self.framerates.iter().sum::<f32>() / self.framerates.len() as f32
+        }
+        pub fn framerates(&self) -> Vec<f32> {
+            self.framerates.clone()
+        }
     }
 }
 
-struct RenderContext {
-    cs: Arc<ShaderModule>,
-    compute_command_buffer: Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
-    vs: Arc<ShaderModule>,
-    fs: Arc<ShaderModule>,
-    render_pass: Arc<RenderPass>,
-    graphics_pipeline: Arc<GraphicsPipeline>,
-
-    swapchain: Arc<Swapchain>,
-    framebuffers: Vec<Arc<Framebuffer>>,
-    images: Vec<Arc<Image>>,
-
-    viewport: Viewport,
-}
-
-type SwapchainJoinFuture = JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFuture>;
-type FenceFuture = FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
-pub struct WindowEventHandler {
-    scene: Scene,
-    vk_ctx: VulkanoContext,
-    wincx: WindowContext,
-    rcx: RenderContext,
-
-    runtime_buffers: RuntimeBuffers,
-
-    fences: Vec<Option<Arc<FenceFuture>>>,
-    frames_in_flight: usize,
-    previous_fence_i: u32,
-
-    perf_stats: PerformanceStats,
-    sim_flags: SimulationFlags,
-}
-
-impl ApplicationHandler for WindowEventHandler {
+impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        self.wincx.window = Some(Arc::new(
+        self.wincx.window = Arc::new(
             event_loop
                 .create_window(WindowAttributes::default())
                 .unwrap(),
-        ));
-        let surface =
-            Surface::from_window(self.wincx.instance(), self.wincx.window().unwrap()).unwrap();
-        let window_size = self.wincx.window().unwrap().inner_size();
+        );
+        let surface = Surface::from_window(self.wincx.instance(), self.wincx.window()).unwrap();
+        let window_size = self.wincx.window().inner_size();
     }
 
     fn window_event(
@@ -126,7 +251,7 @@ impl ApplicationHandler for WindowEventHandler {
             WindowEvent::KeyboardInput { event, .. } => match event.physical_key {
                 PhysicalKey::Code(KeyCode::KeyQ) => {
                     dbg!("fps avg: {}", self.perf_stats.avg());
-                    info!("10 fps samples: {:?}", self.perf_stats.framerates);
+                    info!("10 fps samples: {:?}", self.perf_stats.framerates());
                     std::process::exit(0);
                 }
                 PhysicalKey::Code(KeyCode::KeyP) => {
@@ -142,8 +267,8 @@ impl ApplicationHandler for WindowEventHandler {
                 }
 
                 self.scene.update_with_buffers(
-                    self.vk_ctx.device(),
-                    self.vk_ctx.queue(),
+                    self.vkcx.device(),
+                    self.vkcx.queue(),
                     self.rcx.compute_command_buffer.clone(),
                     self.runtime_buffers.clone(),
                 );
@@ -152,15 +277,15 @@ impl ApplicationHandler for WindowEventHandler {
                     .rcx
                     .swapchain
                     .recreate(SwapchainCreateInfo {
-                        image_extent: self.wincx.window.clone().unwrap().inner_size().into(),
+                        image_extent: self.wincx.window.clone().inner_size().into(),
                         ..self.rcx.swapchain.create_info()
                     })
                     .expect("failed to recreate swapchain: {e}");
                 self.rcx.swapchain = new_swapchain;
                 self.rcx.framebuffers = get_framebuffers(&new_images, &self.rcx.render_pass);
-                self.rcx.viewport.extent = self.wincx.window.clone().unwrap().inner_size().into();
+                self.rcx.viewport.extent = self.wincx.window.clone().inner_size().into();
                 self.rcx.graphics_pipeline = get_graphics_pipeline(
-                    self.vk_ctx.device.clone(),
+                    self.vkcx.device.clone(),
                     self.rcx.vs.clone(),
                     self.rcx.fs.clone(),
                     self.rcx.render_pass.clone(),
@@ -169,10 +294,10 @@ impl ApplicationHandler for WindowEventHandler {
 
                 let vertex_buffer = self
                     .scene
-                    .return_objects_as_vertex_buffer(self.vk_ctx.device.clone());
+                    .return_objects_as_vertex_buffer(self.vkcx.device.clone());
                 let command_buffers = get_render_command_buffers(
-                    &self.vk_ctx.command_buffer_allocator,
-                    &self.vk_ctx.queue,
+                    &self.vkcx.command_buffer_allocator,
+                    &self.vkcx.queue,
                     &self.rcx.graphics_pipeline,
                     &self.rcx.framebuffers,
                     &vertex_buffer,
@@ -197,7 +322,7 @@ impl ApplicationHandler for WindowEventHandler {
                 }
                 let previous_fence = match self.fences[self.previous_fence_i as usize].clone() {
                     None => {
-                        let mut now = sync::now(self.vk_ctx.device.clone());
+                        let mut now = sync::now(self.vkcx.device.clone());
                         now.cleanup_finished();
                         now.boxed()
                     }
@@ -207,12 +332,12 @@ impl ApplicationHandler for WindowEventHandler {
                 let future = previous_fence
                     .join(acquire_future)
                     .then_execute(
-                        self.vk_ctx.queue.clone(),
+                        self.vkcx.queue.clone(),
                         command_buffers[image_i as usize].clone(),
                     )
                     .unwrap()
                     .then_swapchain_present(
-                        self.vk_ctx.queue.clone(),
+                        self.vkcx.queue.clone(),
                         SwapchainPresentInfo::swapchain_image_index(
                             self.rcx.swapchain.clone(),
                             image_i,
@@ -240,108 +365,9 @@ impl ApplicationHandler for WindowEventHandler {
     }
 }
 
-impl WindowEventHandler {
-    pub fn new(
-        event_loop: &EventLoop<()>,
-        runtime_buffers: RuntimeBuffers,
-        vk_ctx: VulkanoContext,
-        wincx: WindowContext,
-        scene: Scene,
-        push_constants: ComputeConstants,
-    ) -> anyhow::Result<Self> {
-        let (_, required_extensions) = get_required_extensions(event_loop);
-        let library = VulkanLibrary::new().expect("no local vulkan lib");
-        let (swapchain, images) = create_swapchain_and_images(&wincx, &vk_ctx, event_loop);
-        let render_pass = get_render_pass(vk_ctx.device().clone(), &swapchain);
-        let framebuffers = get_framebuffers(&images, &render_pass);
-        let surface =
-            Surface::from_window(wincx.instance().clone(), wincx.window().clone().unwrap())
-                .expect("could not create window");
-        let physical_device = vk_primitives::select_physical_device(&wincx, &event_loop);
-        let caps = physical_device
-            .surface_capabilities(&surface, Default::default())
-            .expect("failed to get surface capabilities");
-        let dimensions = wincx.window().clone().unwrap().inner_size();
-        let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
-        let image_format = physical_device
-            .surface_formats(&surface, Default::default())
-            .unwrap()[0]
-            .0;
-        let cs = update_cs::load(vk_ctx.device().clone())?;
-        let vs = super::shaders::vs::load(vk_ctx.device().clone())?;
-        let fs = super::shaders::fs::load(vk_ctx.device().clone())?;
-        let (swapchain, images) = create_swapchain_and_images(&wincx, &vk_ctx, event_loop);
-        let render_pass = get_render_pass(vk_ctx.device().clone(), &swapchain);
-        let viewport = Viewport {
-            extent: [WINDOW_LENGTH; 2],
-            ..Default::default()
-        };
-        let graphics_pipeline = get_graphics_pipeline(
-            vk_ctx.device().clone(),
-            vs.clone(),
-            fs.clone(),
-            render_pass.clone(),
-            viewport.clone(),
-        );
-        let compute_command_buffer = get_compute_command_buffer(
-            vk_ctx.clone(),
-            cs.clone(),
-            vec![
-                runtime_buffers.objects_positions.clone(),
-                runtime_buffers.objects_velocities.clone(),
-                // FIX: Remove need for the radii buffer to be [f32; 2].
-                runtime_buffers.objects_radii.clone(),
-            ],
-            Some(push_constants),
-            [push_constants.num_objects, 1, 1],
-        )?
-        .build()?;
-        let render_ctx = RenderContext {
-            cs,
-            compute_command_buffer,
-            vs,
-            fs,
-            render_pass,
-            graphics_pipeline,
-            swapchain,
-            framebuffers,
-            images,
-            viewport,
-        };
-        let perf_stats = PerformanceStats::new();
-        let sim_flags = SimulationFlags {
-            recreate_swapchain_flag: false,
-            is_paused_flag: false,
-        };
-        let frames_in_flight = render_ctx.images.len();
-        let fences = vec![None; frames_in_flight];
-        let previous_fence_i = 0;
-
-        Ok(Self {
-            vk_ctx,
-            wincx,
-            rcx: render_ctx,
-            frames_in_flight,
-            fences,
-            previous_fence_i,
-            perf_stats,
-            sim_flags,
-            runtime_buffers,
-            scene,
-        })
-    }
-
-    pub fn vulkancx(&self) -> VulkanoContext {
-        self.vk_ctx.clone()
-    }
-    pub fn windowcx(&self) -> &WindowContext {
-        &self.wincx
-    }
-}
-
 pub struct WindowContext {
     instance: Arc<Instance>,
-    window: Option<Arc<Window>>,
+    window: Arc<Window>,
 }
 
 impl WindowContext {
@@ -356,20 +382,19 @@ impl WindowContext {
             },
         )
         .expect("failed to create instance");
+        let window = Arc::new(
+            event_loop
+                .create_window(WindowAttributes::default())
+                .unwrap(),
+        );
 
-        Self {
-            instance,
-            window: None,
-        }
+        Self { instance, window }
     }
     pub fn instance(&self) -> Arc<Instance> {
         self.instance.clone()
     }
-    pub fn window(&self) -> Option<Arc<Window>> {
-        if self.window.clone().is_some() {
-            return self.window.clone();
-        }
-        None
+    pub fn window(&self) -> Arc<Window> {
+        self.window.clone()
     }
 }
 

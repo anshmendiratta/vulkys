@@ -173,17 +173,14 @@ pub fn create_swapchain_and_images(
     vulkancx: &VulkanoContext,
     event_loop: &EventLoop<()>,
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
-    let surface = Surface::from_window(
-        windowcx.instance().clone(),
-        windowcx.window().unwrap().clone(),
-    )
-    .expect("could not create window");
+    let surface = Surface::from_window(windowcx.instance().clone(), windowcx.window().clone())
+        .expect("could not create window");
     let physical_device = select_physical_device(windowcx, event_loop);
     let device = vulkancx.device().clone();
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
-    let dimensions = windowcx.window().unwrap().inner_size();
+    let dimensions = windowcx.window().inner_size();
     let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
     let image_format = physical_device
         .surface_formats(&surface, Default::default())
@@ -213,8 +210,8 @@ pub fn select_physical_device(
     let (instance, window) = (wincx.instance(), wincx.window());
     let (device_extensions, _) = get_required_extensions(event_loop);
     let library = VulkanLibrary::new().expect("no local vulkan lib");
-    let surface = Surface::from_window(instance.clone(), window.unwrap().clone())
-        .expect("could not create window");
+    let surface =
+        Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
 
     instance
         .enumerate_physical_devices()
