@@ -56,8 +56,7 @@ pub fn get_required_extensions(
         khr_swapchain: true,
         ..DeviceExtensions::empty()
     };
-    let required_extensions = Surface::required_extensions(&event_loop);
-
+    let required_extensions = Surface::required_extensions(event_loop);
     (device_extensions, required_extensions)
 }
 
@@ -73,11 +72,8 @@ pub fn get_compute_command_buffer<T: BufferContents>(
         Arc<StandardCommandBufferAllocator>,
     >,
 > {
-    let (device, queue_family_index, queue) = (
-        vk_ctx.get_device(),
-        vk_ctx.get_queue_family_index(),
-        vk_ctx.get_queue(),
-    );
+    let (device, queue_family_index, queue) =
+        (vk_ctx.device(), vk_ctx.queue_family_index(), vk_ctx.queue());
     let memory_allocator = create_memory_allocator(device.clone());
     let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
     let layout = PipelineLayout::new(
@@ -113,7 +109,7 @@ pub fn get_compute_command_buffer<T: BufferContents>(
         [],
     )?;
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-        &vk_ctx.get_command_buffer_allocator(),
+        &vk_ctx.command_buffer_allocator(),
         queue_family_index,
         command_buffer::CommandBufferUsage::MultipleSubmit,
     )?;
@@ -177,14 +173,17 @@ pub fn create_swapchain_and_images(
     vulkancx: &VulkanoContext,
     event_loop: &EventLoop<()>,
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
-    let surface = Surface::from_window(windowcx.instance.clone(), windowcx.window.clone())
-        .expect("could not create window");
+    let surface = Surface::from_window(
+        windowcx.instance().clone(),
+        windowcx.window().unwrap().clone(),
+    )
+    .expect("could not create window");
     let physical_device = select_physical_device(windowcx, event_loop);
-    let device = vulkancx.get_device().clone();
+    let device = vulkancx.device().clone();
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
-    let dimensions = windowcx.window.inner_size();
+    let dimensions = windowcx.window().unwrap().inner_size();
     let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
     let image_format = physical_device
         .surface_formats(&surface, Default::default())
@@ -208,14 +207,14 @@ pub fn create_swapchain_and_images(
 }
 
 pub fn select_physical_device(
-    win_ctx: &WindowContext,
+    wincx: &WindowContext,
     event_loop: &EventLoop<()>,
 ) -> Arc<PhysicalDevice> {
-    let (window, instance) = (win_ctx.window(), win_ctx.instance.clone());
+    let (instance, window) = (wincx.instance(), wincx.window());
     let (device_extensions, _) = get_required_extensions(event_loop);
     let library = VulkanLibrary::new().expect("no local vulkan lib");
-    let surface =
-        Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
+    let surface = Surface::from_window(instance.clone(), window.unwrap().clone())
+        .expect("could not create window");
 
     instance
         .enumerate_physical_devices()

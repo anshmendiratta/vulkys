@@ -164,23 +164,25 @@ impl Scene {
         .expect("scene: could not produce vertex buffer from objects")
     }
 
-    pub fn run(self) {
-        let event_loop = EventLoop::new();
+    pub fn run(self) -> anyhow::Result<()> {
+        let event_loop = EventLoop::new().unwrap();
         let window_ctx = WindowContext::new(&event_loop);
-        let vk_ctx = VulkanoContext::with_window_context(&window_ctx, &event_loop);
+        let vk_ctx = VulkanoContext::from_window_context(&window_ctx, &event_loop);
         let push_constants = update_cs::ComputeConstants {
             gravity: self.gravity,
             dt: self.dt,
             num_objects: self.objects.len() as u32,
         };
-        let window_ctx_handler = WindowEventHandler::new(
+        let mut window_ctx_handler = WindowEventHandler::new(
             &event_loop,
-            self.return_compute_shader_buffers(vk_ctx.get_memory_allocator()),
+            self.return_compute_shader_buffers(vk_ctx.memory_allocator()),
             vk_ctx,
             window_ctx,
+            self,
             push_constants,
-        );
-        window_ctx_handler.run_with_scene(self, event_loop);
+        )?;
+        event_loop.run_app(&mut window_ctx_handler)?;
+        Ok(())
     }
 
     pub fn update_with_buffers(

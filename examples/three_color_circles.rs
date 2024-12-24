@@ -54,16 +54,15 @@ fn main() -> anyhow::Result<()> {
         },
         2,
     );
-    let objects: Vec<RigidBody> = vec![circle_1, circle_2, circle_3];
     // Initialize scene
     let scene_info = SceneInfo {
-        objects,
+        objects: vec![circle_1, circle_2, circle_3],
         dt: 1e-3,
         gravity: 20.0,
     };
     let scene: Scene = Scene::with_info(scene_info);
     // Running simulation
-    scene.run();
+    scene.run()?;
 
     Ok(())
 }
