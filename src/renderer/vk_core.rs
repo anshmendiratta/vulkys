@@ -2,6 +2,7 @@ use crate::renderer::vk_core::command_buffer::allocator::StandardCommandBufferAl
 use crate::renderer::vk_primitives::get_graphics_pipeline;
 use eframe::WindowAttributes;
 use handler::App;
+use handler::RenderContext;
 use std::sync::Arc;
 use tracing::{error, info};
 use vulkano::buffer::BufferContents;
@@ -15,19 +16,17 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 
 use vulkano::command_buffer::{self};
 use vulkano::device::{Device, Queue};
-use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
 use vulkano::{sync, Validated, VulkanError, VulkanLibrary};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
-use winit::window::Window;
 
 use crate::FVec2;
 
 use super::vk_primitives::{
     self, create_command_buffer_allocator, create_memory_allocator, get_framebuffers,
-    get_render_command_buffers, get_required_extensions,
+    get_render_command_buffers,
 };
 
 pub mod handler {
@@ -81,9 +80,9 @@ pub mod handler {
         pub wincx: WindowContext,
         pub rcx: Option<RenderContext>,
         pub runtime_buffers: RuntimeBuffers,
-        pub fences: Vec<Option<Arc<FenceFuture>>>,
-        pub frames_in_flight: usize,
-        pub previous_fence_i: u32,
+        // pub fences: Vec<Option<Arc<FenceFuture>>>,
+        // pub frames_in_flight: usize,
+        // pub previous_fence_i: u32,
         pub perf_stats: PerformanceStats,
         pub sim_flags: SimulationFlags,
     }
@@ -114,67 +113,27 @@ pub mod handler {
                 .surface_formats(&surface, Default::default())
                 .unwrap()[0]
                 .0;
-            let cs = update_cs::load(vkcx.device().clone())?;
-            let vs = crate::renderer::shaders::vs::load(vkcx.device().clone())?;
-            let fs = crate::renderer::shaders::fs::load(vkcx.device().clone())?;
-            let (swapchain, images) = create_swapchain_and_images(&wincx, &vkcx, event_loop);
-            let render_pass = get_render_pass(vkcx.device().clone(), &swapchain);
-            let viewport = Viewport {
-                extent: [WINDOW_LENGTH; 2],
-                ..Default::default()
-            };
-            let graphics_pipeline = get_graphics_pipeline(
-                vkcx.device().clone(),
-                vs.clone(),
-                fs.clone(),
-                render_pass.clone(),
-                viewport.clone(),
-            );
-            let compute_command_buffer = get_compute_command_buffer(
-                vkcx.clone(),
-                cs.clone(),
-                vec![
-                    runtime_buffers.objects_positions.clone(),
-                    runtime_buffers.objects_velocities.clone(),
-                    // FIX: Remove need for the radii buffer to be [f32; 2].
-                    runtime_buffers.objects_radii.clone(),
-                ],
-                Some(push_constants),
-                [push_constants.num_objects, 1, 1],
-            )?
-            .build()?;
-            let render_ctx = RenderContext {
-                cs,
-                compute_command_buffer,
-                vs,
-                fs,
-                render_pass,
-                graphics_pipeline,
-                swapchain,
-                framebuffers,
-                images,
-                viewport,
-            };
             let perf_stats = PerformanceStats::new();
             let sim_flags = SimulationFlags {
                 recreate_swapchain_flag: false,
                 is_paused_flag: false,
             };
-            let frames_in_flight = render_ctx.images.len();
-            let fences = vec![None; frames_in_flight];
-            let previous_fence_i = 0;
+            // let frames_in_flight = rcx.images.len();
+            // let fences = vec![None; frames_in_flight];
+            // let previous_fence_i = 0;
 
             Ok(Self {
                 vkcx,
                 wincx,
-                rcx: render_ctx,
-                frames_in_flight,
-                fences,
-                previous_fence_i,
+                rcx: None,
+                // frames_in_flight,
+                // fences,
+                // previous_fence_i,
                 perf_stats,
                 sim_flags,
                 runtime_buffers,
                 scene,
+                instance,
             })
         }
 
@@ -239,6 +198,51 @@ impl ApplicationHandler for App {
         );
         let surface = Surface::from_window(self.wincx.instance(), self.wincx.window()).unwrap();
         let window_size = self.wincx.window().inner_size();
+
+        let cs = update_cs::load(vkcx.device().clone())?;
+        let vs = crate::renderer::shaders::vs::load(vkcx.device().clone())?;
+        let fs = crate::renderer::shaders::fs::load(vkcx.device().clone())?;
+        let (swapchain, images) = create_swapchain_and_images(&wincx, &vkcx, event_loop);
+        let render_pass = get_render_pass(vkcx.device().clone(), &swapchain);
+        let viewport = Viewport {
+            extent: [WINDOW_LENGTH; 2],
+            ..Default::default()
+        };
+        let graphics_pipeline = get_graphics_pipeline(
+            vkcx.device().clone(),
+            vs.clone(),
+            fs.clone(),
+            render_pass.clone(),
+            viewport.clone(),
+        );
+        let compute_command_buffer = get_compute_command_buffer(
+            vkcx.clone(),
+            cs.clone(),
+            vec![
+                runtime_buffers.objects_positions.clone(),
+                runtime_buffers.objects_velocities.clone(),
+                // FIX: Remove need for the radii buffer to be [f32; 2].
+                runtime_buffers.objects_radii.clone(),
+            ],
+            Some(push_constants),
+            [push_constants.num_objects, 1, 1],
+        )
+        .unwrap()
+        .build()
+        .unwrap();
+
+        self.rcx = Some(RenderContext {
+            cs,
+            compute_command_buffer,
+            vs,
+            fs,
+            render_pass,
+            graphics_pipeline,
+            swapchain,
+            framebuffers,
+            images,
+            viewport,
+        });
     }
 
     fn window_event(
