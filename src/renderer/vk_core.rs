@@ -19,24 +19,23 @@ use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
 use vulkano::{sync, Validated, VulkanError, VulkanLibrary};
 use winit::application::ApplicationHandler;
-use winit::dpi::Size;
 use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
-use crate::{FVec2, WINDOW_LENGTH};
+use crate::FVec2;
 
 use super::vk_primitives::{
     self, create_command_buffer_allocator, create_memory_allocator, get_framebuffers,
     get_render_command_buffers, get_required_extensions,
 };
 
-const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
-    width: WINDOW_LENGTH as u32,
-    height: WINDOW_LENGTH as u32,
-});
-
 pub mod handler {
+    const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
+        width: WINDOW_LENGTH as u32,
+        height: WINDOW_LENGTH as u32,
+    });
+
     use std::sync::Arc;
 
     use vulkano::{
@@ -56,7 +55,7 @@ pub mod handler {
         },
         VulkanLibrary,
     };
-    use winit::event_loop::EventLoop;
+    use winit::{dpi::Size, event_loop::EventLoop, window::Window};
 
     use crate::{
         physics::scene::Scene,
@@ -76,10 +75,11 @@ pub mod handler {
     type FenceFuture =
         FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
     pub struct App {
+        instance: Arc<Instance>,
         pub scene: Scene,
         pub vkcx: VulkanoContext,
         pub wincx: WindowContext,
-        pub rcx: RenderContext,
+        pub rcx: Option<RenderContext>,
         pub runtime_buffers: RuntimeBuffers,
         pub fences: Vec<Option<Arc<FenceFuture>>>,
         pub frames_in_flight: usize,
@@ -187,6 +187,7 @@ pub mod handler {
     }
 
     pub struct RenderContext {
+        pub window: Arc<Window>,
         cs: Arc<ShaderModule>,
         pub compute_command_buffer:
             Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
@@ -362,39 +363,6 @@ impl ApplicationHandler for App {
             }
             _ => (),
         }
-    }
-}
-
-pub struct WindowContext {
-    instance: Arc<Instance>,
-    window: Arc<Window>,
-}
-
-impl WindowContext {
-    pub fn new(event_loop: &EventLoop<()>) -> Self {
-        let (_, required_extensions) = get_required_extensions(event_loop);
-        let library = VulkanLibrary::new().expect("could not find local vulkan");
-        let instance = Instance::new(
-            library,
-            InstanceCreateInfo {
-                enabled_extensions: required_extensions,
-                ..Default::default()
-            },
-        )
-        .expect("failed to create instance");
-        let window = Arc::new(
-            event_loop
-                .create_window(WindowAttributes::default())
-                .unwrap(),
-        );
-
-        Self { instance, window }
-    }
-    pub fn instance(&self) -> Arc<Instance> {
-        self.instance.clone()
-    }
-    pub fn window(&self) -> Arc<Window> {
-        self.window.clone()
     }
 }
 
