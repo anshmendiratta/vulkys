@@ -211,7 +211,7 @@ impl ApplicationHandler for App {
             get_graphics_pipeline(&self.device, &vs, &fs, &render_pass, &viewport);
         let compute_command_buffer = get_compute_command_buffer(
             self.device.clone(),
-            self.device.active_queue_family_indices()[0],
+            self.queue_family_index,
             vec![
                 self.runtime_buffers.positions.clone(),
                 self.runtime_buffers.velocities.clone(),
@@ -277,7 +277,7 @@ impl ApplicationHandler for App {
                 self.scene.update_with_buffers(
                     self.device.clone(),
                     self.queue.clone(),
-                    rcx.clone().compute_command_buffer.clone(),
+                    rcx.compute_command_buffer.clone(),
                     self.runtime_buffers.clone(),
                 );
 
@@ -287,12 +287,12 @@ impl ApplicationHandler for App {
                     .unwrap()
                     .swapchain
                     .recreate(SwapchainCreateInfo {
-                        image_extent: rcx.window.clone().inner_size().into(),
-                        ..rcx.clone().swapchain.create_info()
+                        image_extent: rcx.window.inner_size().into(),
+                        ..rcx.swapchain.create_info()
                     })
                     .expect("failed to recreate swapchain: {e}");
-                let framebuffers = get_framebuffers(&new_images, &rcx.clone().render_pass);
-                let viewport_extent: [f32; 2] = rcx.clone().window.clone().inner_size().into();
+                let framebuffers = get_framebuffers(&new_images, &rcx.render_pass);
+                let viewport_extent: [f32; 2] = rcx.window.inner_size().into();
                 let graphics_pipeline = get_graphics_pipeline(
                     &self.device,
                     &rcx.vs,
@@ -309,7 +309,7 @@ impl ApplicationHandler for App {
                         ..Default::default()
                     },
                     graphics_pipeline,
-                    ..rcx.clone()
+                    ..rcx
                 });
 
                 let vertex_buffer = self
