@@ -337,6 +337,7 @@ pub fn get_render_command_buffers(
                             ..Default::default()
                         },
                     )?
+                    // .bind_descriptor_sets(, , , )
                     .bind_pipeline_graphics(pipeline.clone())?
                     .bind_vertex_buffers(0, vertex_buffer.clone())?;
                 unsafe {
