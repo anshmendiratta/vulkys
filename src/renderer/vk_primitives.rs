@@ -223,7 +223,7 @@ pub fn select_physical_device(
                 .enumerate()
                 .position(|(i, q)| {
                     q.queue_flags.contains(QueueFlags::GRAPHICS)
-                        && p.win32_presentation_support(i as u32).unwrap_or(false)
+                    // && p.win32_presentation_support(i as u32).unwrap_or(false)
                 })
                 .map(|q| (p, q as u32))
         })
