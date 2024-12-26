@@ -12,6 +12,7 @@ use vulkano::command_buffer::SubpassEndInfo;
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::PersistentDescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
+use vulkano::instance::Instance;
 use vulkano::pipeline::compute::ComputePipelineCreateInfo;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 use vulkano::pipeline::PipelineBindPoint;
@@ -34,9 +35,10 @@ use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use vulkano::VulkanLibrary;
 use winit::event_loop::EventLoop;
+use winit::window::Window;
 
 use super::shaders::update_cs;
-use super::vk_core::{CustomVertex, VulkanoContext, WindowContext};
+use super::vk_core::CustomVertex;
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
 };
@@ -61,19 +63,19 @@ pub fn get_required_extensions(
 }
 
 pub fn get_compute_command_buffer<T: BufferContents>(
-    vk_ctx: VulkanoContext,
-    shader: Arc<ShaderModule>,
+    device: Arc<Device>,
+    queue_family_index: u32,
     data: Vec<Subbuffer<[T]>>,
+    shader: Arc<ShaderModule>,
     push_constants: Option<update_cs::ComputeConstants>,
     work_group_counts: [u32; 3],
+    command_buffer_allocator: &StandardCommandBufferAllocator,
 ) -> anyhow::Result<
     AutoCommandBufferBuilder<
-        PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>,
-        Arc<StandardCommandBufferAllocator>,
+        PrimaryAutoCommandBuffer<StandardCommandBufferAllocator>,
+        StandardCommandBufferAllocator,
     >,
 > {
-    let (device, queue_family_index, queue) =
-        (vk_ctx.device(), vk_ctx.queue_family_index(), vk_ctx.queue());
     let memory_allocator = create_memory_allocator(device.clone());
     let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
     let layout = PipelineLayout::new(
@@ -109,7 +111,7 @@ pub fn get_compute_command_buffer<T: BufferContents>(
         [],
     )?;
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-        &vk_ctx.command_buffer_allocator(),
+        command_buffer_allocator,
         queue_family_index,
         command_buffer::CommandBufferUsage::MultipleSubmit,
     )?;
@@ -169,18 +171,17 @@ pub fn get_framebuffers(
 }
 
 pub fn create_swapchain_and_images(
-    windowcx: &WindowContext,
-    vulkancx: &VulkanoContext,
-    event_loop: &EventLoop<()>,
+    instance: Arc<Instance>,
+    device: Arc<Device>,
+    window: Arc<Window>,
+    physical_device: Arc<PhysicalDevice>,
 ) -> (Arc<Swapchain>, Vec<Arc<Image>>) {
-    let surface = Surface::from_window(windowcx.instance().clone(), windowcx.window().clone())
-        .expect("could not create window");
-    let physical_device = select_physical_device(windowcx, event_loop);
-    let device = vulkancx.device().clone();
+    let surface =
+        Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
     let caps = physical_device
         .surface_capabilities(&surface, Default::default())
         .expect("failed to get surface capabilities");
-    let dimensions = windowcx.window().inner_size();
+    let dimensions = window.inner_size();
     let composite_alpha = caps.supported_composite_alpha.into_iter().next().unwrap();
     let image_format = physical_device
         .surface_formats(&surface, Default::default())
@@ -204,14 +205,13 @@ pub fn create_swapchain_and_images(
 }
 
 pub fn select_physical_device(
-    wincx: &WindowContext,
+    instance: Arc<Instance>,
     event_loop: &EventLoop<()>,
 ) -> Arc<PhysicalDevice> {
-    let (instance, window) = (wincx.instance(), wincx.window());
     let (device_extensions, _) = get_required_extensions(event_loop);
     let library = VulkanLibrary::new().expect("no local vulkan lib");
-    let surface =
-        Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
+    // let surface =
+    //     Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
 
     instance
         .enumerate_physical_devices()
@@ -223,7 +223,7 @@ pub fn select_physical_device(
                 .enumerate()
                 .position(|(i, q)| {
                     q.queue_flags.contains(QueueFlags::GRAPHICS)
-                        && p.surface_support(i as u32, &surface).unwrap_or(false)
+                        && p.win32_presentation_support(i as u32).unwrap_or(false)
                 })
                 .map(|q| (p, q as u32))
         })
@@ -239,7 +239,8 @@ pub fn select_physical_device(
 }
 
 pub fn select_device_and_queue(
-    win_ctx: &WindowContext,
+    instance: Arc<Instance>,
+    // window: Arc<Window>,
     event_loop: &EventLoop<()>,
 ) -> (Arc<Device>, u32, Arc<Queue>) {
     let device_extensions = DeviceExtensions {
@@ -247,7 +248,7 @@ pub fn select_device_and_queue(
         ..DeviceExtensions::empty()
     };
 
-    let physical_device = select_physical_device(win_ctx, event_loop);
+    let physical_device = select_physical_device(instance, event_loop);
     let queue_family_index = physical_device
         .queue_family_properties()
         .iter()

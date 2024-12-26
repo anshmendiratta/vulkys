@@ -1,4 +1,5 @@
 use crate::renderer::vk_core::handler::App;
+use crate::renderer::vk_primitives::select_device_and_queue;
 use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
@@ -7,8 +8,10 @@ use vulkano::buffer::{Buffer, Subbuffer};
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::PrimaryAutoCommandBuffer;
 use vulkano::device::Queue;
+use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
 use vulkano::sync::{self, GpuFuture};
+use vulkano::VulkanLibrary;
 use vulkano::{
     buffer::{BufferCreateInfo, BufferUsage},
     device::Device,
@@ -18,7 +21,6 @@ use winit::event_loop::EventLoop;
 
 use crate::renderer::shaders::update_cs;
 use crate::renderer::vk_core::handler::RuntimeBuffers;
-use crate::renderer::vk_core::{VulkanoContext, WindowContext};
 use crate::{
     renderer::{
         vk_core::CustomVertex,
@@ -31,7 +33,7 @@ use crate::{
 use super::rigidbody::RigidBody;
 
 pub struct Scene {
-    objects: Vec<RigidBody>,
+    pub objects: Vec<RigidBody>,
     objects_hash: HashMap<u8, (RigidBody, Polygon)>,
     dt: f32,
     gravity: f32,
@@ -167,19 +169,22 @@ impl Scene {
     }
 
     pub fn run(self) -> anyhow::Result<()> {
+        // Setup
+        let library = VulkanLibrary::new().expect("no local vulkan lib");
+        let instance = Instance::new(library, InstanceCreateInfo::default()).unwrap();
         let event_loop = EventLoop::new().unwrap();
-        let window_ctx = WindowContext::new(&event_loop);
-        let vk_ctx = VulkanoContext::from_window_context(&window_ctx, &event_loop);
         let push_constants = update_cs::ComputeConstants {
             gravity: self.gravity,
             dt: self.dt,
             num_objects: self.objects.len() as u32,
         };
+        let (device, _, _) = select_device_and_queue(instance, &event_loop);
+        let memory_allocator = create_memory_allocator(device);
+
+        // Running window and initializing state
         let mut window_ctx_handler = App::new(
             &event_loop,
-            self.return_compute_shader_buffers(vk_ctx.memory_allocator()),
-            vk_ctx,
-            window_ctx,
+            self.return_compute_shader_buffers(memory_allocator),
             self,
             push_constants,
         )?;
@@ -191,7 +196,7 @@ impl Scene {
         &mut self,
         device: Arc<Device>,
         queue: Arc<Queue>,
-        compute_command_buffer: Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
+        compute_command_buffer: Arc<PrimaryAutoCommandBuffer<StandardCommandBufferAllocator>>,
         runtime_buffers: RuntimeBuffers,
     ) {
         let future = sync::now(device.clone())
