@@ -3,9 +3,9 @@ use crate::renderer::vk_primitives::{get_device_and_queue, get_required_extensio
 use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
+use ecolor::Color32;
 use tracing::info;
 use vulkano::buffer::{Buffer, Subbuffer};
-use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::PrimaryAutoCommandBuffer;
 use vulkano::device::Queue;
 use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo};
@@ -37,6 +37,7 @@ pub struct Scene {
     objects_hash: HashMap<u8, (RigidBody, Polygon)>,
     dt: f32,
     gravity: f32,
+    pub background_color: Color32,
 }
 
 #[derive(Clone)]
@@ -44,6 +45,7 @@ pub struct SceneInfo {
     pub objects: Vec<RigidBody>,
     pub dt: f32,
     pub gravity: f32,
+    pub background_color: Color32,
 }
 
 impl Scene {
@@ -74,6 +76,7 @@ impl Scene {
             dt: scene_info.dt,
             objects_hash,
             gravity: scene_info.gravity,
+            background_color: scene_info.background_color,
         }
     }
 
@@ -210,7 +213,7 @@ impl Scene {
         &mut self,
         device: Arc<Device>,
         queue: Arc<Queue>,
-        compute_command_buffer: Arc<PrimaryAutoCommandBuffer<StandardCommandBufferAllocator>>,
+        compute_command_buffer: Arc<PrimaryAutoCommandBuffer>,
         runtime_buffers: RuntimeBuffers,
     ) {
         let future = sync::now(device.clone())

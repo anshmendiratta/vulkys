@@ -1,5 +1,6 @@
 // #![allow(unused_variables)]
 
+use ecolor::Color32;
 use std::sync::Arc;
 use vulkano::buffer::BufferContents;
 use vulkano::buffer::Subbuffer;
@@ -10,7 +11,7 @@ use vulkano::command_buffer::RenderPassBeginInfo;
 use vulkano::command_buffer::SubpassBeginInfo;
 use vulkano::command_buffer::SubpassEndInfo;
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-use vulkano::descriptor_set::PersistentDescriptorSet;
+use vulkano::descriptor_set::DescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::instance::Instance;
 use vulkano::pipeline::compute::ComputePipelineCreateInfo;
@@ -58,7 +59,7 @@ pub fn get_required_extensions(
         khr_swapchain: true,
         ..DeviceExtensions::empty()
     };
-    let mut instance_extensions = Surface::required_extensions(event_loop);
+    let mut instance_extensions = Surface::required_extensions(event_loop).unwrap();
     instance_extensions.khr_surface = true;
     (device_extensions, instance_extensions)
 }
@@ -70,13 +71,8 @@ pub fn get_compute_command_buffer<T: BufferContents>(
     shader: Arc<ShaderModule>,
     push_constants: Option<update_cs::ComputeConstants>,
     work_group_counts: [u32; 3],
-    command_buffer_allocator: &StandardCommandBufferAllocator,
-) -> anyhow::Result<
-    AutoCommandBufferBuilder<
-        PrimaryAutoCommandBuffer<StandardCommandBufferAllocator>,
-        StandardCommandBufferAllocator,
-    >,
-> {
+    command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
+) -> anyhow::Result<AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>> {
     let memory_allocator = create_memory_allocator(device.clone());
     let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
     let layout = PipelineLayout::new(
@@ -91,16 +87,18 @@ pub fn get_compute_command_buffer<T: BufferContents>(
         ComputePipelineCreateInfo::stage_layout(stage, layout),
     )
     .expect("failed to create compute pipeline");
-    let descriptor_set_allocator =
-        StandardDescriptorSetAllocator::new(device.clone(), Default::default());
+    let descriptor_set_allocator = Arc::new(StandardDescriptorSetAllocator::new(
+        device.clone(),
+        Default::default(),
+    ));
     let pipeline_layout = compute_pipeline.layout();
     let descriptor_set_layouts = pipeline_layout.set_layouts();
     let descriptor_set_layout_index = 0;
     let descriptor_set_layout = descriptor_set_layouts
         .get(descriptor_set_layout_index)
         .expect("compute shader: descriptor set layout index out of bounds");
-    let descriptor_set = PersistentDescriptorSet::new(
-        &descriptor_set_allocator,
+    let descriptor_set = DescriptorSet::new(
+        descriptor_set_allocator,
         descriptor_set_layout.clone(),
         {
             let mut write_descriptor_sets: Vec<WriteDescriptorSet> = vec![];
@@ -127,7 +125,7 @@ pub fn get_compute_command_buffer<T: BufferContents>(
     if let Some(constants) = push_constants {
         command_buffer_builder.push_constants(pipeline_layout.clone(), 0, constants)?;
     };
-    command_buffer_builder.dispatch(work_group_counts)?;
+    // command_buffer_builder.dispatch(work_group_counts)?;
 
     Ok(command_buffer_builder)
 }
@@ -208,11 +206,10 @@ pub fn create_swapchain_and_images(
 pub fn select_physical_device(
     instance: Arc<Instance>,
     event_loop: &EventLoop<()>,
+    window: Option<Arc<Window>>,
 ) -> Arc<PhysicalDevice> {
     let (device_extensions, _) = get_required_extensions(event_loop);
     let library = VulkanLibrary::new().expect("no local vulkan lib");
-    // let surface =
-    //     Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
 
     instance
         .enumerate_physical_devices()
@@ -223,8 +220,18 @@ pub fn select_physical_device(
                 .iter()
                 .enumerate()
                 .position(|(i, q)| {
-                    q.queue_flags.contains(QueueFlags::GRAPHICS)
-                    // && p.surface_formats(, )
+                    q.queue_flags.contains(QueueFlags::GRAPHICS) && {
+                        if window.is_some() {
+                            let surface = Surface::from_window(
+                                instance.clone(),
+                                window.clone().unwrap().clone(),
+                            )
+                            .expect("could not create window");
+                            p.presentation_support(i as u32, event_loop).unwrap()
+                        } else {
+                            true
+                        }
+                    }
                 })
                 .map(|q| (p, q as u32))
         })
@@ -248,12 +255,13 @@ pub struct DeviceAndQueueInfo {
 pub fn get_device_and_queue(
     instance: Arc<Instance>,
     event_loop: &EventLoop<()>,
+    // window: Option<Arc<Window>>,
 ) -> DeviceAndQueueInfo {
     let device_extensions = DeviceExtensions {
         khr_swapchain: true,
         ..DeviceExtensions::empty()
     };
-    let physical_device = select_physical_device(instance, event_loop);
+    let physical_device = select_physical_device(instance, event_loop, None);
     let queue_family_index = physical_device
         .queue_family_properties()
         .iter()
@@ -264,7 +272,6 @@ pub fn get_device_and_queue(
                 .contains(QueueFlags::GRAPHICS)
         })
         .expect("couldn't find a graphical queue family") as u32;
-
     let (device, mut queues) = Device::new(
         physical_device,
         DeviceCreateInfo {
@@ -277,8 +284,8 @@ pub fn get_device_and_queue(
         },
     )
     .expect("failed to create device");
-
     let queue = queues.next().unwrap();
+
     DeviceAndQueueInfo {
         device,
         queue_family_index,
@@ -300,18 +307,20 @@ pub fn create_command_buffer_allocator(device: Arc<Device>) -> StandardCommandBu
 }
 
 pub fn get_render_command_buffers(
-    command_buffer_allocator: &StandardCommandBufferAllocator,
+    command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
     framebuffers: &Vec<Arc<Framebuffer>>,
     vertex_buffer: &Subbuffer<[CustomVertex]>,
+    background_color: Color32,
 ) -> anyhow::Result<Vec<Arc<PrimaryAutoCommandBuffer>>> {
+    let rgba_color: [f32; 4] = background_color.to_normalized_gamma_f32();
     framebuffers
         .iter()
         .map(
             |framebuffer| -> anyhow::Result<Arc<PrimaryAutoCommandBuffer>> {
                 let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-                    command_buffer_allocator,
+                    command_buffer_allocator.clone(),
                     queue.queue_family_index(),
                     command_buffer::CommandBufferUsage::MultipleSubmit,
                 )
@@ -320,7 +329,7 @@ pub fn get_render_command_buffers(
                 command_buffer_builder
                     .begin_render_pass(
                         RenderPassBeginInfo {
-                            clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],
+                            clear_values: vec![Some(rgba_color.into())],
                             ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
                         },
                         SubpassBeginInfo {
@@ -329,9 +338,11 @@ pub fn get_render_command_buffers(
                         },
                     )?
                     .bind_pipeline_graphics(pipeline.clone())?
-                    .bind_vertex_buffers(0, vertex_buffer.clone())?
-                    .draw(vertex_buffer.len() as u32, 1, 0, 0)?
-                    .end_render_pass(SubpassEndInfo::default())?;
+                    .bind_vertex_buffers(0, vertex_buffer.clone())?;
+                unsafe {
+                    command_buffer_builder.draw(vertex_buffer.len() as u32, 1, 0, 0)?;
+                }
+                command_buffer_builder.end_render_pass(SubpassEndInfo::default())?;
 
                 Ok(command_buffer_builder.build()?)
             },
@@ -348,9 +359,7 @@ pub fn get_graphics_pipeline(
 ) -> Arc<GraphicsPipeline> {
     let vs = vertex_shader.entry_point("main").unwrap();
     let fs = fragment_shader.entry_point("main").unwrap();
-    let vertex_shader_state = CustomVertex::per_vertex()
-        .definition(&vs.info().input_interface)
-        .unwrap();
+    let vertex_shader_state = CustomVertex::per_vertex().definition(&vs).unwrap();
     let stages = [
         PipelineShaderStageCreateInfo::new(vs),
         PipelineShaderStageCreateInfo::new(fs),

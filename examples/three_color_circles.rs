@@ -59,6 +59,7 @@ fn main() -> anyhow::Result<()> {
         objects: vec![circle_1, circle_2, circle_3],
         dt: 1e-3,
         gravity: 20.0,
+        background_color: Color32::from_hex("#000000").unwrap(),
     };
     let scene: Scene = Scene::with_info(scene_info);
     // Running simulation

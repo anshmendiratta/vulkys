@@ -94,7 +94,7 @@ pub mod handler {
     #[derive(Clone)]
     pub struct RenderContext {
         pub window: Arc<Window>,
-        pub compute_command_buffer: Arc<PrimaryAutoCommandBuffer<StandardCommandBufferAllocator>>,
+        pub compute_command_buffer: Arc<PrimaryAutoCommandBuffer>,
         pub cs: Arc<ShaderModule>,
         pub vs: Arc<ShaderModule>,
         pub fs: Arc<ShaderModule>,
@@ -190,6 +190,11 @@ impl ApplicationHandler for App {
                 .create_window(WindowAttributes::default())
                 .unwrap(),
         );
+        // let updated_device_queue_info = get_device_and_queue(
+        //     self.instance.clone(),
+        //     &self.event_loop,
+        //     // Some(window.clone()),
+        // );
         let window_size = window.inner_size();
         let cs = update_cs::load(self.device.clone()).unwrap();
         let vs = crate::renderer::shaders::vs::load(self.device.clone()).unwrap();
@@ -221,7 +226,7 @@ impl ApplicationHandler for App {
             cs.clone(),
             Some(self.push_constants.clone()),
             [self.push_constants.num_objects, 1, 1],
-            &self.command_buffer_allocator,
+            self.command_buffer_allocator.clone(),
         )
         .unwrap()
         .build()
@@ -316,11 +321,12 @@ impl ApplicationHandler for App {
                     .scene
                     .return_objects_as_vertex_buffer(self.device.clone());
                 let command_buffers = get_render_command_buffers(
-                    &self.command_buffer_allocator,
+                    self.command_buffer_allocator.clone(),
                     &self.queue,
                     &rcx.graphics_pipeline,
                     &rcx.framebuffers,
                     &vertex_buffer,
+                    self.scene.background_color,
                 )
                 .unwrap();
 
