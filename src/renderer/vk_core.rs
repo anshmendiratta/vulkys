@@ -207,13 +207,8 @@ impl ApplicationHandler for App {
             extent: [WINDOW_LENGTH; 2],
             ..Default::default()
         };
-        let graphics_pipeline = get_graphics_pipeline(
-            self.device.clone(),
-            vs.clone(),
-            fs.clone(),
-            render_pass.clone(),
-            viewport.clone(),
-        );
+        let graphics_pipeline =
+            get_graphics_pipeline(&self.device, &vs, &fs, &render_pass, &viewport);
         let compute_command_buffer = get_compute_command_buffer(
             self.device.clone(),
             self.device.active_queue_family_indices()[0],
@@ -277,11 +272,12 @@ impl ApplicationHandler for App {
                 if self.rcx.is_none() {
                     return;
                 };
+                let rcx = self.rcx.clone().unwrap();
 
                 self.scene.update_with_buffers(
                     self.device.clone(),
                     self.queue.clone(),
-                    self.rcx.clone().unwrap().compute_command_buffer.clone(),
+                    rcx.clone().compute_command_buffer.clone(),
                     self.runtime_buffers.clone(),
                 );
 
@@ -291,27 +287,18 @@ impl ApplicationHandler for App {
                     .unwrap()
                     .swapchain
                     .recreate(SwapchainCreateInfo {
-                        image_extent: self
-                            .rcx
-                            .as_ref()
-                            .unwrap()
-                            .window
-                            .clone()
-                            .inner_size()
-                            .into(),
-                        ..self.rcx.clone().unwrap().swapchain.create_info()
+                        image_extent: rcx.window.clone().inner_size().into(),
+                        ..rcx.clone().swapchain.create_info()
                     })
                     .expect("failed to recreate swapchain: {e}");
-                let framebuffers =
-                    get_framebuffers(&new_images, &self.rcx.clone().unwrap().render_pass);
-                let viewport_extent: [f32; 2] =
-                    self.rcx.clone().unwrap().window.clone().inner_size().into();
+                let framebuffers = get_framebuffers(&new_images, &rcx.clone().render_pass);
+                let viewport_extent: [f32; 2] = rcx.clone().window.clone().inner_size().into();
                 let graphics_pipeline = get_graphics_pipeline(
-                    self.device.clone(),
-                    self.rcx.clone().unwrap().vs.clone(),
-                    self.rcx.clone().unwrap().fs.clone(),
-                    self.rcx.clone().unwrap().render_pass.clone(),
-                    self.rcx.clone().unwrap().viewport.clone(),
+                    &self.device,
+                    &rcx.vs,
+                    &rcx.fs,
+                    &rcx.render_pass,
+                    &rcx.viewport,
                 );
                 self.rcx = Some(RenderContext {
                     swapchain: new_swapchain,
@@ -322,7 +309,7 @@ impl ApplicationHandler for App {
                         ..Default::default()
                     },
                     graphics_pipeline,
-                    ..self.rcx.clone().unwrap()
+                    ..rcx.clone()
                 });
 
                 let vertex_buffer = self
@@ -331,25 +318,23 @@ impl ApplicationHandler for App {
                 let command_buffers = get_render_command_buffers(
                     &self.command_buffer_allocator,
                     &self.queue,
-                    &self.rcx.clone().unwrap().graphics_pipeline,
-                    &self.rcx.clone().unwrap().framebuffers,
+                    &rcx.graphics_pipeline,
+                    &rcx.framebuffers,
                     &vertex_buffer,
                 )
                 .unwrap();
 
-                let (image_i, suboptimal, acquire_future) = match swapchain::acquire_next_image(
-                    self.rcx.clone().unwrap().swapchain.clone(),
-                    None,
-                )
-                .map_err(Validated::unwrap)
-                {
-                    Ok(r) => r,
-                    Err(VulkanError::OutOfDate) => {
-                        // self.recreate_swapchain_flag = true;
-                        return;
-                    }
-                    Err(e) => panic!("failed to acquire the next image: {e}"),
-                };
+                let (image_i, suboptimal, acquire_future) =
+                    match swapchain::acquire_next_image(rcx.swapchain.clone(), None)
+                        .map_err(Validated::unwrap)
+                    {
+                        Ok(r) => r,
+                        Err(VulkanError::OutOfDate) => {
+                            // self.recreate_swapchain_flag = true;
+                            return;
+                        }
+                        Err(e) => panic!("failed to acquire the next image: {e}"),
+                    };
 
                 self.sim_flags.recreate_swapchain_flag = if suboptimal { true } else { false };
                 if let Some(image_fence) = &self.fences[image_i as usize] {
@@ -373,10 +358,7 @@ impl ApplicationHandler for App {
                     .unwrap()
                     .then_swapchain_present(
                         self.queue.clone(),
-                        SwapchainPresentInfo::swapchain_image_index(
-                            self.rcx.clone().unwrap().swapchain.clone(),
-                            image_i,
-                        ),
+                        SwapchainPresentInfo::swapchain_image_index(rcx.swapchain.clone(), image_i),
                     )
                     .then_signal_fence_and_flush();
 

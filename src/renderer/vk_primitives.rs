@@ -340,11 +340,11 @@ pub fn get_render_command_buffers(
 }
 
 pub fn get_graphics_pipeline(
-    device: Arc<Device>,
-    vertex_shader: Arc<ShaderModule>,
-    fragment_shader: Arc<ShaderModule>,
-    render_pass: Arc<RenderPass>,
-    viewport: Viewport,
+    device: &Arc<Device>,
+    vertex_shader: &Arc<ShaderModule>,
+    fragment_shader: &Arc<ShaderModule>,
+    render_pass: &Arc<RenderPass>,
+    viewport: &Viewport,
 ) -> Arc<GraphicsPipeline> {
     let vs = vertex_shader.entry_point("main").unwrap();
     let fs = fragment_shader.entry_point("main").unwrap();
@@ -375,7 +375,7 @@ pub fn get_graphics_pipeline(
                 ..Default::default()
             }),
             viewport_state: Some(ViewportState {
-                viewports: [viewport].into(),
+                viewports: [viewport.clone()].into(),
                 ..Default::default()
             }),
             rasterization_state: Some(RasterizationState::default()),
