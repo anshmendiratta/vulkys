@@ -58,8 +58,9 @@ pub fn get_required_extensions(
         khr_swapchain: true,
         ..DeviceExtensions::empty()
     };
-    let required_extensions = Surface::required_extensions(event_loop);
-    (device_extensions, required_extensions)
+    let mut instance_extensions = Surface::required_extensions(event_loop);
+    instance_extensions.khr_surface = true;
+    (device_extensions, instance_extensions)
 }
 
 pub fn get_compute_command_buffer<T: BufferContents>(
