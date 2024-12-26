@@ -1,4 +1,4 @@
-use crate::renderer::vk_core::handler::App;
+use crate::renderer::vk_core::handler::{App, AppInitializationInfo};
 use crate::renderer::vk_primitives::{get_device_and_queue, get_required_extensions};
 use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
@@ -134,9 +134,9 @@ impl Scene {
         .unwrap();
 
         RuntimeBuffers {
-            objects_positions,
-            objects_velocities,
-            objects_radii,
+            positions: objects_positions,
+            velocities: objects_velocities,
+            radii: objects_radii,
         }
     }
 
@@ -188,16 +188,18 @@ impl Scene {
             num_objects: self.objects.len() as u32,
         };
         let device_queue_info = get_device_and_queue(instance.clone(), &event_loop);
-        let memory_allocator = create_memory_allocator(device_queue_info.device);
+        let memory_allocator = create_memory_allocator(device_queue_info.device.clone());
 
         // Initializing state.
-        let mut window_ctx_handler = App::new(
+        let initialization_info = AppInitializationInfo {
+            device_and_queue: device_queue_info,
             instance,
-            &event_loop,
-            self.return_compute_shader_buffers(memory_allocator),
-            self,
+            event_loop: &event_loop,
+            runtime_buffers: self.return_compute_shader_buffers(memory_allocator),
+            scene: self,
             push_constants,
-        )?;
+        };
+        let mut window_ctx_handler = App::new(initialization_info)?;
 
         //  Running window.
         event_loop.run_app(&mut window_ctx_handler)?;
@@ -218,9 +220,9 @@ impl Scene {
             .unwrap();
         future.wait(None).unwrap();
 
-        let binding = runtime_buffers.objects_positions.clone();
+        let binding = runtime_buffers.positions.clone();
         let object_positions_reader = binding.read().unwrap();
-        let binding = runtime_buffers.objects_velocities.clone();
+        let binding = runtime_buffers.velocities.clone();
         let object_velocities_reader = binding.read().unwrap();
         for (idx, (updated_position, updated_velocity)) in std::iter::zip(
             object_positions_reader.iter(),

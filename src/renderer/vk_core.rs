@@ -60,7 +60,9 @@ pub mod handler {
         physics::scene::Scene,
         renderer::{
             shaders::update_cs::ComputeConstants,
-            vk_primitives::{self, create_command_buffer_allocator, create_memory_allocator},
+            vk_primitives::{
+                create_command_buffer_allocator, create_memory_allocator, DeviceAndQueueInfo,
+            },
         },
         WINDOW_LENGTH,
     };
@@ -104,20 +106,22 @@ pub mod handler {
         pub viewport: Viewport,
     }
 
+    pub struct AppInitializationInfo<'a> {
+        pub device_and_queue: DeviceAndQueueInfo,
+        pub instance: Arc<Instance>,
+        pub event_loop: &'a EventLoop<()>,
+        pub runtime_buffers: RuntimeBuffers,
+        pub scene: Scene,
+        pub push_constants: ComputeConstants,
+    }
+
     impl App {
-        pub fn new(
-            instance: Arc<Instance>,
-            event_loop: &EventLoop<()>,
-            runtime_buffers: RuntimeBuffers,
-            scene: Scene,
-            push_constants: ComputeConstants,
-        ) -> anyhow::Result<Self> {
+        pub fn new(initialization_info: AppInitializationInfo) -> anyhow::Result<Self> {
             let library = VulkanLibrary::new().expect("no local vulkan lib");
-            let device_queue_info =
-                vk_primitives::get_device_and_queue(instance.clone(), event_loop);
-            let memory_allocator = create_memory_allocator(device_queue_info.device.clone());
+            let memory_allocator =
+                create_memory_allocator(initialization_info.device_and_queue.device.clone());
             let command_buffer_allocator = Arc::new(create_command_buffer_allocator(
-                device_queue_info.device.clone(),
+                initialization_info.device_and_queue.device.clone(),
             ));
             let perf_stats = PerformanceStats::new();
             let sim_flags = SimulationFlags {
@@ -129,9 +133,6 @@ pub mod handler {
             let previous_fence_i = 0;
 
             Ok(Self {
-                device: device_queue_info.device,
-                queue: device_queue_info.queue,
-                queue_family_index: device_queue_info.queue_family_index,
                 memory_allocator,
                 command_buffer_allocator,
                 rcx: None,
@@ -140,10 +141,13 @@ pub mod handler {
                 previous_fence_i,
                 perf_stats,
                 sim_flags,
-                runtime_buffers,
-                scene,
-                instance,
-                push_constants,
+                device: initialization_info.device_and_queue.device,
+                queue: initialization_info.device_and_queue.queue,
+                queue_family_index: initialization_info.device_and_queue.queue_family_index,
+                runtime_buffers: initialization_info.runtime_buffers,
+                instance: initialization_info.instance,
+                scene: initialization_info.scene,
+                push_constants: initialization_info.push_constants,
             })
         }
     }
@@ -157,11 +161,13 @@ pub mod handler {
         framerates: Vec<f32>,
     }
 
+    // FIX: See if the array can be replaced with f32. Consider shader math if necessary.
+    type ObjectDataBuffer = Subbuffer<[[f32; 2]]>;
     #[derive(Clone)]
     pub struct RuntimeBuffers {
-        pub objects_positions: Subbuffer<[[f32; 2]]>,
-        pub objects_velocities: Subbuffer<[[f32; 2]]>,
-        pub objects_radii: Subbuffer<[[f32; 2]]>,
+        pub positions: ObjectDataBuffer,
+        pub velocities: ObjectDataBuffer,
+        pub radii: ObjectDataBuffer,
     }
 
     impl PerformanceStats {
@@ -212,10 +218,10 @@ impl ApplicationHandler for App {
             self.device.clone(),
             self.device.active_queue_family_indices()[0],
             vec![
-                self.runtime_buffers.objects_positions.clone(),
-                self.runtime_buffers.objects_velocities.clone(),
+                self.runtime_buffers.positions.clone(),
+                self.runtime_buffers.velocities.clone(),
                 // FIX: Remove need for the radii buffer to be [f32; 2].
-                self.runtime_buffers.objects_radii.clone(),
+                self.runtime_buffers.radii.clone(),
             ],
             cs.clone(),
             Some(self.push_constants.clone()),
