@@ -224,7 +224,7 @@ pub fn select_physical_device(
                 .enumerate()
                 .position(|(i, q)| {
                     q.queue_flags.contains(QueueFlags::GRAPHICS)
-                    // && p.win32_presentation_support(i as u32).unwrap_or(false)
+                    // && p.surface_formats(, )
                 })
                 .map(|q| (p, q as u32))
         })
@@ -239,16 +239,20 @@ pub fn select_physical_device(
         .0
 }
 
-pub fn select_device_and_queue(
+pub struct DeviceAndQueueInfo {
+    pub device: Arc<Device>,
+    pub queue_family_index: u32,
+    pub queue: Arc<Queue>,
+}
+
+pub fn get_device_and_queue(
     instance: Arc<Instance>,
-    // window: Arc<Window>,
     event_loop: &EventLoop<()>,
-) -> (Arc<Device>, u32, Arc<Queue>) {
+) -> DeviceAndQueueInfo {
     let device_extensions = DeviceExtensions {
         khr_swapchain: true,
         ..DeviceExtensions::empty()
     };
-
     let physical_device = select_physical_device(instance, event_loop);
     let queue_family_index = physical_device
         .queue_family_properties()
@@ -274,7 +278,12 @@ pub fn select_device_and_queue(
     )
     .expect("failed to create device");
 
-    (device, queue_family_index, queues.next().unwrap())
+    let queue = queues.next().unwrap();
+    DeviceAndQueueInfo {
+        device,
+        queue_family_index,
+        queue,
+    }
 }
 
 pub fn create_memory_allocator(

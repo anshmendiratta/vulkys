@@ -42,7 +42,7 @@ pub mod handler {
         },
         device::{Device, Queue},
         image::Image,
-        instance::{Instance, InstanceCreateInfo},
+        instance::Instance,
         memory::allocator::{FreeListAllocator, GenericMemoryAllocator},
         pipeline::{graphics::viewport::Viewport, GraphicsPipeline},
         render_pass::{Framebuffer, RenderPass},
@@ -60,10 +60,7 @@ pub mod handler {
         physics::scene::Scene,
         renderer::{
             shaders::update_cs::ComputeConstants,
-            vk_primitives::{
-                self, create_command_buffer_allocator, create_memory_allocator,
-                get_required_extensions,
-            },
+            vk_primitives::{self, create_command_buffer_allocator, create_memory_allocator},
         },
         WINDOW_LENGTH,
     };
@@ -71,6 +68,7 @@ pub mod handler {
     type SwapchainJoinFuture = JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFuture>;
     type FenceFuture =
         FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
+
     pub struct App {
         pub instance: Arc<Instance>,
         pub scene: Scene,
@@ -108,21 +106,19 @@ pub mod handler {
 
     impl App {
         pub fn new(
+            instance: Arc<Instance>,
             event_loop: &EventLoop<()>,
             runtime_buffers: RuntimeBuffers,
             scene: Scene,
             push_constants: ComputeConstants,
         ) -> anyhow::Result<Self> {
             let library = VulkanLibrary::new().expect("no local vulkan lib");
-            let instance = Instance::new(library, InstanceCreateInfo::default()).unwrap();
-            let (_, required_extensions) = get_required_extensions(event_loop);
-            let (device, queue_family_index, queue) =
-                vk_primitives::select_device_and_queue(instance.clone(), event_loop);
-            // let render_pass = get_render_pass(device.clone(), &swapchain);
-            // let framebuffers = get_framebuffers(&images, &render_pass);
-            let memory_allocator = create_memory_allocator(device.clone());
-            let command_buffer_allocator =
-                Arc::new(create_command_buffer_allocator(device.clone()));
+            let device_queue_info =
+                vk_primitives::get_device_and_queue(instance.clone(), event_loop);
+            let memory_allocator = create_memory_allocator(device_queue_info.device.clone());
+            let command_buffer_allocator = Arc::new(create_command_buffer_allocator(
+                device_queue_info.device.clone(),
+            ));
             let perf_stats = PerformanceStats::new();
             let sim_flags = SimulationFlags {
                 recreate_swapchain_flag: false,
@@ -133,8 +129,9 @@ pub mod handler {
             let previous_fence_i = 0;
 
             Ok(Self {
-                device,
-                queue,
+                device: device_queue_info.device,
+                queue: device_queue_info.queue,
+                queue_family_index: device_queue_info.queue_family_index,
                 memory_allocator,
                 command_buffer_allocator,
                 rcx: None,
@@ -146,7 +143,6 @@ pub mod handler {
                 runtime_buffers,
                 scene,
                 instance,
-                queue_family_index,
                 push_constants,
             })
         }

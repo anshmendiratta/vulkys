@@ -1,5 +1,5 @@
 use crate::renderer::vk_core::handler::App;
-use crate::renderer::vk_primitives::select_device_and_queue;
+use crate::renderer::vk_primitives::{get_device_and_queue, get_required_extensions};
 use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
@@ -8,7 +8,7 @@ use vulkano::buffer::{Buffer, Subbuffer};
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::PrimaryAutoCommandBuffer;
 use vulkano::device::Queue;
-use vulkano::instance::{Instance, InstanceCreateInfo};
+use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo};
 use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
 use vulkano::sync::{self, GpuFuture};
 use vulkano::VulkanLibrary;
@@ -169,25 +169,37 @@ impl Scene {
     }
 
     pub fn run(self) -> anyhow::Result<()> {
-        // Setup
-        let library = VulkanLibrary::new().expect("no local vulkan lib");
-        let instance = Instance::new(library, InstanceCreateInfo::default()).unwrap();
+        // Setup.
         let event_loop = EventLoop::new().unwrap();
+        let library = VulkanLibrary::new().expect("no local vulkan lib");
+        let required_extensions = get_required_extensions(&event_loop);
+        let instance = Instance::new(
+            library,
+            InstanceCreateInfo {
+                flags: InstanceCreateFlags::ENUMERATE_PORTABILITY,
+                enabled_extensions: required_extensions.1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let push_constants = update_cs::ComputeConstants {
             gravity: self.gravity,
             dt: self.dt,
             num_objects: self.objects.len() as u32,
         };
-        let (device, _, _) = select_device_and_queue(instance, &event_loop);
-        let memory_allocator = create_memory_allocator(device);
+        let device_queue_info = get_device_and_queue(instance.clone(), &event_loop);
+        let memory_allocator = create_memory_allocator(device_queue_info.device);
 
-        // Running window and initializing state
+        // Initializing state.
         let mut window_ctx_handler = App::new(
+            instance,
             &event_loop,
             self.return_compute_shader_buffers(memory_allocator),
             self,
             push_constants,
         )?;
+
+        //  Running window.
         event_loop.run_app(&mut window_ctx_handler)?;
         Ok(())
     }
