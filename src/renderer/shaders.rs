@@ -33,12 +33,13 @@ pub mod fs {
             layout(location = 1) in vec2 pos;
             layout(location = 0) out vec4 f_color;
 
-            layout(set = 0, binding = 0) uniform sampler s;
-            layout(set = 0, binding = 1) uniform texture2D tex;
+            // layout(set = 0, binding = 0) uniform sampler s;
+            // layout(set = 0, binding = 1) uniform texture2D tex;
             
             void main() {
-                vec2 texture_coords = gl_FragCoord.xy;
-                f_color = texture(sampler2D(tex, s), texture_coords);
+                // vec2 texture_coords = gl_FragCoord.xy;
+                // f_color = texture(sampler2D(tex, s), texture_coord);
+                f_color = color;
             }
         ",
     }
