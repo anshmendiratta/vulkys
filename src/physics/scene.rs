@@ -146,7 +146,7 @@ impl Scene {
         let vertex_buffer_data = {
             let mut buffer_data: Vec<CustomVertex> =
                 Vec::with_capacity(self.objects_hash.len() * 3);
-            for (_, (_, polygon)) in &self.objects_hash {
+            for (_, polygon) in self.objects_hash.values() {
                 buffer_data = [buffer_data, polygon.clone().into_flattened()].concat();
             }
             buffer_data

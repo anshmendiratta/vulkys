@@ -13,7 +13,7 @@ pub fn generate_polygon_triangles(
     with_radius: f32,
     with_color: Color32,
 ) -> Polygon {
-    if vec![0, 1, 2].contains(&n) {
+    if [0, 1, 2].contains(&n) {
         return vec![[with_center.clone(), with_center.clone(), with_center]];
     }
 
@@ -27,8 +27,8 @@ pub fn generate_polygon_triangles(
         .iter()
         .map(|angle| CustomVertex {
             position_in: FVec2::new(
-                with_radius * (cos(angle.clone() as f64) as f32) + with_center.position_in.x,
-                with_radius * (sin(angle.clone() as f64) as f32) + with_center.position_in.y,
+                with_radius * (cos(*angle as f64) as f32) + with_center.position_in.x,
+                with_radius * (sin(*angle as f64) as f32) + with_center.position_in.y,
             ),
             color: with_color.to_array(),
         })

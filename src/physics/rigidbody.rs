@@ -47,7 +47,7 @@ impl CollisionHandler for RigidBody {
     }
     fn resolve_world_collision(&mut self, has_crossed_boundaries: WorldCollisionInfo) {
         match self {
-            RigidBody::Circle_(c, _) => return c.resolve_world_collision(has_crossed_boundaries),
+            RigidBody::Circle_(c, _) => c.resolve_world_collision(has_crossed_boundaries),
         }
     }
 }
@@ -56,7 +56,7 @@ impl CollisionHandler for RigidBody {
 impl RigidBody {
     pub fn get_id(&self) -> RBid {
         match self {
-            RigidBody::Circle_(Circle { .. }, id) => id.clone(),
+            RigidBody::Circle_(Circle { .. }, id) => *id,
         }
     }
     pub fn get_object(&self) -> impl GenericObject {

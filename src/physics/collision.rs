@@ -133,10 +133,10 @@ impl PartialEq for Collision {
             self_secondary == other_primary,
             self_secondary == other_secondary,
         ) {
-            (true, false, true, false) | (false, true, false, true) => return true,
+            (true, false, true, false) | (false, true, false, true) => true,
             /* the case with `Some` objects and all trues should never occur  */
-            _ => return false,
-        };
+            _ => false,
+        }
     }
 }
 

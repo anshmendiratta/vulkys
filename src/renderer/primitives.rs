@@ -164,7 +164,7 @@ pub fn create_framebuffers(
             )
             .unwrap()
         })
-        .collect::<Vec<_>>()
+        .collect()
 }
 
 pub fn create_swapchain_and_images(
@@ -310,7 +310,7 @@ pub fn create_render_cbs(
     command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
-    framebuffers: &Vec<Arc<Framebuffer>>,
+    framebuffers: Vec<Arc<Framebuffer>>,
     vertex_buffer: &Subbuffer<[CustomVertex]>,
     background_color: Color32,
 ) -> anyhow::Result<Vec<Arc<PrimaryAutoCommandBuffer>>> {
