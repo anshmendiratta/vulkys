@@ -4,7 +4,7 @@ use crate::renderer::core::handler::{App, AppInitializationInfo};
 use crate::renderer::primitives::{
     get_device_and_queue_info, required_extensions, select_physical_device,
 };
-use crate::renderer::shaders::update_cs;
+use crate::renderer::shaders::cs;
 use crate::{
     renderer::{core::CustomVertex, primitives::create_memory_allocator, procedural::Polygon},
     FVec2,
@@ -181,7 +181,7 @@ impl Scene {
             },
         )
         .unwrap();
-        let push_constants = update_cs::ComputeConstants {
+        let push_constants = cs::ComputeConstants {
             gravity: self.gravity,
             dt: self.dt,
             num_objects: self.objects.len() as u32,

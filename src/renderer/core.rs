@@ -2,7 +2,7 @@ use super::primitives::create_compute_cb;
 use super::primitives::create_single_render_pass;
 use super::primitives::create_swapchain_and_images;
 use super::primitives::{create_framebuffers, create_render_cbs};
-use super::shaders::update_cs;
+use super::shaders::cs;
 use crate::renderer::primitives::create_graphics_pipeline;
 use crate::FVec2;
 use crate::WINDOW_LENGTH;
@@ -32,7 +32,7 @@ pub mod handler {
             primitives::{
                 create_command_buffer_allocator, create_memory_allocator, DeviceAndQueueInfo,
             },
-            shaders::update_cs::ComputeConstants,
+            shaders::cs::ComputeConstants,
         },
     };
 
@@ -192,58 +192,58 @@ impl ApplicationHandler for App {
                 )
                 .unwrap(),
         );
-        // let window_size = window.inner_size();
-        // let cs = update_cs::load(self.device.clone()).unwrap();
-        // let vs = crate::renderer::shaders::vs::load(self.device.clone()).unwrap();
-        // let fs = crate::renderer::shaders::fs::load(self.device.clone()).unwrap();
-        // let physical_device = self.device.physical_device();
-        // let (swapchain, images) = create_swapchain_and_images(
-        //     self.instance.clone(),
-        //     self.device.clone(),
-        //     window.clone(),
-        //     physical_device.clone(),
-        // );
-        // let render_pass = create_single_render_pass(self.device.clone(), &swapchain);
-        // let framebuffers = create_framebuffers(&images, &render_pass);
-        // let viewport = Viewport {
-        //     extent: [WINDOW_LENGTH; 2],
-        //     ..Default::default()
-        // };
-        // let graphics_pipeline =
-        //     create_graphics_pipeline(&self.device, &vs, &fs, &render_pass, &viewport);
-        // let compute_command_buffer = create_compute_cb(
-        //     self.device.clone(),
-        //     self.queue_family_index,
-        //     vec![
-        //         self.runtime_buffers.positions.clone(),
-        //         self.runtime_buffers.velocities.clone(),
-        //         // FIX: Remove need for the radii buffer to be [f32; 2].
-        //         self.runtime_buffers.radii.clone(),
-        //     ],
-        //     cs.clone(),
-        //     Some(self.push_constants),
-        //     [self.push_constants.num_objects, 1, 1],
-        //     self.command_buffer_allocator.clone(),
-        // )
-        // .unwrap()
-        // .build()
-        // .unwrap();
+        let window_size = window.inner_size();
+        let cs = cs::load(self.device.clone()).unwrap();
+        let vs = crate::renderer::shaders::vs::load(self.device.clone()).unwrap();
+        let fs = crate::renderer::shaders::fs::load(self.device.clone()).unwrap();
+        let physical_device = self.device.physical_device();
+        let (swapchain, images) = create_swapchain_and_images(
+            self.instance.clone(),
+            self.device.clone(),
+            window.clone(),
+            physical_device.clone(),
+        );
+        let render_pass = create_single_render_pass(self.device.clone(), &swapchain);
+        let framebuffers = create_framebuffers(&images, &render_pass);
+        let viewport = Viewport {
+            extent: [WINDOW_LENGTH; 2],
+            ..Default::default()
+        };
+        let graphics_pipeline =
+            create_graphics_pipeline(&self.device, &vs, &fs, &render_pass, &viewport);
+        let compute_command_buffer = create_compute_cb(
+            self.device.clone(),
+            self.queue_family_index,
+            vec![
+                self.runtime_buffers.positions.clone(),
+                self.runtime_buffers.velocities.clone(),
+                // FIX: Remove need for the radii buffer to be [f32; 2].
+                self.runtime_buffers.radii.clone(),
+            ],
+            cs.clone(),
+            Some(self.push_constants),
+            [self.push_constants.num_objects, 1, 1],
+            self.command_buffer_allocator.clone(),
+        )
+        .unwrap()
+        .build()
+        .unwrap();
 
-        // let rcx = RenderContext {
-        //     window,
-        //     cs,
-        //     compute_command_buffer,
-        //     vs,
-        //     fs,
-        //     render_pass,
-        //     graphics_pipeline,
-        //     swapchain,
-        //     framebuffers,
-        //     images,
-        //     viewport,
-        // };
-        // self.frames_in_flight = rcx.images.len();
-        // self.rcx = Some(rcx);
+        let rcx = RenderContext {
+            window,
+            cs,
+            compute_command_buffer,
+            vs,
+            fs,
+            render_pass,
+            graphics_pipeline,
+            swapchain,
+            framebuffers,
+            images,
+            viewport,
+        };
+        self.frames_in_flight = rcx.images.len();
+        self.rcx = Some(rcx);
     }
 
     fn window_event(

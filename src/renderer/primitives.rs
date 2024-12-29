@@ -1,5 +1,5 @@
 use super::core::CustomVertex;
-use super::shaders::update_cs;
+use super::shaders::cs;
 
 use ecolor::Color32;
 use std::sync::Arc;
@@ -64,7 +64,7 @@ pub fn create_compute_cb<T: BufferContents>(
     queue_family_index: u32,
     data: Vec<Subbuffer<[T]>>,
     shader: Arc<ShaderModule>,
-    push_constants: Option<update_cs::ComputeConstants>,
+    push_constants: Option<cs::ComputeConstants>,
     work_group_counts: [u32; 3],
     command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
 ) -> anyhow::Result<AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>> {

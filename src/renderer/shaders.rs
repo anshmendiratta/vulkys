@@ -41,7 +41,7 @@ pub mod fs {
     }
 }
 
-pub mod update_cs {
+pub mod cs {
     vulkano_shaders::shader! {
         ty: "compute",
         src: r"
@@ -57,15 +57,13 @@ pub mod update_cs {
             layout(binding = 0, set = 0) buffer P {
                 vec2 p[];
             } positions;
-
             layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
             layout(binding = 1, set = 0) buffer V {
                 vec2 v[];
             } velocities;
-
             layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
             layout(binding = 2, set = 0) buffer R {
-                // Had to pass in [radius, 0.0] to satisfy my `get_compute_command_buffer` function
+                // Had to pass in [radius, 0.0] to satisfy my `create_compute_cbs` function
                 vec2 r[];
             } radii;
 
