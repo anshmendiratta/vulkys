@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign, Mul, Sub};
 
 use ecolor::Color32;
 use libm::atan2f;
-use renderer::vk_core::CustomVertex;
+use renderer::core::CustomVertex;
 use vulkano::buffer::BufferContents;
 
 pub mod gui;

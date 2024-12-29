@@ -1,8 +1,15 @@
-use crate::renderer::vk_primitives::get_graphics_pipeline;
+use super::primitives::create_compute_cb;
+use super::primitives::create_single_render_pass;
+use super::primitives::create_swapchain_and_images;
+use super::primitives::{create_framebuffers, create_render_cbs};
+use super::shaders::update_cs;
+use crate::renderer::primitives::create_graphics_pipeline;
+use crate::FVec2;
 use crate::WINDOW_LENGTH;
-use eframe::WindowAttributes;
 use handler::App;
 use handler::RenderContext;
+
+use eframe::WindowAttributes;
 use std::sync::Arc;
 use tracing::{error, info};
 use vulkano::buffer::BufferContents;
@@ -12,28 +19,23 @@ use vulkano::swapchain;
 use vulkano::swapchain::SwapchainCreateInfo;
 use vulkano::swapchain::SwapchainPresentInfo;
 use vulkano::sync::GpuFuture;
-use winit::keyboard::{KeyCode, PhysicalKey};
-
 use vulkano::{sync, Validated, VulkanError};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
-
-use crate::FVec2;
-
-use super::shaders::update_cs;
-use super::vk_primitives::create_swapchain_and_images;
-use super::vk_primitives::get_compute_command_buffer;
-use super::vk_primitives::get_render_pass;
-use super::vk_primitives::{get_framebuffers, get_render_command_buffers};
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 pub mod handler {
-    const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
-        width: WINDOW_LENGTH as u32,
-        height: WINDOW_LENGTH as u32,
-    });
+    use crate::{
+        physics::scene::Scene,
+        renderer::{
+            primitives::{
+                create_command_buffer_allocator, create_memory_allocator, DeviceAndQueueInfo,
+            },
+            shaders::update_cs::ComputeConstants,
+        },
+    };
 
     use std::sync::Arc;
-
     use vulkano::{
         buffer::Subbuffer,
         command_buffer::{
@@ -54,23 +56,11 @@ pub mod handler {
         },
         VulkanLibrary,
     };
-    use winit::{dpi::Size, event_loop::EventLoop, window::Window};
-
-    use crate::{
-        physics::scene::Scene,
-        renderer::{
-            shaders::update_cs::ComputeConstants,
-            vk_primitives::{
-                create_command_buffer_allocator, create_memory_allocator, DeviceAndQueueInfo,
-            },
-        },
-        WINDOW_LENGTH,
-    };
+    use winit::{event_loop::EventLoop, window::Window};
 
     type SwapchainJoinFuture = JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFuture>;
     type FenceFuture =
         FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
-
     pub struct App {
         pub instance: Arc<Instance>,
         pub scene: Scene,
@@ -190,11 +180,6 @@ impl ApplicationHandler for App {
                 .create_window(WindowAttributes::default())
                 .unwrap(),
         );
-        // let updated_device_queue_info = get_device_and_queue(
-        //     self.instance.clone(),
-        //     &self.event_loop,
-        //     // Some(window.clone()),
-        // );
         let window_size = window.inner_size();
         let cs = update_cs::load(self.device.clone()).unwrap();
         let vs = crate::renderer::shaders::vs::load(self.device.clone()).unwrap();
@@ -206,15 +191,15 @@ impl ApplicationHandler for App {
             window.clone(),
             physical_device.clone(),
         );
-        let render_pass = get_render_pass(self.device.clone(), &swapchain);
-        let framebuffers = get_framebuffers(&images, &render_pass);
+        let render_pass = create_single_render_pass(self.device.clone(), &swapchain);
+        let framebuffers = create_framebuffers(&images, &render_pass);
         let viewport = Viewport {
             extent: [WINDOW_LENGTH; 2],
             ..Default::default()
         };
         let graphics_pipeline =
-            get_graphics_pipeline(&self.device, &vs, &fs, &render_pass, &viewport);
-        let compute_command_buffer = get_compute_command_buffer(
+            create_graphics_pipeline(&self.device, &vs, &fs, &render_pass, &viewport);
+        let compute_command_buffer = create_compute_cb(
             self.device.clone(),
             self.queue_family_index,
             vec![
@@ -296,9 +281,9 @@ impl ApplicationHandler for App {
                         ..rcx.swapchain.create_info()
                     })
                     .expect("failed to recreate swapchain: {e}");
-                let framebuffers = get_framebuffers(&new_images, &rcx.render_pass);
+                let framebuffers = create_framebuffers(&new_images, &rcx.render_pass);
                 let viewport_extent: [f32; 2] = rcx.window.inner_size().into();
-                let graphics_pipeline = get_graphics_pipeline(
+                let graphics_pipeline = create_graphics_pipeline(
                     &self.device,
                     &rcx.vs,
                     &rcx.fs,
@@ -306,7 +291,7 @@ impl ApplicationHandler for App {
                     &rcx.viewport,
                 );
                 self.rcx = Some(RenderContext {
-                    swapchain: new_swapchain,
+                    swapchain: new_swapchain.clone(),
                     images: new_images,
                     framebuffers,
                     viewport: Viewport {
@@ -316,11 +301,10 @@ impl ApplicationHandler for App {
                     graphics_pipeline,
                     ..rcx
                 });
-
                 let vertex_buffer = self
                     .scene
                     .return_objects_as_vertex_buffer(self.device.clone());
-                let command_buffers = get_render_command_buffers(
+                let command_buffers = create_render_cbs(
                     self.command_buffer_allocator.clone(),
                     &self.queue,
                     &rcx.graphics_pipeline,
@@ -331,7 +315,7 @@ impl ApplicationHandler for App {
                 .unwrap();
 
                 let (image_i, suboptimal, acquire_future) =
-                    match swapchain::acquire_next_image(rcx.swapchain.clone(), None)
+                    match swapchain::acquire_next_image(new_swapchain.clone(), None)
                         .map_err(Validated::unwrap)
                     {
                         Ok(r) => r,
@@ -354,7 +338,6 @@ impl ApplicationHandler for App {
                     }
                     Some(fence) => fence.boxed(),
                 };
-
                 let future = previous_fence
                     .join(acquire_future)
                     .then_execute(
@@ -380,7 +363,6 @@ impl ApplicationHandler for App {
                         None
                     }
                 };
-
                 self.previous_fence_i = image_i;
             }
             _ => (),

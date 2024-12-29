@@ -1,9 +1,18 @@
-use crate::renderer::vk_core::handler::{App, AppInitializationInfo};
-use crate::renderer::vk_primitives::{get_device_and_queue, get_required_extensions};
-use std::hash::RandomState;
-use std::{collections::HashMap, sync::Arc};
+use super::rigidbody::RigidBody;
+use crate::renderer::core::handler::RuntimeBuffers;
+use crate::renderer::core::handler::{App, AppInitializationInfo};
+use crate::renderer::primitives::{
+    get_device_and_queue_info, required_extensions, select_physical_device,
+};
+use crate::renderer::shaders::update_cs;
+use crate::{
+    renderer::{core::CustomVertex, primitives::create_memory_allocator, procedural::Polygon},
+    FVec2,
+};
 
 use ecolor::Color32;
+use std::hash::RandomState;
+use std::{collections::HashMap, sync::Arc};
 use tracing::info;
 use vulkano::buffer::{Buffer, Subbuffer};
 use vulkano::command_buffer::PrimaryAutoCommandBuffer;
@@ -18,19 +27,6 @@ use vulkano::{
     memory::allocator::{AllocationCreateInfo, MemoryTypeFilter},
 };
 use winit::event_loop::EventLoop;
-
-use crate::renderer::shaders::update_cs;
-use crate::renderer::vk_core::handler::RuntimeBuffers;
-use crate::{
-    renderer::{
-        vk_core::CustomVertex,
-        vk_primitives::create_memory_allocator,
-        vk_procedural_functions::{Polygon, PolygonMethods},
-    },
-    FVec2,
-};
-
-use super::rigidbody::RigidBody;
 
 pub struct Scene {
     pub objects: Vec<RigidBody>,
@@ -151,7 +147,7 @@ impl Scene {
             let mut buffer_data: Vec<CustomVertex> =
                 Vec::with_capacity(self.objects_hash.len() * 3);
             for (_, (_, polygon)) in &self.objects_hash {
-                buffer_data = [buffer_data, polygon.destructure_into_list()].concat();
+                buffer_data = [buffer_data, polygon.clone().into_flattened()].concat();
             }
             buffer_data
         };
@@ -175,7 +171,7 @@ impl Scene {
         // Setup.
         let event_loop = EventLoop::new().unwrap();
         let library = VulkanLibrary::new().expect("no local vulkan lib");
-        let required_extensions = get_required_extensions(&event_loop);
+        let required_extensions = required_extensions(&event_loop);
         let instance = Instance::new(
             library,
             InstanceCreateInfo {
@@ -190,7 +186,9 @@ impl Scene {
             dt: self.dt,
             num_objects: self.objects.len() as u32,
         };
-        let device_queue_info = get_device_and_queue(instance.clone(), &event_loop);
+        let physical_device = select_physical_device(instance.clone(), &event_loop, None);
+        let device_queue_info =
+            get_device_and_queue_info(physical_device, instance.clone(), &event_loop);
         let memory_allocator = create_memory_allocator(device_queue_info.device.clone());
 
         // Initializing state.

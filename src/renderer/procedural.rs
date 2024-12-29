@@ -1,6 +1,5 @@
+use super::core::CustomVertex;
 use crate::FVec2;
-
-use super::vk_core::CustomVertex;
 
 use ecolor::Color32;
 use libm::{cos, sin};
@@ -46,49 +45,4 @@ pub fn generate_polygon_triangles(
     });
 
     triangles
-}
-
-pub trait PolygonMethods {
-    fn destructure_into_list(&self) -> Vec<CustomVertex>;
-}
-impl PolygonMethods for Polygon {
-    fn destructure_into_list(&self) -> Vec<CustomVertex> {
-        self.clone().into_flattened()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::PolygonMethods;
-    use crate::{
-        renderer::{vk_core::CustomVertex, vk_procedural_functions::Polygon},
-        FVec2,
-    };
-
-    #[test]
-    pub fn check_destructuring() {
-        let sample_in: Vec<[CustomVertex; 3]> = vec![[
-            FVec2::new(0., 0.).to_custom_vertex(None),
-            FVec2::new(0., 0.).to_custom_vertex(None),
-            FVec2::new(0., 0.).to_custom_vertex(None),
-        ]];
-
-        let function_out = Polygon::destructure_into_list(&sample_in);
-        let desired_out: Vec<CustomVertex> = vec![
-            CustomVertex {
-                position_in: FVec2::new(0., 0.),
-                color: [0, 0, 0, 0],
-            },
-            CustomVertex {
-                position_in: FVec2::new(0., 0.),
-                color: [0, 0, 0, 0],
-            },
-            CustomVertex {
-                position_in: FVec2::new(0., 0.),
-                color: [0, 0, 0, 0],
-            },
-        ];
-
-        assert_eq!(desired_out, function_out);
-    }
 }

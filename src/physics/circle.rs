@@ -1,12 +1,11 @@
-use ecolor::Color32;
-
-use crate::FVec2;
-
 use super::{
     collision::{Collision, CollisionHandler, CollisionObjectType, WorldCollisionInfo},
     lib::{COEFF_RESTITUTION, WORLD_BOUNDS},
     rigidbody::GenericObject,
 };
+use crate::FVec2;
+
+use ecolor::Color32;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Circle {

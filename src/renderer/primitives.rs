@@ -1,10 +1,14 @@
-// #![allow(unused_variables)]
+use super::core::CustomVertex;
+use super::shaders::update_cs;
 
 use ecolor::Color32;
 use std::sync::Arc;
 use vulkano::buffer::BufferContents;
 use vulkano::buffer::Subbuffer;
 use vulkano::command_buffer;
+use vulkano::command_buffer::allocator::{
+    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
+};
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::command_buffer::PrimaryAutoCommandBuffer;
 use vulkano::command_buffer::RenderPassBeginInfo;
@@ -13,23 +17,30 @@ use vulkano::command_buffer::SubpassEndInfo;
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::DescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
-use vulkano::instance::Instance;
-use vulkano::pipeline::compute::ComputePipelineCreateInfo;
-use vulkano::pipeline::graphics::vertex_input::Vertex;
-use vulkano::pipeline::PipelineBindPoint;
-
+use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
+use vulkano::device::{
+    Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
+};
 use vulkano::image::view::ImageView;
 use vulkano::image::{Image, ImageUsage};
+use vulkano::instance::Instance;
+use vulkano::instance::InstanceExtensions;
+use vulkano::memory::allocator::{
+    FreeListAllocator, GenericMemoryAllocator, StandardMemoryAllocator,
+};
+use vulkano::pipeline::compute::ComputePipelineCreateInfo;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
 use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
 use vulkano::pipeline::graphics::multisample::MultisampleState;
 use vulkano::pipeline::graphics::rasterization::RasterizationState;
+use vulkano::pipeline::graphics::vertex_input::Vertex;
 use vulkano::pipeline::graphics::vertex_input::VertexDefinition;
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
 use vulkano::pipeline::ComputePipeline;
 use vulkano::pipeline::Pipeline;
+use vulkano::pipeline::PipelineBindPoint;
 use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo};
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
@@ -38,23 +49,7 @@ use vulkano::VulkanLibrary;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
-use super::shaders::update_cs;
-use super::vk_core::CustomVertex;
-use vulkano::command_buffer::allocator::{
-    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
-};
-use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
-use vulkano::device::{
-    Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
-};
-use vulkano::instance::InstanceExtensions;
-use vulkano::memory::allocator::{
-    FreeListAllocator, GenericMemoryAllocator, StandardMemoryAllocator,
-};
-
-pub fn get_required_extensions(
-    event_loop: &EventLoop<()>,
-) -> (DeviceExtensions, InstanceExtensions) {
+pub fn required_extensions(event_loop: &EventLoop<()>) -> (DeviceExtensions, InstanceExtensions) {
     let device_extensions = DeviceExtensions {
         khr_swapchain: true,
         ..DeviceExtensions::empty()
@@ -64,7 +59,7 @@ pub fn get_required_extensions(
     (device_extensions, instance_extensions)
 }
 
-pub fn get_compute_command_buffer<T: BufferContents>(
+pub fn create_compute_cb<T: BufferContents>(
     device: Arc<Device>,
     queue_family_index: u32,
     data: Vec<Subbuffer<[T]>>,
@@ -130,7 +125,10 @@ pub fn get_compute_command_buffer<T: BufferContents>(
     Ok(command_buffer_builder)
 }
 
-pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
+pub fn create_single_render_pass(
+    device: Arc<Device>,
+    swapchain: &Arc<Swapchain>,
+) -> Arc<RenderPass> {
     vulkano::single_pass_renderpass!(
         device,
         attachments: {
@@ -149,7 +147,7 @@ pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<R
     .unwrap()
 }
 
-pub fn get_framebuffers(
+pub fn create_framebuffers(
     images: &Vec<Arc<Image>>,
     render_pass: &Arc<RenderPass>,
 ) -> Vec<Arc<Framebuffer>> {
@@ -208,7 +206,7 @@ pub fn select_physical_device(
     event_loop: &EventLoop<()>,
     window: Option<Arc<Window>>,
 ) -> Arc<PhysicalDevice> {
-    let (device_extensions, _) = get_required_extensions(event_loop);
+    let (device_extensions, _) = required_extensions(event_loop);
     let library = VulkanLibrary::new().expect("no local vulkan lib");
 
     instance
@@ -227,7 +225,8 @@ pub fn select_physical_device(
                                 window.clone().unwrap().clone(),
                             )
                             .expect("could not create window");
-                            p.presentation_support(i as u32, event_loop).unwrap()
+                            p.surface_support(i as u32, &surface).unwrap()
+                                && p.presentation_support(i as u32, event_loop).unwrap()
                         } else {
                             true
                         }
@@ -252,7 +251,8 @@ pub struct DeviceAndQueueInfo {
     pub queue: Arc<Queue>,
 }
 
-pub fn get_device_and_queue(
+pub fn get_device_and_queue_info(
+    physical_device: Arc<PhysicalDevice>,
     instance: Arc<Instance>,
     event_loop: &EventLoop<()>,
     // window: Option<Arc<Window>>,
@@ -261,7 +261,6 @@ pub fn get_device_and_queue(
         khr_swapchain: true,
         ..DeviceExtensions::empty()
     };
-    let physical_device = select_physical_device(instance, event_loop, None);
     let queue_family_index = physical_device
         .queue_family_properties()
         .iter()
@@ -306,7 +305,8 @@ pub fn create_command_buffer_allocator(device: Arc<Device>) -> StandardCommandBu
     )
 }
 
-pub fn get_render_command_buffers(
+/// cbs = Command Buffers
+pub fn create_render_cbs(
     command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
@@ -351,7 +351,7 @@ pub fn get_render_command_buffers(
         .collect()
 }
 
-pub fn get_graphics_pipeline(
+pub fn create_graphics_pipeline(
     device: &Arc<Device>,
     vertex_shader: &Arc<ShaderModule>,
     fragment_shader: &Arc<ShaderModule>,
