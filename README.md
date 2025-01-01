@@ -2,8 +2,6 @@
 
 An easy-to-use but extensive physics engine meant to be accessible to those with little to no programming experience.
 
-
-
 ## Requirements
 
 1. Vulkan (tested v1.3.292)
@@ -17,7 +15,9 @@ An easy-to-use but extensive physics engine meant to be accessible to those with
 Example mains in `examples/`.
 
 ### Compatibility
-- Ubuntu (WSL): Complete.
+- Linux:
+  - Mint (Sway): Complete.
+  - Ubuntu (WSL): Complete.
 - Windows: image format runtime error.
 - MacOS (MoltenVK): seldom runtime errors.
 
