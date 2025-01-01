@@ -64,22 +64,20 @@ pub mod handler {
         FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
     pub struct App {
         pub instance: Arc<Instance>,
+        // Scene and (render) updates for it.
         pub scene: Scene,
-        pub rcx: Option<RenderContext>,
         pub runtime_buffers: RuntimeBuffers,
         pub push_constants: ComputeConstants,
+        pub rcx: Option<RenderContext>,
+        // Vulkan info.
         pub device: Arc<Device>,
         pub queue_family_index: u32,
         pub queue: Arc<Queue>,
         pub memory_allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
         pub command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
+        // Auxiliary.
         pub perf_stats: PerformanceStats,
         pub sim_flags: SimulationFlags,
-
-        // Synchronization.
-        pub fences: Vec<Option<Arc<FenceFuture>>>,
-        pub frames_in_flight: usize,
-        pub previous_fence_i: u32,
     }
 
     #[derive(Clone)]
@@ -92,9 +90,14 @@ pub mod handler {
         pub render_pass: Arc<RenderPass>,
         pub graphics_pipeline: Arc<GraphicsPipeline>,
         pub swapchain: Arc<Swapchain>,
-        pub framebuffers: Vec<Arc<Framebuffer>>,
         pub images: Vec<Arc<Image>>,
+        pub framebuffers: Vec<Arc<Framebuffer>>,
         pub viewport: Viewport,
+
+        // Synchronization.
+        pub fences: Vec<Option<Arc<FenceFuture>>>,
+        pub frames_in_flight: usize,
+        pub previous_fence_i: u32,
     }
 
     pub struct AppInitializationInfo<'a> {
@@ -119,17 +122,11 @@ pub mod handler {
                 recreate_swapchain_flag: false,
                 is_paused_flag: false,
             };
-            let frames_in_flight = 0;
-            let fences = vec![None; frames_in_flight];
-            let previous_fence_i = 0;
 
             Ok(Self {
                 memory_allocator,
                 command_buffer_allocator,
                 rcx: None,
-                frames_in_flight,
-                fences,
-                previous_fence_i,
                 perf_stats,
                 sim_flags,
                 device: initialization_info.device_and_queue.device,
@@ -228,6 +225,9 @@ impl ApplicationHandler for App {
         .unwrap()
         .build()
         .unwrap();
+        let frames_in_flight = images.len();
+        let fences = vec![None; frames_in_flight];
+        let previous_fence_i = 0;
 
         let rcx = RenderContext {
             window,
@@ -241,8 +241,10 @@ impl ApplicationHandler for App {
             framebuffers,
             images,
             viewport,
+            fences,
+            frames_in_flight,
+            previous_fence_i,
         };
-        self.frames_in_flight = rcx.images.len();
         self.rcx = Some(rcx);
     }
 
@@ -338,10 +340,13 @@ impl ApplicationHandler for App {
                     };
 
                 self.sim_flags.recreate_swapchain_flag = suboptimal;
-                if let Some(image_fence) = &self.fences[image_i as usize] {
+                if let Some(image_fence) = &self.rcx.clone().unwrap().fences[image_i as usize] {
                     image_fence.wait(None).unwrap();
                 }
-                let previous_fence = match self.fences[self.previous_fence_i as usize].clone() {
+                let previous_fence = match self.rcx.clone().unwrap().fences
+                    [self.rcx.clone().unwrap().previous_fence_i as usize]
+                    .clone()
+                {
                     None => {
                         let mut now = sync::now(self.device.clone());
                         now.cleanup_finished();
@@ -362,19 +367,20 @@ impl ApplicationHandler for App {
                     )
                     .then_signal_fence_and_flush();
 
-                self.fences[image_i as usize] = match future.map_err(Validated::unwrap) {
-                    Ok(value) => Some(Arc::new(value)),
-                    Err(VulkanError::OutOfDate) => {
-                        // FIX: crashes on MoltenVK
-                        // self.recreate_swapchain_flag = true;
-                        None
-                    }
-                    Err(e) => {
-                        error!("failed to flush future: {e}");
-                        None
-                    }
-                };
-                self.previous_fence_i = image_i;
+                self.rcx.clone().unwrap().fences[image_i as usize] =
+                    match future.map_err(Validated::unwrap) {
+                        Ok(value) => Some(Arc::new(value)),
+                        Err(VulkanError::OutOfDate) => {
+                            // FIX: crashes on MoltenVK
+                            // self.recreate_swapchain_flag = true;
+                            None
+                        }
+                        Err(e) => {
+                            error!("failed to flush future: {e}");
+                            None
+                        }
+                    };
+                self.rcx.clone().unwrap().previous_fence_i = image_i;
             }
             _ => (),
         }
