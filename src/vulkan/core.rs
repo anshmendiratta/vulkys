@@ -1,7 +1,3 @@
-use crate::renderer::shaders::update_cs;
-use crate::renderer::shaders::update_cs::ComputeConstants;
-use crate::renderer::vk_core::command_buffer::allocator::StandardCommandBufferAllocator;
-use crate::renderer::vk_primitives::get_graphics_pipeline;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{error, info};
@@ -30,9 +26,12 @@ use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
 
 use crate::physics::scene::Scene;
+use crate::vulkan::core::command_buffer::allocator::StandardCommandBufferAllocator;
+use crate::vulkan::primitives::get_graphics_pipeline;
+use crate::vulkan::shaders::{update_cs, update_cs::ComputeConstants};
 use crate::{FVec2, WINDOW_LENGTH};
 
-use super::vk_primitives::{
+use super::primitives::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
     get_compute_command_buffer, get_framebuffers, get_render_command_buffers, get_render_pass,
     get_required_extensions,
@@ -86,7 +85,7 @@ impl PerformanceStats {
 }
 
 struct RenderContext {
-    cs: Arc<ShaderModule>,
+    _cs: Arc<ShaderModule>,
     compute_command_buffer: Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
     vs: Arc<ShaderModule>,
     fs: Arc<ShaderModule>,
@@ -142,7 +141,7 @@ impl RenderContext {
         .unwrap();
 
         Self {
-            cs,
+            _cs: cs,
             vs,
             fs,
             render_pass,
@@ -381,7 +380,7 @@ pub struct VulkanoContext {
 impl VulkanoContext {
     pub fn with_window_context(win_ctx: &WindowContext, event_loop: &EventLoop<()>) -> Self {
         let (device, queue_family_index, queue) =
-            vk_primitives::select_device_and_queue(win_ctx, event_loop);
+            primitives::select_device_and_queue(win_ctx, event_loop);
         let memory_allocator = create_memory_allocator(device.clone());
         let command_buffer_allocator = create_command_buffer_allocator(device.clone());
 

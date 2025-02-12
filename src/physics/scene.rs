@@ -15,13 +15,12 @@ use vulkano::{
 };
 use winit::event_loop::EventLoop;
 
-use crate::renderer::shaders::update_cs;
-use crate::renderer::vk_core::{RuntimeBuffers, VulkanoContext, WindowContext};
 use crate::{
-    renderer::{
-        vk_core::{CustomVertex, WindowEventHandler},
-        vk_primitives::create_memory_allocator,
-        vk_procedural_functions::{Polygon, PolygonMethods},
+    vulkan::{
+        core::{CustomVertex, RuntimeBuffers, VulkanoContext, WindowContext, WindowEventHandler},
+        primitives::create_memory_allocator,
+        procedural::{Polygon, PolygonMethods},
+        shaders::update_cs,
     },
     FVec2,
 };

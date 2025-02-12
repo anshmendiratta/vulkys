@@ -1,6 +1,6 @@
 use crate::FVec2;
 
-use super::vk_core::CustomVertex;
+use super::core::CustomVertex;
 
 use ecolor::Color32;
 use libm::{cos, sin};
@@ -60,9 +60,11 @@ impl PolygonMethods for Polygon {
 
 #[cfg(test)]
 mod tests {
-    use super::PolygonMethods;
     use crate::{
-        renderer::{vk_core::CustomVertex, vk_procedural_functions::Polygon},
+        vulkan::{
+            core::CustomVertex,
+            procedural::{Polygon, PolygonMethods},
+        },
         FVec2,
     };
 

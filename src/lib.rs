@@ -2,13 +2,13 @@ use std::ops::{Add, AddAssign, Mul, Sub};
 
 use ecolor::Color32;
 use libm::atan2f;
-use renderer::vk_core::CustomVertex;
+use vulkan::core::CustomVertex;
 use vulkano::buffer::BufferContents;
 
 pub mod core;
 pub mod gui;
 pub mod physics;
-pub mod renderer;
+pub mod vulkan;
 
 const WINDOW_LENGTH: f32 = 1000.;
 
