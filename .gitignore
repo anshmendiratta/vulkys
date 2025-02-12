@@ -9,3 +9,4 @@ target/
 Cargo.lock
 run.log
 assets/
+.vk_core.rs.swp
