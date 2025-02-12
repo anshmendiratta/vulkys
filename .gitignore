@@ -1,7 +1,11 @@
-/target
-/.ssh
-/.repos/config
+.git/
+.github/
+.vs/
+target/
+.ssh/
+.repos/
 \
 .DS_STORE
 Cargo.lock
 run.log
+assets/

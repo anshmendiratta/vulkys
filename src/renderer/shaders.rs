@@ -69,7 +69,7 @@ pub mod update_cs {
 
             layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
             layout(binding = 2, set = 0) buffer R {
-                // Had to pass in [radius, 0.0] to satisfy my `get_compute_command_buffer` function
+                // Had to pass in [radius, 0.0] to satisfy my `get_compute_command_buffer` function.
                 vec2 r[];
             } radii;
 
@@ -150,7 +150,8 @@ pub mod update_cs {
                     }
                 }
 
-                // Update state as usual. First-order Euler, or something.
+                // Update state as usual. First-order Euler, or related. 
+                // TODO: Find methods with lower error rates.
                 vec2 position_change = vec2(velocities.v[x] * dt);
                 vec2 velocity_change = vec2(0, gravity * dt);
                 positions.p[x] += position_change;

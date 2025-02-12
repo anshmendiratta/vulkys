@@ -130,9 +130,9 @@ impl Scene {
         .unwrap();
 
         RuntimeBuffers {
-            objects_positions,
-            objects_velocities,
-            objects_radii,
+            positions: objects_positions,
+            velocities: objects_velocities,
+            radii: objects_radii,
         }
     }
 
@@ -197,9 +197,9 @@ impl Scene {
             .unwrap();
         future.wait(None).unwrap();
 
-        let binding = runtime_buffers.objects_positions.clone();
+        let binding = runtime_buffers.positions.clone();
         let object_positions_reader = binding.read().unwrap();
-        let binding = runtime_buffers.objects_velocities.clone();
+        let binding = runtime_buffers.velocities.clone();
         let object_velocities_reader = binding.read().unwrap();
         for (idx, (updated_position, updated_velocity)) in std::iter::zip(
             object_positions_reader.iter(),
@@ -211,7 +211,7 @@ impl Scene {
             self.objects[idx].update_velocity(updated_velocity.into());
         }
         // self.check_and_world_resolve_collisions();
-        self.recreate_hash();
+        self.recreate_hash_from_objects();
 
         info!("{:?}", {
             self.objects
@@ -228,7 +228,7 @@ impl Scene {
         });
     }
 
-    pub fn recreate_hash(&mut self) {
+    pub fn recreate_hash_from_objects(&mut self) {
         let polygons: Vec<Polygon> = self.objects.iter().map(|body| body.to_polygon()).collect();
 
         let mut objects_as_hash: HashMap<u8, (RigidBody, Polygon)> =

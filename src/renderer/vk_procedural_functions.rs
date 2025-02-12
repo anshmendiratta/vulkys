@@ -6,6 +6,7 @@ use ecolor::Color32;
 use libm::{cos, sin};
 use std::f32::consts::PI;
 
+// TODO: Optimize triangulation of polygons. Currently generating n triangles from the center to each adjacent pair of vertices.
 pub type Triangle = [CustomVertex; 3];
 pub type Polygon = Vec<Triangle>;
 pub fn generate_polygon_triangles(

@@ -47,7 +47,6 @@ impl Collision {
         let primary = self.primary.clone().unwrap();
         let secondary = self.secondary.clone().unwrap();
         let vector_between_com = primary.get_position() - secondary.get_position();
-        let unit_axis_of_seperation = vector_between_com.get_orthogonal_unit();
         // NOTE: Uses https://en.wikipedia.org/wiki/Elastic_collision#Two-dimensional_collision_with_two_moving_objects
         let updated_primary_velocity = primary.get_velocity()
             - (primary.get_position() - secondary.get_position()).scale(

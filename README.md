@@ -36,6 +36,7 @@ Although not uploaded to GitHub with the intention of maintenance or feature-req
 - [x] ~~Have collision resolution run on a compute shader.~~
 - [ ] Add FPS counter for debugging and visuals.
 - [ ] Copy images into swapchain so the current, un-updated ones are not being recreated.
+- [ ] Add multi-threading.
 
 ### QoL
 - [ ] Anti-aliasing for objects.

@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use std::ops::{Add, AddAssign, Mul, Sub};
 
 use ecolor::Color32;
@@ -21,9 +18,6 @@ pub struct FVec2 {
     x: f32,
     y: f32,
 }
-
-// unsafe impl Sync for FVec2 {}
-// unsafe impl Send for FVec2 {}
 
 impl FVec2 {
     pub fn new(x: f32, y: f32) -> Self {
@@ -169,7 +163,6 @@ mod tests {
     fn check_magnitude_of_mirror() {
         let to_mirror = FVec2::new(1. / 2_f32.powf(0.5), 1. / 2_f32.powf(0.5));
         let to_mirror_along = FVec2::new(1., 0.);
-        let desired_output = FVec2::new(1. / 2_f32.powf(0.5), -1. / 2_f32.powf(0.5));
 
         assert_eq!(
             to_mirror.magnitude(),

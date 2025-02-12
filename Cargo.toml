@@ -3,6 +3,16 @@ name = "vulkys"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "vulkys"           
+path = "src/lib.rs"    
+test = true            
+doctest = true         
+bench = true           
+doc = true             
+edition = "2021"       
+crate-type = ["lib"]   
+
 [dependencies]
 # gui
 egui = "0.21.0"
@@ -21,4 +31,4 @@ libm = "0.2.6"
 ecolor = {version = "0.29.1", features = ["serde"]}
 
 [profile.dev]
-opt-level = 1
+opt-level = 3

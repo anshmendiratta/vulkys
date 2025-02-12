@@ -1,5 +1,3 @@
-// #![allow(unused_variables)]
-
 use std::sync::Arc;
 use vulkano::buffer::BufferContents;
 use vulkano::buffer::Subbuffer;
@@ -32,7 +30,6 @@ use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCre
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
-use vulkano::VulkanLibrary;
 use winit::event_loop::EventLoop;
 
 use super::shaders::update_cs;
@@ -73,12 +70,11 @@ pub fn get_compute_command_buffer<T: BufferContents>(
         Arc<StandardCommandBufferAllocator>,
     >,
 > {
-    let (device, queue_family_index, queue) = (
+    let (device, queue_family_index, _) = (
         vk_ctx.get_device(),
         vk_ctx.get_queue_family_index(),
         vk_ctx.get_queue(),
     );
-    let memory_allocator = create_memory_allocator(device.clone());
     let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
     let layout = PipelineLayout::new(
         device.clone(),
@@ -213,7 +209,6 @@ pub fn select_physical_device(
 ) -> Arc<PhysicalDevice> {
     let (window, instance) = (win_ctx.window(), win_ctx.instance.clone());
     let (device_extensions, _) = get_required_extensions(event_loop);
-    let library = VulkanLibrary::new().expect("no local vulkan lib");
     let surface =
         Surface::from_window(instance.clone(), window.clone()).expect("could not create window");
 
