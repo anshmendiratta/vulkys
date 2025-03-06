@@ -8,12 +8,14 @@ use vulkys::{
     FVec2,
 };
 
-fn main() -> anyhow::Result<()> {
-    let log_file = std::fs::OpenOptions::new()
+fn main() {
+    let open = std::fs::OpenOptions::new()
         .write(true)
         .truncate(true)
         .create(true)
-        .open("run.log")?;
+        .open("run.log")
+        .unwrap();
+    let log_file = open;
     tracing_subscriber::fmt()
         .event_format(
             tracing_subscriber::fmt::format()
@@ -64,6 +66,4 @@ fn main() -> anyhow::Result<()> {
     let scene: Scene = Scene::with_info(scene_info);
     // Running simulation
     scene.run();
-
-    Ok(())
 }

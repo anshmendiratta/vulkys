@@ -79,13 +79,14 @@ impl PerformanceStats {
     fn new() -> Self {
         Self { framerates: vec![] }
     }
+
     fn avg(&self) -> f32 {
         self.framerates.iter().sum::<f32>() / self.framerates.len() as f32
     }
 }
 
 struct RenderContext {
-    _cs: Arc<ShaderModule>,
+    // _cs: Arc<ShaderModule>,
     compute_command_buffer: Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
     vs: Arc<ShaderModule>,
     fs: Arc<ShaderModule>,
@@ -141,7 +142,7 @@ impl RenderContext {
         .unwrap();
 
         Self {
-            _cs: cs,
+            // _cs: cs,
             vs,
             fs,
             render_pass,
@@ -215,7 +216,7 @@ impl WindowEventHandler {
                 ..
             } => match input.virtual_keycode {
                 Some(winit::event::VirtualKeyCode::Q) => {
-                    dbg!("fps avg: {}", self.perf_stats.avg());
+                    dbg!(self.perf_stats.avg());
                     info!("10 fps samples: {:?}", self.perf_stats.framerates);
                     std::process::exit(0);
                 }
@@ -306,6 +307,7 @@ impl WindowEventHandler {
             _ => (),
         }
     }
+
     fn recreate_swapchain_and_pipeline(&mut self) {
         let (new_swapchain, new_images) = self
             .render_ctx
@@ -326,9 +328,11 @@ impl WindowEventHandler {
             self.render_ctx.viewport.clone(),
         );
     }
+
     pub fn vulkancx(&self) -> VulkanoContext {
         self.vk_ctx.clone()
     }
+
     pub fn windowcx(&self) -> &WindowContext {
         &self.window_ctx
     }
@@ -362,6 +366,7 @@ impl WindowContext {
 
         Self { instance, window }
     }
+
     pub fn window(&self) -> Arc<Window> {
         self.window.clone()
     }
@@ -393,18 +398,23 @@ impl VulkanoContext {
             command_buffer_allocator: Arc::new(command_buffer_allocator),
         }
     }
+
     pub fn get_device(&self) -> Arc<Device> {
         self.device.clone()
     }
+
     pub fn get_queue(&self) -> Arc<Queue> {
         self.queue.clone()
     }
+
     pub fn get_queue_family_index(&self) -> u32 {
         self.queue_family_index
     }
+
     pub fn get_memory_allocator(&self) -> Arc<GenericMemoryAllocator<FreeListAllocator>> {
         self.memory_allocator.clone()
     }
+
     pub fn get_command_buffer_allocator(&self) -> Arc<StandardCommandBufferAllocator> {
         self.command_buffer_allocator.clone()
     }
