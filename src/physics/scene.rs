@@ -43,14 +43,14 @@ pub struct SceneInfo {
 
 impl Scene {
     /// Initializes a new scene with the `RigidBody`s passed in.
-    pub fn with_info(scene_info: SceneInfo) -> Self {
+    pub fn with_info(mut scene_info: SceneInfo) -> Self {
         // NOTE: Correcting for the vulkan coordinate system: resetting to (0,0) being lower left.
-        scene_info.objects.clone().iter_mut().for_each(|obj| {
-            let mut current_position = obj.get_position();
+        for object in scene_info.objects.iter_mut() {
+            let mut current_position = object.get_position();
             current_position.y *= -1.;
             let updated_position = FVec2::new(current_position.x, current_position.y);
-            obj.update_position(updated_position);
-        });
+            object.update_position(updated_position);
+        }
 
         let polygons: Vec<Polygon> = scene_info
             .objects

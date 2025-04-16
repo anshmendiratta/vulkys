@@ -215,7 +215,7 @@ impl WindowEventHandler {
                 ..
             } => match input.virtual_keycode {
                 Some(winit::event::VirtualKeyCode::Q) => {
-                    dbg!("fps avg: {}", self.perf_stats.avg());
+                    dbg!(self.perf_stats.avg());
                     info!("10 fps samples: {:?}", self.perf_stats.framerates);
                     std::process::exit(0);
                 }
@@ -236,7 +236,9 @@ impl WindowEventHandler {
                     self.render_ctx.compute_command_buffer.clone(),
                     self.runtime_buffers.clone(),
                 );
-                self.recreate_swapchain_and_pipeline();
+                if self.sim_flags.recreate_swapchain {
+                    self.recreate_swapchain_and_pipeline();
+                }
                 let vertex_buffer =
                     scene.return_objects_as_vertex_buffer(self.vk_ctx.device.clone());
                 let render_command_buffers = get_render_command_buffers(
