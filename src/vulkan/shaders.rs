@@ -46,7 +46,7 @@ pub mod update_cs {
             layout(push_constant) uniform ComputeConstants {
                 float gravity;
                 float dt;
-                uint num_objects;
+                uint objects_count;
             };
             
             layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
@@ -72,24 +72,30 @@ pub mod update_cs {
 
             void main() {
                 uint x = gl_GlobalInvocationID.x;
+                uint y = gl_GlobalInvocationID.y;
 
-                // Check and resolve object-world collisions.
                 check_and_resolve_world_collision(x);
 
                 // Check and resolve object-object collisions.
-                for (uint other_idx = 0; other_idx < num_objects; other_idx++) {
-                    bool collides = do_objects_collide(x, other_idx);
-                    if (collides) {
-                        resolve_object_collision(x, other_idx);
-                    }
-                }
+                // for (uint other_idx = 0; other_idx < objects_count; other_idx++) {
+                // bool collides = do_objects_collide(x, y);
+                // if (collides) {
+                //     resolve_object_collision(x, y);
+                // }
+                // }
 
+                float dt_scalar = 1/1;
                 // Update state as usual. First-order Euler, or related. 
                 // TODO: Find methods with lower error rates.
-                vec2 position_change = vec2(velocities.v[x] * dt);
-                vec2 velocity_change = vec2(0, gravity * dt);
-                positions.p[x] += position_change;
-                velocities.v[x] += velocity_change;
+                vec2 x_position_change = vec2(velocities.v[x] * dt);
+                vec2 x_velocity_change = vec2(0, gravity * dt);
+                positions.p[x] += x_position_change * dt_scalar;
+                velocities.v[x] += x_velocity_change * dt_scalar;
+
+                vec2 y_position_change = vec2(velocities.v[y] * dt);
+                vec2 y_velocity_change = vec2(0, gravity * dt);
+                positions.p[x] += y_position_change * dt_scalar;
+                velocities.v[x] += y_velocity_change * dt_scalar;
             }
 
             bool do_objects_collide(uint ref_object_id, uint other_object_id) {
@@ -116,21 +122,21 @@ pub mod update_cs {
                 };
 
                 // Check when ref is on the right of other.
-                if (ref_object_bb_x[0] < other_object_bb_x[1] && ref_object_bb_x[1] > other_object_bb_x[0]) {
-                    return true;
-                }
+                // if (ref_object_bb_x[0] < other_object_bb_x[1] && ref_object_bb_x[1] > other_object_bb_x[0]) {
+                //     return true;
+                // }
                 // Check when ref is on top of other.
-                if (ref_object_bb_y[0] < other_object_bb_y[1] && ref_object_bb_y[1] > other_object_bb_y[0]) {
-                    return true;
-                }
+                // if (ref_object_bb_y[0] < other_object_bb_y[1] && ref_object_bb_y[1] > other_object_bb_y[0]) {
+                //     return true;
+                // }
                 // Check when ref is on the left of other.
-                if (ref_object_bb_x[1] > other_object_bb_x[0] && ref_object_bb_x[0] < other_object_bb_x[1]) {
-                    return true;
-                }
+                // if (ref_object_bb_x[1] > other_object_bb_x[0] && ref_object_bb_x[0] < other_object_bb_x[1]) {
+                //     return true;
+                // }
                 // Check when ref is below other.
-                if (ref_object_bb_y[1] > other_object_bb_y[0] && ref_object_bb_y[0] < other_object_bb_y[1]) {
-                    return true;
-                }
+                // if (ref_object_bb_y[1] > other_object_bb_y[0] && ref_object_bb_y[0] < other_object_bb_y[1]) {
+                //     return true;
+                // }
 
                 // Check with expensive computation between centers of circles.
                 vec2 vector_between_coms = positions.p[ref_object_id] - positions.p[other_object_id]; 

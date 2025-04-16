@@ -169,7 +169,7 @@ impl Scene {
         let push_constants = update_cs::ComputeConstants {
             gravity: self.gravity,
             dt: self.dt,
-            num_objects: self.objects.len() as u32,
+            objects_count: self.objects.len() as u32,
         };
         let window_ctx_handler = WindowEventHandler::new(
             &event_loop,
