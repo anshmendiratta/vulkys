@@ -6,19 +6,15 @@ pub mod vs {
 
             layout(location = 0) in vec4 color;
             layout(location = 1) in vec2 position_in;
-            // layout(push_constant) uniform PolygonConstants {
-            //     float radius;
-            // };
 
             layout(location = 0) out vec4 color_out;
             layout(location = 1) out vec2 position_out;
-            // layout(location = 2) out float radius_out;
            
             void main() {
-                color_out = color;
-                // radius_out = radius;
-                position_out = position_in;
                 gl_Position = vec4(position_in, 0.0, 1.0);
+
+                color_out = color;
+                position_out = position_in;
             }
         ",
     }
@@ -27,15 +23,13 @@ pub mod fs {
     vulkano_shaders::shader! {
         ty: "fragment",
         src: r"
-            #version 460
-
+            #version 460 
+            
             layout(location = 0) in vec4 color;
             layout(location = 1) in vec2 pos;
+
             layout(location = 0) out vec4 f_color;
 
-            // layout(set = 0, binding = 0) uniform sampler s;
-            // layout(set = 0, binding = 1) uniform texture2D tex;
-            
             void main() {
                 // vec2 texture_coords = gl_FragCoord.xy;
                 // f_color = texture(sampler2D(tex, s), texture_coord);
@@ -72,6 +66,33 @@ pub mod update_cs {
                 // Had to pass in [radius, 0.0] to satisfy my `get_compute_command_buffer` function.
                 vec2 r[];
             } radii;
+
+            // Functions.
+            bool do_objects_collide(uint ref_object_id, uint other_object_id);
+            void resolve_object_collision(uint object_one_id, uint object_two_id);
+            void check_and_resolve_world_collision(uint object_id);
+
+            void main() {
+                uint x = gl_GlobalInvocationID.x;
+
+                // Check and resolve object-world collisions.
+                check_and_resolve_world_collision(x);
+
+                // Check and resolve object-object collisions.
+                for (uint other_idx = 0; other_idx < num_objects; other_idx++) {
+                    bool collides = do_objects_collide(x, other_idx);
+                    if (collides) {
+                        resolve_object_collision(x, other_idx);
+                    }
+                }
+
+                // Update state as usual. First-order Euler, or related. 
+                // TODO: Find methods with lower error rates.
+                vec2 position_change = vec2(velocities.v[x] * dt);
+                vec2 velocity_change = vec2(0, gravity * dt);
+                positions.p[x] += position_change;
+                velocities.v[x] += velocity_change;
+            }
 
             bool do_objects_collide(uint ref_object_id, uint other_object_id) {
                 if (ref_object_id == other_object_id) {
@@ -134,28 +155,6 @@ pub mod update_cs {
                 if (crossed_vertical) {
                     velocities.v[object_id].y *= -1.;
                 }
-            }
-
-            void main() {
-                uint x = gl_GlobalInvocationID.x;
-
-                // Check and resolve object-world collisions.
-                check_and_resolve_world_collision(x);
-
-                // Check and resolve object-object collisions.
-                for (uint other_idx = 0; other_idx < num_objects; other_idx++) {
-                    bool collides = do_objects_collide(x, other_idx);
-                    if (collides) {
-                        resolve_object_collision(x, other_idx);
-                    }
-                }
-
-                // Update state as usual. First-order Euler, or related. 
-                // TODO: Find methods with lower error rates.
-                vec2 position_change = vec2(velocities.v[x] * dt);
-                vec2 velocity_change = vec2(0, gravity * dt);
-                positions.p[x] += position_change;
-                velocities.v[x] += velocity_change;
             }
             ",
     }

@@ -18,7 +18,6 @@ use winit::event_loop::EventLoop;
 use crate::{
     vulkan::{
         core::{CustomVertex, RuntimeBuffers, VulkanoContext, WindowContext, WindowEventHandler},
-        primitives::create_memory_allocator,
         procedural::{Polygon, PolygonMethods},
         shaders::update_cs,
     },
@@ -137,7 +136,7 @@ impl Scene {
 
     pub fn return_objects_as_vertex_buffer(
         &self,
-        device: Arc<Device>,
+        allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
     ) -> Subbuffer<[CustomVertex]> {
         let vertex_buffer_data = {
             let mut buffer_data: Vec<CustomVertex> =
@@ -148,7 +147,7 @@ impl Scene {
             buffer_data
         };
         Buffer::from_iter(
-            create_memory_allocator(device.clone()),
+            allocator,
             BufferCreateInfo {
                 usage: BufferUsage::VERTEX_BUFFER,
                 ..Default::default()

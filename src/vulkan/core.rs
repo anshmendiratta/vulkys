@@ -1,10 +1,11 @@
+use std::cell::RefCell;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{error, info};
 use vulkano::buffer::{BufferContents, Subbuffer};
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
-use vulkano::command_buffer::{self, CommandBufferExecFuture, PrimaryAutoCommandBuffer};
+use vulkano::command_buffer::{self};
 use vulkano::device::{Device, Queue};
 use vulkano::image::Image;
 use vulkano::instance::{Instance, InstanceCreateInfo};
@@ -13,11 +14,7 @@ use vulkano::pipeline::graphics::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::render_pass::{Framebuffer, RenderPass};
 use vulkano::shader::ShaderModule;
-use vulkano::swapchain::{
-    self, PresentFuture, Swapchain, SwapchainAcquireFuture, SwapchainCreateInfo,
-    SwapchainPresentInfo,
-};
-use vulkano::sync::future::{FenceSignalFuture, JoinFuture};
+use vulkano::swapchain::{self, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo};
 use vulkano::sync::GpuFuture;
 use vulkano::{sync, Validated, VulkanError, VulkanLibrary};
 use winit::dpi::Size;
@@ -36,14 +33,13 @@ use super::primitives::{
     get_compute_command_buffer, get_framebuffers, get_render_command_buffers, get_render_pass,
     get_required_extensions,
 };
+use super::type_aliases::{ComputeCommandBuffer, FenceFuture, RenderCommandBuffer};
 
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     width: WINDOW_LENGTH as u32,
     height: WINDOW_LENGTH as u32,
 });
 
-type SwapchainJoinFuture = JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFuture>;
-type FenceFuture = FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
 pub struct WindowEventHandler {
     vk_ctx: VulkanoContext,
     window_ctx: WindowContext,
@@ -55,8 +51,8 @@ pub struct WindowEventHandler {
     // frames_in_flight: usize,
     previous_fence_i: u32,
 
-    perf_stats: PerformanceStats,
-    sim_flags: SimulationFlags,
+    performance_stats: PerformanceStats,
+    simulation_flags: SimulationFlags,
 }
 
 #[derive(Clone)]
@@ -86,8 +82,8 @@ impl PerformanceStats {
 }
 
 struct RenderContext {
-    // _cs: Arc<ShaderModule>,
-    compute_command_buffer: Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
+    render_cb: Option<RefCell<RenderCommandBuffer>>,
+    compute_cb: Option<ComputeCommandBuffer>,
     vs: Arc<ShaderModule>,
     fs: Arc<ShaderModule>,
     render_pass: Arc<RenderPass>,
@@ -142,7 +138,8 @@ impl RenderContext {
         .unwrap();
 
         Self {
-            // _cs: cs,
+            render_cb: None,
+            compute_cb: Some(compute_command_buffer),
             vs,
             fs,
             render_pass,
@@ -151,7 +148,6 @@ impl RenderContext {
             swapchain,
             framebuffers,
             images,
-            compute_command_buffer,
         }
     }
 }
@@ -188,8 +184,8 @@ impl WindowEventHandler {
             // frames_in_flight,
             fences,
             previous_fence_i,
-            perf_stats,
-            sim_flags,
+            performance_stats: perf_stats,
+            simulation_flags: sim_flags,
             runtime_buffers,
         }
     }
@@ -200,7 +196,7 @@ impl WindowEventHandler {
             self.handle_window_event(&mut scene, &event);
             let fps = 1_f32 / time_before_update.elapsed().as_secs_f32();
             if fps < 10000. {
-                self.perf_stats.framerates.push(fps);
+                self.performance_stats.framerates.push(fps);
             }
         });
     }
@@ -210,44 +206,52 @@ impl WindowEventHandler {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => std::process::exit(0),
+            } => std::process::exit(69),
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput { input, .. },
                 ..
             } => match input.virtual_keycode {
                 Some(winit::event::VirtualKeyCode::Q) => {
-                    dbg!(self.perf_stats.avg());
-                    info!("10 fps samples: {:?}", self.perf_stats.framerates);
+                    // Quit.
+                    dbg!(self.performance_stats.avg());
+                    info!("10 fps samples: {:?}", self.performance_stats.framerates);
                     std::process::exit(0);
                 }
                 Some(winit::event::VirtualKeyCode::P) => {
-                    self.sim_flags.is_paused = true;
+                    // Pause.
+                    self.simulation_flags.is_paused = true;
                     return;
                 }
-                Some(winit::event::VirtualKeyCode::R) => self.sim_flags.is_paused = false,
+                Some(winit::event::VirtualKeyCode::R) => self.simulation_flags.is_paused = false, // Resume.
                 _ => info!("{} was pressed", input.scancode),
             },
             Event::MainEventsCleared => {
-                if self.sim_flags.is_paused {
+                if self.simulation_flags.is_paused {
                     return;
                 }
+
                 scene.update_with_buffers(
                     self.vk_ctx.get_device(),
                     self.vk_ctx.get_queue(),
-                    self.render_ctx.compute_command_buffer.clone(),
+                    self.render_ctx
+                        .compute_cb
+                        .clone()
+                        .expect("Found no compute cb to use to update the objects."),
                     self.runtime_buffers.clone(),
                 );
                 self.recreate_swapchain_and_pipeline();
                 let vertex_buffer =
-                    scene.return_objects_as_vertex_buffer(self.vk_ctx.device.clone());
-                let render_command_buffers = get_render_command_buffers(
-                    &self.vk_ctx.command_buffer_allocator,
-                    &self.vk_ctx.queue,
-                    &self.render_ctx.graphics_pipeline,
-                    &self.render_ctx.framebuffers,
-                    &vertex_buffer,
-                )
-                .unwrap();
+                    scene.return_objects_as_vertex_buffer(self.vk_ctx.memory_allocator.clone());
+                let render_command_buffers = match self.render_ctx.render_cb {
+                    Some(render_cb) => render_cb,
+                    None => RefCell::new(get_render_command_buffers(
+                        &self.vk_ctx.command_buffer_allocator,
+                        &self.vk_ctx.queue,
+                        &self.render_ctx.graphics_pipeline,
+                        &self.render_ctx.framebuffers,
+                        &vertex_buffer,
+                    )),
+                };
 
                 let (image_idx, suboptimal, acquire_future) =
                     match swapchain::acquire_next_image(self.render_ctx.swapchain.clone(), None)
@@ -261,7 +265,7 @@ impl WindowEventHandler {
                         Err(e) => panic!("failed to acquire the next image: {e}"),
                     };
 
-                self.sim_flags.recreate_swapchain = if suboptimal { true } else { false };
+                self.simulation_flags.recreate_swapchain = if suboptimal { true } else { false };
                 if let Some(image_fence) = &self.fences[image_idx as usize] {
                     image_fence.wait(None).unwrap();
                 }
@@ -277,7 +281,7 @@ impl WindowEventHandler {
                     .join(acquire_future)
                     .then_execute(
                         self.vk_ctx.queue.clone(),
-                        render_command_buffers[image_idx as usize].clone(),
+                        render_command_buffers.borrow().unwrap()[image_idx as usize].clone(),
                     )
                     .unwrap()
                     .then_swapchain_present(

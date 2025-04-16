@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::sync::Arc;
 use vulkano::buffer::BufferContents;
 use vulkano::buffer::Subbuffer;
@@ -44,6 +45,7 @@ use winit::event_loop::EventLoop;
 
 use super::core::{CustomVertex, VulkanoContext, WindowContext};
 use super::shaders::update_cs;
+use super::type_aliases::ComputeBufferBuilder;
 
 pub fn get_required_extensions(
     event_loop: &EventLoop<()>,
@@ -53,27 +55,17 @@ pub fn get_required_extensions(
         ..DeviceExtensions::empty()
     };
     let required_extensions = Surface::required_extensions(&event_loop);
-
     (device_extensions, required_extensions)
 }
 
-pub fn get_compute_command_buffer<T: BufferContents>(
+pub fn get_compute_command_buffer<T: BufferContents + ?Sized>(
     vk_ctx: VulkanoContext,
     shader: Arc<ShaderModule>,
-    data: Vec<Subbuffer<[T]>>,
+    data: Vec<Subbuffer<T>>,
     push_constants: Option<update_cs::ComputeConstants>,
     work_group_counts: [u32; 3],
-) -> anyhow::Result<
-    AutoCommandBufferBuilder<
-        PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>,
-        Arc<StandardCommandBufferAllocator>,
-    >,
-> {
-    let (device, queue_family_index, _) = (
-        vk_ctx.get_device(),
-        vk_ctx.get_queue_family_index(),
-        vk_ctx.get_queue(),
-    );
+) -> Result<ComputeBufferBuilder> {
+    let (device, queue_family_index) = (vk_ctx.get_device(), vk_ctx.get_queue_family_index());
     let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
     let layout = PipelineLayout::new(
         device.clone(),
@@ -87,6 +79,7 @@ pub fn get_compute_command_buffer<T: BufferContents>(
         ComputePipelineCreateInfo::stage_layout(stage, layout),
     )
     .expect("failed to create compute pipeline");
+
     let descriptor_set_allocator =
         StandardDescriptorSetAllocator::new(device.clone(), Default::default());
     let pipeline_layout = compute_pipeline.layout();
@@ -107,6 +100,7 @@ pub fn get_compute_command_buffer<T: BufferContents>(
         },
         [],
     )?;
+
     let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
         &vk_ctx.get_command_buffer_allocator(),
         queue_family_index,
