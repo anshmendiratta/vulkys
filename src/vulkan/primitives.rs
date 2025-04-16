@@ -40,6 +40,7 @@ use vulkano::pipeline::PipelineBindPoint;
 use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo};
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
+use vulkano::swapchain::PresentMode;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use winit::event_loop::EventLoop;
 
@@ -188,6 +189,7 @@ pub fn create_swapchain_and_images(
             image_extent: dimensions.into(),
             image_usage: ImageUsage::COLOR_ATTACHMENT,
             composite_alpha,
+            present_mode: PresentMode::Immediate,
             ..Default::default()
         },
     )

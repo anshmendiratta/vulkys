@@ -1,5 +1,3 @@
-use anyhow::Result;
-
 use std::sync::Arc;
 
 use vulkano::{
@@ -23,5 +21,5 @@ pub type ComputeBufferBuilder = AutoCommandBufferBuilder<
     Arc<StandardCommandBufferAllocator>,
 >;
 
-pub type RenderCommandBuffer = Result<Vec<Arc<PrimaryAutoCommandBuffer>>>;
+pub type RenderCommandBuffer = Vec<Arc<PrimaryAutoCommandBuffer>>;
 pub type ComputeCommandBuffer = Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>;

@@ -239,18 +239,25 @@ impl WindowEventHandler {
                         .expect("Found no compute cb to use to update the objects."),
                     self.runtime_buffers.clone(),
                 );
-                self.recreate_swapchain_and_pipeline();
+
+                if self.simulation_flags.recreate_swapchain {
+                    self.recreate_swapchain_and_pipeline();
+                }
+
                 let vertex_buffer =
                     scene.return_objects_as_vertex_buffer(self.vk_ctx.memory_allocator.clone());
-                let render_command_buffers = match self.render_ctx.render_cb {
-                    Some(render_cb) => render_cb,
-                    None => RefCell::new(get_render_command_buffers(
-                        &self.vk_ctx.command_buffer_allocator,
-                        &self.vk_ctx.queue,
-                        &self.render_ctx.graphics_pipeline,
-                        &self.render_ctx.framebuffers,
-                        &vertex_buffer,
-                    )),
+                let render_command_buffers = match &self.render_ctx.render_cb {
+                    Some(render_cb) => &render_cb,
+                    None => &RefCell::new(
+                        get_render_command_buffers(
+                            &self.vk_ctx.command_buffer_allocator,
+                            &self.vk_ctx.queue,
+                            &self.render_ctx.graphics_pipeline,
+                            &self.render_ctx.framebuffers,
+                            &vertex_buffer,
+                        )
+                        .expect("Could not get render command buffers in frame loop."),
+                    ),
                 };
 
                 let (image_idx, suboptimal, acquire_future) =
@@ -269,6 +276,7 @@ impl WindowEventHandler {
                 if let Some(image_fence) = &self.fences[image_idx as usize] {
                     image_fence.wait(None).unwrap();
                 }
+
                 let previous_fence = match self.fences[self.previous_fence_i as usize].clone() {
                     None => {
                         let mut now = sync::now(self.vk_ctx.device.clone());
@@ -281,7 +289,7 @@ impl WindowEventHandler {
                     .join(acquire_future)
                     .then_execute(
                         self.vk_ctx.queue.clone(),
-                        render_command_buffers.borrow().unwrap()[image_idx as usize].clone(),
+                        render_command_buffers.borrow()[image_idx as usize].clone(),
                     )
                     .unwrap()
                     .then_swapchain_present(
