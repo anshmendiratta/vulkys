@@ -239,11 +239,17 @@ impl WindowEventHandler {
                         .expect("Found no compute cb to use to update the objects."),
                     self.runtime_buffers.clone(),
                 );
+<<<<<<< HEAD
 
                 if self.simulation_flags.recreate_swapchain {
                     self.recreate_swapchain_and_pipeline();
                 }
 
+=======
+                if self.sim_flags.recreate_swapchain {
+                    self.recreate_swapchain_and_pipeline();
+                }
+>>>>>>> dev
                 let vertex_buffer =
                     scene.return_objects_as_vertex_buffer(self.vk_ctx.memory_allocator.clone());
                 let render_command_buffers = match &self.render_ctx.render_cb {

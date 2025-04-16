@@ -19,7 +19,6 @@ Example mains in `examples/`.
   - Mint (Sway): Complete.
   - Ubuntu (WSL): Complete.
 - Windows: image format runtime error.
-- MacOS (MoltenVK): seldom runtime errors.
 
 ## Commits
 
@@ -37,6 +36,7 @@ Although not uploaded to GitHub with the intention of maintenance or feature-req
 - [ ] Add FPS counter for debugging and visuals.
 - [ ] Copy images into swapchain so the current, un-updated ones are not being recreated.
 - [ ] Add multi-threading.
+- [ ] Use Bounding Boxes for preliminary collision checking.
 
 ### QoL
 - [ ] Anti-aliasing for objects.

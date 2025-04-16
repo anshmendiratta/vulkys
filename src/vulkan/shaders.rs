@@ -11,14 +11,14 @@ pub mod vs {
             layout(location = 1) out vec2 position_out;
            
             void main() {
-                gl_Position = vec4(position_in, 0.0, 1.0);
-
                 color_out = color;
                 position_out = position_in;
+                gl_Position = vec4(position_in, 0.0, 1.0);
             }
         ",
     }
 }
+
 pub mod fs {
     vulkano_shaders::shader! {
         ty: "fragment",
@@ -31,8 +31,6 @@ pub mod fs {
             layout(location = 0) out vec4 f_color;
 
             void main() {
-                // vec2 texture_coords = gl_FragCoord.xy;
-                // f_color = texture(sampler2D(tex, s), texture_coord);
                 f_color = color;
             }
         ",
@@ -99,6 +97,42 @@ pub mod update_cs {
                     return false;
                 }
 
+                // Compute bounding box and check first.
+                vec2 ref_object_bb_x = {
+                    positions.p[ref_object_id][0] - radii.r[ref_object_id][0],
+                    positions.p[ref_object_id][0] + radii.r[ref_object_id][0]
+                };
+                vec2 ref_object_bb_y = {
+                    positions.p[ref_object_id][1] - radii.r[ref_object_id][0],
+                    positions.p[ref_object_id][1] + radii.r[ref_object_id][0]
+                };
+                vec2 other_object_bb_x = {
+                    positions.p[other_object_id][0] - radii.r[other_object_id][0],
+                    positions.p[other_object_id][0] + radii.r[other_object_id][0]
+                };
+                vec2 other_object_bb_y = {
+                    positions.p[other_object_id][1] - radii.r[other_object_id][0],
+                    positions.p[other_object_id][1] + radii.r[other_object_id][0]
+                };
+
+                // Check when ref is on the right of other.
+                if (ref_object_bb_x[0] < other_object_bb_x[1] && ref_object_bb_x[1] > other_object_bb_x[0]) {
+                    return true;
+                }
+                // Check when ref is on top of other.
+                if (ref_object_bb_y[0] < other_object_bb_y[1] && ref_object_bb_y[1] > other_object_bb_y[0]) {
+                    return true;
+                }
+                // Check when ref is on the left of other.
+                if (ref_object_bb_x[1] > other_object_bb_x[0] && ref_object_bb_x[0] < other_object_bb_x[1]) {
+                    return true;
+                }
+                // Check when ref is below other.
+                if (ref_object_bb_y[1] > other_object_bb_y[0] && ref_object_bb_y[0] < other_object_bb_y[1]) {
+                    return true;
+                }
+
+                // Check with expensive computation between centers of circles.
                 vec2 vector_between_coms = positions.p[ref_object_id] - positions.p[other_object_id]; 
                 float distance_between_coms = length(vector_between_coms);
                 float radius_ref = radii.r[ref_object_id][0];
