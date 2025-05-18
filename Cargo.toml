@@ -31,6 +31,8 @@ libm = "0.2.6"
 ecolor = { version = "0.29.1", features = ["serde"] }
 tokio = { version = "1.43.0", features = ["rt"]}
 tokio-macros = "2.5.0"
+# physics
+rapier2d = { version = "0.26.0", features = ["parallel", "simd-stable"] }
 
 [profile.dev]
 opt-level = 3

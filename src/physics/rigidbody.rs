@@ -1,8 +1,11 @@
 use super::circle::Circle;
 use super::collision::{Collision, CollisionHandler, WorldCollisionInfo};
+use super::lib::COEFF_RESTITUTION;
+
 use crate::vulkan::procedural::{generate_polygon_triangles, Polygon};
 use crate::FVec2;
 use ecolor::Color32;
+use rapier2d::prelude::ColliderBuilder;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum RigidBodySelection {
@@ -36,6 +39,17 @@ type RBid = u8;
 #[derive(Clone, Debug, PartialEq)]
 pub enum RigidBody {
     Circle_(Circle, RBid),
+}
+
+pub fn convert_rigidbody_to_rigidbody_builder(rb: RigidBody) -> ColliderBuilder {
+    let cb: ColliderBuilder;
+    let rb_type = rb.type_to_string();
+    match rb_type {
+        "Circle" => cb = ColliderBuilder::ball(rb.get_radius()).restitution(COEFF_RESTITUTION),
+        _ => unreachable!(),
+    }
+
+    cb
 }
 
 impl CollisionHandler for RigidBody {

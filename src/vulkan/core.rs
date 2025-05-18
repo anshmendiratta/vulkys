@@ -25,15 +25,13 @@ use winit::window::{Window, WindowBuilder};
 use crate::physics::scene::Scene;
 use crate::vulkan::core::command_buffer::allocator::StandardCommandBufferAllocator;
 use crate::vulkan::primitives::get_graphics_pipeline;
-use crate::vulkan::shaders::{update_cs, update_cs::ComputeConstants};
 use crate::{FVec2, WINDOW_LENGTH};
 
 use super::primitives::{
     self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
-    get_compute_command_buffer, get_framebuffers, get_render_command_buffers, get_render_pass,
-    get_required_extensions,
+    get_framebuffers, get_render_command_buffers, get_render_pass, get_required_extensions,
 };
-use super::type_aliases::{ComputeCommandBuffer, FenceFuture, RenderCommandBuffer};
+use super::type_aliases::{FenceFuture, RenderCommandBuffer};
 
 const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     width: WINDOW_LENGTH as u32,
@@ -44,8 +42,6 @@ pub struct WindowEventHandler {
     vk_ctx: VulkanoContext,
     window_ctx: WindowContext,
     render_ctx: RenderContext,
-
-    runtime_buffers: RuntimeBuffers,
 
     fences: Vec<Option<Arc<FenceFuture>>>,
     // frames_in_flight: usize,
@@ -83,7 +79,6 @@ impl PerformanceStats {
 
 struct RenderContext {
     render_cb: Option<RefCell<RenderCommandBuffer>>,
-    compute_cb: Option<ComputeCommandBuffer>,
     vs: Arc<ShaderModule>,
     fs: Arc<ShaderModule>,
     render_pass: Arc<RenderPass>,
@@ -101,10 +96,7 @@ impl RenderContext {
         event_loop: &EventLoop<()>,
         window_ctx: &WindowContext,
         vk_ctx: &VulkanoContext,
-        runtime_buffers: &RuntimeBuffers,
-        push_constants: ComputeConstants,
     ) -> Self {
-        let cs = update_cs::load(vk_ctx.get_device().clone()).unwrap();
         let vs = super::shaders::vs::load(vk_ctx.get_device().clone()).unwrap();
         let fs = super::shaders::fs::load(vk_ctx.get_device().clone()).unwrap();
         let (swapchain, images) = create_swapchain_and_images(window_ctx, vk_ctx, event_loop);
@@ -121,29 +113,9 @@ impl RenderContext {
             render_pass.clone(),
             viewport.clone(),
         );
-        let compute_command_buffer = get_compute_command_buffer(
-            vk_ctx.clone(),
-            cs.clone(),
-            vec![
-                runtime_buffers.positions.clone(),
-                runtime_buffers.velocities.clone(),
-                // FIX: Remove need for the radii buffer to be [f32; 2].
-                runtime_buffers.radii.clone(),
-            ],
-            Some(push_constants),
-            [
-                push_constants.objects_count,
-                push_constants.objects_count,
-                1,
-            ],
-        )
-        .unwrap()
-        .build()
-        .unwrap();
 
         Self {
             render_cb: None,
-            compute_cb: Some(compute_command_buffer),
             vs,
             fs,
             render_pass,
@@ -159,18 +131,10 @@ impl RenderContext {
 impl WindowEventHandler {
     pub fn new(
         event_loop: &EventLoop<()>,
-        runtime_buffers: RuntimeBuffers,
         vk_ctx: VulkanoContext,
         window_ctx: WindowContext,
-        push_constants: ComputeConstants,
     ) -> Self {
-        let render_ctx = RenderContext::new(
-            event_loop,
-            &window_ctx,
-            &vk_ctx,
-            &runtime_buffers,
-            push_constants,
-        );
+        let render_ctx = RenderContext::new(event_loop, &window_ctx, &vk_ctx);
 
         let perf_stats = PerformanceStats::new();
         let sim_flags = SimulationFlags {
@@ -190,7 +154,6 @@ impl WindowEventHandler {
             previous_fence_i,
             performance_stats: perf_stats,
             simulation_flags: sim_flags,
-            runtime_buffers,
         }
     }
 
@@ -234,15 +197,7 @@ impl WindowEventHandler {
                     return;
                 }
 
-                scene.update_with_buffers(
-                    self.vk_ctx.get_device(),
-                    self.vk_ctx.get_queue(),
-                    self.render_ctx
-                        .compute_cb
-                        .clone()
-                        .expect("Found no compute cb to use to update the objects."),
-                    self.runtime_buffers.clone(),
-                );
+                // TODO: Do physics with rapier.
 
                 if self.simulation_flags.recreate_swapchain {
                     self.recreate_swapchain_and_pipeline();

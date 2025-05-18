@@ -1,37 +1,21 @@
-use std::hash::RandomState;
 use std::{collections::HashMap, sync::Arc};
 
-use tracing::info;
+use rapier2d::na::Vector2;
+use rapier2d::prelude::{ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet};
 use vulkano::buffer::{Buffer, Subbuffer};
-use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
-use vulkano::command_buffer::PrimaryAutoCommandBuffer;
-use vulkano::device::Queue;
 use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
-use vulkano::sync::{self, GpuFuture};
 use vulkano::{
     buffer::{BufferCreateInfo, BufferUsage},
-    device::Device,
     memory::allocator::{AllocationCreateInfo, MemoryTypeFilter},
 };
 use winit::event_loop::EventLoop;
 
-use crate::{
-    vulkan::{
-        core::{CustomVertex, RuntimeBuffers, VulkanoContext, WindowContext, WindowEventHandler},
-        procedural::{Polygon, PolygonMethods},
-        shaders::update_cs,
-    },
-    FVec2,
+use crate::vulkan::{
+    core::{CustomVertex, VulkanoContext, WindowContext, WindowEventHandler},
+    procedural::{Polygon, PolygonMethods},
 };
 
-use super::rigidbody::RigidBody;
-
-pub struct Scene {
-    objects: Vec<RigidBody>,
-    objects_hash: HashMap<u8, (RigidBody, Polygon)>,
-    dt: f32,
-    gravity: f32,
-}
+use super::rigidbody::{convert_rigidbody_to_rigidbody_builder, RigidBody};
 
 #[derive(Clone)]
 pub struct SceneInfo {
@@ -40,97 +24,40 @@ pub struct SceneInfo {
     pub gravity: f32,
 }
 
+#[allow(dead_code)]
+pub struct Scene {
+    polygon_set: HashMap<RigidBodyHandle, Polygon>,
+    rigid_body_set: RigidBodySet,
+    collider_set: ColliderSet,
+    dt: f32,
+    gravity: f32,
+}
+
 impl Scene {
     /// Initializes a new scene with the `RigidBody`s passed in.
-    pub fn with_info(mut scene_info: SceneInfo) -> Self {
-        // NOTE: Correcting for the vulkan coordinate system: resetting to (0,0) being lower left.
-        for object in scene_info.objects.iter_mut() {
-            let mut current_position = object.get_position();
-            current_position.y *= -1.;
-            let updated_position = FVec2::new(current_position.x, current_position.y);
-            object.update_position(updated_position);
-        }
+    pub fn with_info(scene_info: SceneInfo) -> Self {
+        let mut objects_map: HashMap<RigidBodyHandle, Polygon> = HashMap::new();
+        let mut rigid_body_set = RigidBodySet::new();
+        let mut collider_set = ColliderSet::new();
 
-        let polygons: Vec<Polygon> = scene_info
-            .objects
-            .iter()
-            .map(|body| body.to_polygon())
-            .collect();
+        for rb in scene_info.objects {
+            let rb_position = rb.get_position();
+            let polygon = rb.to_polygon();
+            let cb = convert_rigidbody_to_rigidbody_builder(rb).build();
+            let rbb =
+                RigidBodyBuilder::dynamic().translation(Vector2::new(rb_position.x, rb_position.y));
+            let handle_index = rigid_body_set.insert(rbb);
 
-        let mut objects_hash: HashMap<u8, (RigidBody, Polygon)> =
-            HashMap::with_capacity_and_hasher(scene_info.objects.len(), RandomState::new());
-        for (rigidbody, polygon) in std::iter::zip(&scene_info.objects, polygons) {
-            objects_hash.insert(rigidbody.get_id(), (rigidbody.clone(), polygon));
+            objects_map.insert(handle_index, polygon);
+            collider_set.insert_with_parent(cb, handle_index, &mut rigid_body_set);
         }
 
         Self {
-            objects: scene_info.objects,
             dt: scene_info.dt,
-            objects_hash,
+            polygon_set: objects_map,
+            rigid_body_set,
+            collider_set: ColliderSet::new(),
             gravity: scene_info.gravity,
-        }
-    }
-
-    pub fn return_compute_shader_buffers(
-        &self,
-        memory_allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
-    ) -> RuntimeBuffers {
-        let objects_positions = Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_HOST
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            self.objects
-                .clone()
-                .iter()
-                .map(|obj| obj.get_position().as_array()),
-        )
-        .unwrap();
-        let objects_velocities = Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_HOST
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            self.objects
-                .clone()
-                .iter()
-                .map(|obj| obj.get_velocity().as_array()),
-        )
-        .unwrap();
-        let objects_radii = Buffer::from_iter(
-            memory_allocator,
-            BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_HOST
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            self.objects
-                .clone()
-                .iter()
-                .map(|obj| [obj.get_radius(), 0.]),
-        )
-        .unwrap();
-
-        RuntimeBuffers {
-            positions: objects_positions,
-            velocities: objects_velocities,
-            radii: objects_radii,
         }
     }
 
@@ -139,9 +66,8 @@ impl Scene {
         allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
     ) -> Subbuffer<[CustomVertex]> {
         let vertex_buffer_data = {
-            let mut buffer_data: Vec<CustomVertex> =
-                Vec::with_capacity(self.objects_hash.len() * 3);
-            for (_, (_, polygon)) in &self.objects_hash {
+            let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(self.polygon_set.len() * 3);
+            for (_, polygon) in &self.polygon_set {
                 buffer_data = [buffer_data, polygon.destructure_into_list()].concat();
             }
             buffer_data
@@ -166,82 +92,26 @@ impl Scene {
         let event_loop = EventLoop::new();
         let window_ctx = WindowContext::new(&event_loop);
         let vk_ctx = VulkanoContext::with_window_context(&window_ctx, &event_loop);
-        let push_constants = update_cs::ComputeConstants {
-            gravity: self.gravity,
-            dt: self.dt,
-            objects_count: self.objects.len() as u32,
-        };
-        let window_ctx_handler = WindowEventHandler::new(
-            &event_loop,
-            self.return_compute_shader_buffers(vk_ctx.get_memory_allocator()),
-            vk_ctx,
-            window_ctx,
-            push_constants,
-        );
+        let window_ctx_handler = WindowEventHandler::new(&event_loop, vk_ctx, window_ctx);
         window_ctx_handler.run_with_scene(self, event_loop);
     }
 
-    pub fn update_with_buffers(
-        &mut self,
-        device: Arc<Device>,
-        queue: Arc<Queue>,
-        compute_command_buffer: Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>,
-        runtime_buffers: RuntimeBuffers,
-    ) {
-        let future = sync::now(device.clone())
-            .then_execute(queue.clone(), compute_command_buffer)
-            .unwrap()
-            .then_signal_fence_and_flush()
-            .unwrap();
-        future.wait(None).unwrap();
+    // pub fn recreate_hash_from_objects(&mut self) {
+    //     let polygons: Vec<Polygon> = self.objects.iter().map(|body| body.to_polygon()).collect();
 
-        let binding = runtime_buffers.positions.clone();
-        let object_positions_reader = binding.read().unwrap();
-        let binding = runtime_buffers.velocities.clone();
-        let object_velocities_reader = binding.read().unwrap();
-        for (idx, (updated_position, updated_velocity)) in std::iter::zip(
-            object_positions_reader.iter(),
-            object_velocities_reader.iter(),
-        )
-        .enumerate()
-        {
-            self.objects[idx].update_position(updated_position.into());
-            self.objects[idx].update_velocity(updated_velocity.into());
-        }
-        // self.check_and_world_resolve_collisions();
-        self.recreate_hash_from_objects();
+    //     let mut objects_as_hash: HashMap<u8, (RigidBody, Polygon)> =
+    //         HashMap::with_capacity_and_hasher(self.objects.len(), RandomState::new());
+    //     for (rigidbody, polygon) in std::iter::zip(&self.objects, polygons) {
+    //         objects_as_hash.insert(rigidbody.get_id(), (rigidbody.clone(), polygon));
+    //     }
 
-        info!("{:?}", {
-            self.objects
-                .clone()
-                .iter()
-                .map(|obj| {
-                    format!(
-                        "id = {:?} with velocity = {:?}",
-                        obj.get_id(),
-                        obj.get_velocity()
-                    )
-                })
-                .collect::<Vec<String>>()
-        });
-    }
+    //     self.objects_map = objects_as_hash;
+    // }
 
-    pub fn recreate_hash_from_objects(&mut self) {
-        let polygons: Vec<Polygon> = self.objects.iter().map(|body| body.to_polygon()).collect();
-
-        let mut objects_as_hash: HashMap<u8, (RigidBody, Polygon)> =
-            HashMap::with_capacity_and_hasher(self.objects.len(), RandomState::new());
-        for (rigidbody, polygon) in std::iter::zip(&self.objects, polygons) {
-            objects_as_hash.insert(rigidbody.get_id(), (rigidbody.clone(), polygon));
-        }
-
-        self.objects_hash = objects_as_hash;
-    }
-
-    pub fn recreate_objects_from_hash(&mut self) {
-        self.objects.clear();
-        for (rigidbody, _) in self.objects_hash.values() {
-            self.objects.push(rigidbody.clone());
-        }
-    }
+    // pub fn recreate_objects_from_hash(&mut self) {
+    //     self.objects.clear();
+    //     for (rigidbody, _) in self.objects_map.values() {
+    //         self.objects.push(rigidbody.clone());
+    //     }
+    // }
 }

@@ -83,20 +83,21 @@ pub fn get_compute_command_buffer<T: BufferContents + ?Sized>(
 
     let descriptor_set_allocator =
         StandardDescriptorSetAllocator::new(device.clone(), Default::default());
-    // let pipeline_layout = compute_pipeline.layout();
-    let descriptor_set_layouts = compute_pipeline.layout().set_layouts();
+    let pipeline_layout = compute_pipeline.layout();
+    let descriptor_set_layouts = pipeline_layout.set_layouts();
+    let descriptor_set_layout_index = 0;
     let descriptor_set_layout = descriptor_set_layouts
-        .get(0)
+        .get(descriptor_set_layout_index)
         .expect("compute shader: descriptor set layout index out of bounds");
     let descriptor_set = PersistentDescriptorSet::new(
         &descriptor_set_allocator,
         descriptor_set_layout.clone(),
         {
-            let mut descriptor_writes = Vec::new();
+            let mut write_descriptor_sets: Vec<WriteDescriptorSet> = vec![];
             for (idx, datum) in data.iter().enumerate() {
-                descriptor_writes.push(WriteDescriptorSet::buffer(idx as u32, datum.clone()));
+                write_descriptor_sets.push(WriteDescriptorSet::buffer(idx as u32, datum.clone()));
             }
-            descriptor_writes
+            write_descriptor_sets
         },
         [],
     )?;
@@ -115,7 +116,7 @@ pub fn get_compute_command_buffer<T: BufferContents + ?Sized>(
             descriptor_set,
         )?;
     if let Some(constants) = push_constants {
-        command_buffer_builder.push_constants(compute_pipeline.layout().clone(), 0, constants)?;
+        command_buffer_builder.push_constants(pipeline_layout.clone(), 0, constants)?;
     };
     command_buffer_builder.dispatch(work_group_counts)?;
 
@@ -188,7 +189,7 @@ pub fn create_swapchain_and_images(
             image_extent: dimensions.into(),
             image_usage: ImageUsage::COLOR_ATTACHMENT,
             composite_alpha,
-            // present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::Immediate,
             ..Default::default()
         },
     )

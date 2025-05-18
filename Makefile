@@ -1,2 +1,2 @@
 r:
-	cargo r --example three_color_circles --release
+	cargo r --example three_color_circles
