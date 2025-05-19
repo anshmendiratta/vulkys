@@ -181,7 +181,13 @@ impl WindowEventHandler {
                 Some(winit::event::VirtualKeyCode::Q) => {
                     // Quit.
                     dbg!(self.performance_stats.avg());
-                    info!("10 fps samples: {:?}", self.performance_stats.framerates);
+                    info!("10 fps samples: {:?}", {
+                        self.performance_stats
+                            .framerates
+                            .iter()
+                            .take(10)
+                            .collect::<Vec<_>>()
+                    });
                     std::process::exit(0);
                 }
                 Some(winit::event::VirtualKeyCode::P) => {

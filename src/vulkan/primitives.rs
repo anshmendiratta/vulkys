@@ -189,7 +189,6 @@ pub fn create_swapchain_and_images(
             image_extent: dimensions.into(),
             image_usage: ImageUsage::COLOR_ATTACHMENT,
             composite_alpha,
-            present_mode: PresentMode::Immediate,
             ..Default::default()
         },
     )
