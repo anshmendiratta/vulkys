@@ -26,11 +26,11 @@ pub struct SceneInfo {
 
 #[allow(dead_code)]
 pub struct Scene {
-    polygon_set: HashMap<RigidBodyHandle, Polygon>,
-    rigid_body_set: RigidBodySet,
-    collider_set: ColliderSet,
+    pub polygon_set: HashMap<RigidBodyHandle, Polygon>,
+    pub rigid_body_set: RigidBodySet,
+    pub collider_set: ColliderSet,
+    pub gravity: f32,
     dt: f32,
-    gravity: f32,
 }
 
 impl Scene {

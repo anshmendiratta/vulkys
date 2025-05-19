@@ -33,6 +33,7 @@ tokio = { version = "1.43.0", features = ["rt"]}
 tokio-macros = "2.5.0"
 # physics
 rapier2d = { version = "0.26.0", features = ["parallel", "simd-stable"] }
+nalgebra = "0.33.2"
 
 [profile.dev]
 opt-level = 3

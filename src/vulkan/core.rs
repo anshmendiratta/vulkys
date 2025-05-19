@@ -1,8 +1,14 @@
+use rapier2d::na::vector;
+use rapier2d::prelude::{
+    BroadPhaseMultiSap, CCDSolver, DefaultBroadPhase, EventHandler, ImpulseJointSet,
+    IntegrationParameters, IslandManager, MultibodyJointSet, NarrowPhase, PhysicsHooks,
+    PhysicsPipeline, QueryPipeline,
+};
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{error, info};
-use vulkano::buffer::{BufferContents, Subbuffer};
+use vulkano::buffer::BufferContents;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use vulkano::command_buffer::{self};
@@ -42,6 +48,7 @@ pub struct WindowEventHandler {
     vk_ctx: VulkanoContext,
     window_ctx: WindowContext,
     render_ctx: RenderContext,
+    rapier_ctx: RapierCantext,
 
     fences: Vec<Option<Arc<FenceFuture>>>,
     // frames_in_flight: usize,
@@ -49,13 +56,6 @@ pub struct WindowEventHandler {
 
     performance_stats: PerformanceStats,
     simulation_flags: SimulationFlags,
-}
-
-#[derive(Clone)]
-pub struct RuntimeBuffers {
-    pub positions: Subbuffer<[[f32; 2]]>,
-    pub velocities: Subbuffer<[[f32; 2]]>,
-    pub radii: Subbuffer<[[f32; 2]]>,
 }
 
 struct SimulationFlags {
@@ -128,6 +128,50 @@ impl RenderContext {
     }
 }
 
+struct RapierCantext {
+    integration_parameters: IntegrationParameters,
+    physics_pipeline: PhysicsPipeline,
+    island_manager: IslandManager,
+    broad_phase: BroadPhaseMultiSap,
+    narrow_phase: NarrowPhase,
+    impulse_joint_set: ImpulseJointSet,
+    multibody_joint_set: MultibodyJointSet,
+    ccd_solver: CCDSolver,
+    query_pipeline: QueryPipeline,
+    physics_hooks: Box<dyn PhysicsHooks>,
+    event_handler: Box<dyn EventHandler>,
+}
+
+impl RapierCantext {
+    fn new() -> Self {
+        let integration_parameters = IntegrationParameters::default();
+        let physics_pipeline = PhysicsPipeline::new();
+        let island_manager = IslandManager::new();
+        let broad_phase = DefaultBroadPhase::new();
+        let narrow_phase = NarrowPhase::new();
+        let impulse_joint_set = ImpulseJointSet::new();
+        let multibody_joint_set = MultibodyJointSet::new();
+        let ccd_solver = CCDSolver::new();
+        let query_pipeline = QueryPipeline::new();
+        let physics_hooks = ();
+        let event_handler = ();
+
+        Self {
+            integration_parameters,
+            physics_pipeline,
+            island_manager,
+            broad_phase,
+            narrow_phase,
+            impulse_joint_set,
+            multibody_joint_set,
+            ccd_solver,
+            query_pipeline,
+            physics_hooks: Box::new(physics_hooks),
+            event_handler: Box::new(event_handler),
+        }
+    }
+}
+
 impl WindowEventHandler {
     pub fn new(
         event_loop: &EventLoop<()>,
@@ -135,7 +179,7 @@ impl WindowEventHandler {
         window_ctx: WindowContext,
     ) -> Self {
         let render_ctx = RenderContext::new(event_loop, &window_ctx, &vk_ctx);
-
+        let rapier_ctx = RapierCantext::new();
         let perf_stats = PerformanceStats::new();
         let sim_flags = SimulationFlags {
             recreate_swapchain: false,
@@ -149,6 +193,7 @@ impl WindowEventHandler {
             vk_ctx,
             window_ctx,
             render_ctx,
+            rapier_ctx,
             // frames_in_flight,
             fences,
             previous_fence_i,
@@ -181,7 +226,14 @@ impl WindowEventHandler {
                 Some(winit::event::VirtualKeyCode::Q) => {
                     // Quit.
                     dbg!(self.performance_stats.avg());
-                    info!("10 fps samples: {:?}", self.performance_stats.framerates);
+                    info!(
+                        "10 fps samples: {:?}",
+                        self.performance_stats
+                            .framerates
+                            .iter()
+                            .take(10)
+                            .collect::<Vec<_>>()
+                    );
                     std::process::exit(0);
                 }
                 Some(winit::event::VirtualKeyCode::P) => {
@@ -198,6 +250,21 @@ impl WindowEventHandler {
                 }
 
                 // TODO: Do physics with rapier.
+                self.rapier_ctx.physics_pipeline.step(
+                    &vector![0.0, scene.gravity],
+                    &self.rapier_ctx.integration_parameters,
+                    &mut self.rapier_ctx.island_manager,
+                    &mut self.rapier_ctx.broad_phase,
+                    &mut self.rapier_ctx.narrow_phase,
+                    &mut scene.rigid_body_set,
+                    &mut scene.collider_set,
+                    &mut self.rapier_ctx.impulse_joint_set,
+                    &mut self.rapier_ctx.multibody_joint_set,
+                    &mut self.rapier_ctx.ccd_solver,
+                    Some(&mut self.rapier_ctx.query_pipeline),
+                    &*self.rapier_ctx.physics_hooks,
+                    &*self.rapier_ctx.event_handler,
+                );
 
                 if self.simulation_flags.recreate_swapchain {
                     self.recreate_swapchain_and_pipeline();
