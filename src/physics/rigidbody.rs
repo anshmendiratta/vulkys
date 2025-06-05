@@ -41,7 +41,7 @@ pub enum RigidBody {
     Circle_(Circle, RBid),
 }
 
-pub fn convert_rigidbody_to_rigidbody_builder(rb: RigidBody) -> ColliderBuilder {
+pub fn convert_rigidbody_to_collider_builder(rb: RigidBody) -> ColliderBuilder {
     let cb: ColliderBuilder;
     let rb_type = rb.type_to_string();
     match rb_type {
