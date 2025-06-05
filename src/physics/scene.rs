@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use rapier2d::na::Vector2;
+use nalgebra::vector;
 use rapier2d::prelude::{ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet};
 use vulkano::buffer::{Buffer, Subbuffer};
 use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
@@ -45,7 +45,7 @@ impl Scene {
             let polygon = rb.to_polygon();
             let cb = convert_rigidbody_to_collider_builder(rb).build();
             let rbb =
-                RigidBodyBuilder::dynamic().translation(Vector2::new(rb_position.x, rb_position.y));
+                RigidBodyBuilder::dynamic().translation(vector![rb_position.x, rb_position.y]);
             let handle_index = rigid_body_set.insert(rbb);
 
             objects_map.insert(handle_index, polygon);

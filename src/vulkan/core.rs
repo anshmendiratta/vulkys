@@ -48,7 +48,7 @@ pub struct WindowEventHandler {
     vk_ctx: VulkanoContext,
     window_ctx: WindowContext,
     render_ctx: RenderContext,
-    rapier_ctx: RapierCantext,
+    rapier_ctx: RapierContext,
 
     fences: Vec<Option<Arc<FenceFuture>>>,
     // frames_in_flight: usize,
@@ -107,7 +107,7 @@ impl RenderContext {
             ..Default::default()
         };
         let graphics_pipeline = get_graphics_pipeline(
-            vk_ctx.get_device().clone(),
+            vk_ctx.device.clone(),
             vs.clone(),
             fs.clone(),
             render_pass.clone(),
@@ -128,7 +128,7 @@ impl RenderContext {
     }
 }
 
-struct RapierCantext {
+struct RapierContext {
     integration_parameters: IntegrationParameters,
     physics_pipeline: PhysicsPipeline,
     island_manager: IslandManager,
@@ -142,7 +142,7 @@ struct RapierCantext {
     event_handler: Box<dyn EventHandler>,
 }
 
-impl RapierCantext {
+impl RapierContext {
     fn new() -> Self {
         let integration_parameters = IntegrationParameters::default();
         let physics_pipeline = PhysicsPipeline::new();
@@ -179,7 +179,7 @@ impl WindowEventHandler {
         window_ctx: WindowContext,
     ) -> Self {
         let render_ctx = RenderContext::new(event_loop, &window_ctx, &vk_ctx);
-        let rapier_ctx = RapierCantext::new();
+        let rapier_ctx = RapierContext::new();
         let perf_stats = PerformanceStats::new();
         let sim_flags = SimulationFlags {
             recreate_swapchain: false,
