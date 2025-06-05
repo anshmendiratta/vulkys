@@ -12,10 +12,10 @@ use winit::event_loop::EventLoop;
 
 use crate::vulkan::{
     core::{CustomVertex, VulkanoContext, WindowContext, WindowEventHandler},
-    procedural::{Polygon, PolygonMethods},
+    procedural::Polygon,
 };
 
-use super::rigidbody::{convert_rigidbody_to_rigidbody_builder, RigidBody};
+use super::rigidbody::{convert_rigidbody_to_collider_builder, RigidBody};
 
 #[derive(Clone)]
 pub struct SceneInfo {
@@ -43,13 +43,15 @@ impl Scene {
         for rb in scene_info.objects {
             let rb_position = rb.get_position();
             let polygon = rb.to_polygon();
-            let cb = convert_rigidbody_to_rigidbody_builder(rb).build();
+            let cb = convert_rigidbody_to_collider_builder(rb).build();
             let rbb =
                 RigidBodyBuilder::dynamic().translation(Vector2::new(rb_position.x, rb_position.y));
             let handle_index = rigid_body_set.insert(rbb);
 
             objects_map.insert(handle_index, polygon);
             collider_set.insert_with_parent(cb, handle_index, &mut rigid_body_set);
+
+            dbg!(collider_set.len(), rigid_body_set.len());
         }
 
         Self {
@@ -68,7 +70,7 @@ impl Scene {
         let vertex_buffer_data = {
             let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(self.polygon_set.len() * 3);
             for (_, polygon) in &self.polygon_set {
-                buffer_data = [buffer_data, polygon.destructure_into_list()].concat();
+                buffer_data = [buffer_data, polygon.clone().into_flattened()].concat();
             }
             buffer_data
         };

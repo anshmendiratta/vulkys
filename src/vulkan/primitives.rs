@@ -40,7 +40,6 @@ use vulkano::pipeline::PipelineBindPoint;
 use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo};
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
-use vulkano::swapchain::PresentMode;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use winit::event_loop::EventLoop;
 
@@ -123,7 +122,7 @@ pub fn get_compute_command_buffer<T: BufferContents + ?Sized>(
     Ok(command_buffer_builder)
 }
 
-pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
+pub fn get_render_pass(device: Arc<Device>, swapchain: Arc<Swapchain>) -> Arc<RenderPass> {
     vulkano::single_pass_renderpass!(
         device,
         attachments: {

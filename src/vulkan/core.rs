@@ -100,7 +100,7 @@ impl RenderContext {
         let vs = super::shaders::vs::load(vk_ctx.get_device().clone()).unwrap();
         let fs = super::shaders::fs::load(vk_ctx.get_device().clone()).unwrap();
         let (swapchain, images) = create_swapchain_and_images(window_ctx, vk_ctx, event_loop);
-        let render_pass = get_render_pass(vk_ctx.get_device().clone(), &swapchain);
+        let render_pass = get_render_pass(vk_ctx.get_device().clone(), swapchain.clone());
         let framebuffers = get_framebuffers(&images, &render_pass);
         let viewport = Viewport {
             extent: [WINDOW_LENGTH; 2],
