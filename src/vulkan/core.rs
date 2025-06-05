@@ -44,134 +44,21 @@ const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     height: WINDOW_LENGTH as u32,
 });
 
+/// Mega-struct for the application that manages state and the window.
 pub struct WindowEventHandler {
+    // Contexts.
     vk_ctx: VulkanoContext,
     window_ctx: WindowContext,
     render_ctx: RenderContext,
     rapier_ctx: RapierContext,
-
+    // Synchronization.
     fences: Vec<Option<Arc<FenceFuture>>>,
     // frames_in_flight: usize,
     previous_fence_i: u32,
-
+    // Miscellaneous.
     performance_stats: PerformanceStats,
     simulation_flags: SimulationFlags,
 }
-
-struct SimulationFlags {
-    recreate_swapchain: bool,
-    is_paused: bool,
-}
-
-struct PerformanceStats {
-    framerates: Vec<f32>,
-}
-
-impl PerformanceStats {
-    fn new() -> Self {
-        Self { framerates: vec![] }
-    }
-
-    fn avg(&self) -> f32 {
-        self.framerates.iter().sum::<f32>() / self.framerates.len() as f32
-    }
-}
-
-struct RenderContext {
-    render_cb: Option<RefCell<RenderCommandBuffer>>,
-    vs: Arc<ShaderModule>,
-    fs: Arc<ShaderModule>,
-    render_pass: Arc<RenderPass>,
-    graphics_pipeline: Arc<GraphicsPipeline>,
-
-    swapchain: Arc<Swapchain>,
-    framebuffers: Vec<Arc<Framebuffer>>,
-    images: Vec<Arc<Image>>,
-
-    viewport: Viewport,
-}
-
-impl RenderContext {
-    fn new(
-        event_loop: &EventLoop<()>,
-        window_ctx: &WindowContext,
-        vk_ctx: &VulkanoContext,
-    ) -> Self {
-        let vs = super::shaders::vs::load(vk_ctx.get_device().clone()).unwrap();
-        let fs = super::shaders::fs::load(vk_ctx.get_device().clone()).unwrap();
-        let (swapchain, images) = create_swapchain_and_images(window_ctx, vk_ctx, event_loop);
-        let render_pass = get_render_pass(vk_ctx.get_device().clone(), &swapchain);
-        let framebuffers = get_framebuffers(&images, &render_pass);
-        let viewport = Viewport {
-            extent: [WINDOW_LENGTH; 2],
-            ..Default::default()
-        };
-        let graphics_pipeline = get_graphics_pipeline(
-            vk_ctx.device.clone(),
-            vs.clone(),
-            fs.clone(),
-            render_pass.clone(),
-            viewport.clone(),
-        );
-
-        Self {
-            render_cb: None,
-            vs,
-            fs,
-            render_pass,
-            graphics_pipeline,
-            viewport,
-            swapchain,
-            framebuffers,
-            images,
-        }
-    }
-}
-
-struct RapierContext {
-    integration_parameters: IntegrationParameters,
-    physics_pipeline: PhysicsPipeline,
-    island_manager: IslandManager,
-    broad_phase: BroadPhaseMultiSap,
-    narrow_phase: NarrowPhase,
-    impulse_joint_set: ImpulseJointSet,
-    multibody_joint_set: MultibodyJointSet,
-    ccd_solver: CCDSolver,
-    query_pipeline: QueryPipeline,
-    physics_hooks: Box<dyn PhysicsHooks>,
-    event_handler: Box<dyn EventHandler>,
-}
-
-impl RapierContext {
-    fn new() -> Self {
-        let integration_parameters = IntegrationParameters::default();
-        let physics_pipeline = PhysicsPipeline::new();
-        let island_manager = IslandManager::new();
-        let broad_phase = DefaultBroadPhase::new();
-        let narrow_phase = NarrowPhase::new();
-        let impulse_joint_set = ImpulseJointSet::new();
-        let multibody_joint_set = MultibodyJointSet::new();
-        let ccd_solver = CCDSolver::new();
-        let query_pipeline = QueryPipeline::new();
-        let physics_hooks = ();
-        let event_handler = ();
-
-        Self {
-            integration_parameters,
-            physics_pipeline,
-            island_manager,
-            broad_phase,
-            narrow_phase,
-            impulse_joint_set,
-            multibody_joint_set,
-            ccd_solver,
-            query_pipeline,
-            physics_hooks: Box::new(physics_hooks),
-            event_handler: Box::new(event_handler),
-        }
-    }
-}
-
 impl WindowEventHandler {
     pub fn new(
         event_loop: &EventLoop<()>,
@@ -180,7 +67,7 @@ impl WindowEventHandler {
     ) -> Self {
         let render_ctx = RenderContext::new(event_loop, &window_ctx, &vk_ctx);
         let rapier_ctx = RapierContext::new();
-        let perf_stats = PerformanceStats::new();
+        let perf_stats = PerformanceStats::default();
         let sim_flags = SimulationFlags {
             recreate_swapchain: false,
             is_paused: false,
@@ -365,13 +252,118 @@ impl WindowEventHandler {
             self.render_ctx.viewport.clone(),
         );
     }
+}
 
-    pub fn vulkancx(&self) -> VulkanoContext {
-        self.vk_ctx.clone()
+/// User-options for the application.
+#[derive(Default)]
+struct SimulationFlags {
+    pub recreate_swapchain: bool,
+    pub is_paused: bool,
+}
+
+/// Performance logging for debugging.
+#[derive(Default)]
+struct PerformanceStats {
+    pub framerates: Vec<f32>,
+}
+impl PerformanceStats {
+    fn avg(&self) -> f32 {
+        self.framerates.iter().sum::<f32>() / (self.framerates.len() as f32)
     }
+}
 
-    pub fn windowcx(&self) -> &WindowContext {
-        &self.window_ctx
+/// Holds all the necessary data required for rendering.
+struct RenderContext {
+    // Render-useful fields.
+    pub render_cb: Option<RefCell<RenderCommandBuffer>>,
+    pub vs: Arc<ShaderModule>,
+    pub fs: Arc<ShaderModule>,
+    pub render_pass: Arc<RenderPass>,
+    pub graphics_pipeline: Arc<GraphicsPipeline>,
+    // Fields for render-useful types.
+    pub swapchain: Arc<Swapchain>,
+    pub framebuffers: Vec<Arc<Framebuffer>>,
+    pub images: Vec<Arc<Image>>,
+    // Front-facing, render-useful types.
+    pub viewport: Viewport,
+}
+impl RenderContext {
+    fn new(
+        event_loop: &EventLoop<()>,
+        window_ctx: &WindowContext,
+        vk_ctx: &VulkanoContext,
+    ) -> Self {
+        let vs = super::shaders::vs::load(vk_ctx.device.clone()).unwrap();
+        let fs = super::shaders::fs::load(vk_ctx.device.clone()).unwrap();
+        let (swapchain, images) = create_swapchain_and_images(window_ctx, vk_ctx, event_loop);
+        let render_pass = get_render_pass(vk_ctx.device.clone(), &swapchain);
+        let framebuffers = get_framebuffers(&images, &render_pass);
+        let viewport = Viewport {
+            extent: [WINDOW_LENGTH; 2],
+            ..Default::default()
+        };
+        let graphics_pipeline = get_graphics_pipeline(
+            vk_ctx.device.clone(),
+            vs.clone(),
+            fs.clone(),
+            render_pass.clone(),
+            viewport.clone(),
+        );
+
+        Self {
+            render_cb: None,
+            vs,
+            fs,
+            render_pass,
+            graphics_pipeline,
+            viewport,
+            swapchain,
+            framebuffers,
+            images,
+        }
+    }
+}
+
+struct RapierContext {
+    pub integration_parameters: IntegrationParameters,
+    pub physics_pipeline: PhysicsPipeline,
+    pub island_manager: IslandManager,
+    pub broad_phase: BroadPhaseMultiSap,
+    pub narrow_phase: NarrowPhase,
+    pub impulse_joint_set: ImpulseJointSet,
+    pub multibody_joint_set: MultibodyJointSet,
+    pub ccd_solver: CCDSolver,
+    pub query_pipeline: QueryPipeline,
+    pub physics_hooks: Box<dyn PhysicsHooks>,
+    pub event_handler: Box<dyn EventHandler>,
+}
+impl RapierContext {
+    fn new() -> Self {
+        let integration_parameters = IntegrationParameters::default();
+        let physics_pipeline = PhysicsPipeline::new();
+        let island_manager = IslandManager::new();
+        let broad_phase = DefaultBroadPhase::new();
+        let narrow_phase = NarrowPhase::new();
+        let impulse_joint_set = ImpulseJointSet::new();
+        let multibody_joint_set = MultibodyJointSet::new();
+        let ccd_solver = CCDSolver::new();
+        let query_pipeline = QueryPipeline::new();
+        let physics_hooks = ();
+        let event_handler = ();
+
+        Self {
+            integration_parameters,
+            physics_pipeline,
+            island_manager,
+            broad_phase,
+            narrow_phase,
+            impulse_joint_set,
+            multibody_joint_set,
+            ccd_solver,
+            query_pipeline,
+            physics_hooks: Box::new(physics_hooks),
+            event_handler: Box::new(event_handler),
+        }
     }
 }
 
@@ -379,7 +371,6 @@ pub struct WindowContext {
     pub instance: Arc<Instance>,
     pub window: Arc<Window>,
 }
-
 impl WindowContext {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
         let window = Arc::new(
@@ -407,18 +398,20 @@ impl WindowContext {
     pub fn window(&self) -> Arc<Window> {
         self.window.clone()
     }
+    pub fn instance(&self) -> Arc<Instance> {
+        self.instance.clone()
+    }
 }
 
 #[derive(Clone)]
 pub struct VulkanoContext {
-    device: Arc<Device>,
-    queue_family_index: u32,
-    queue: Arc<Queue>,
-
-    memory_allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
-    command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
+    pub device: Arc<Device>,
+    pub queue_family_index: u32,
+    pub queue: Arc<Queue>,
+    // Allocators.
+    pub memory_allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
+    pub command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
 }
-
 impl VulkanoContext {
     pub fn with_window_context(win_ctx: &WindowContext, event_loop: &EventLoop<()>) -> Self {
         let (device, queue_family_index, queue) =
@@ -434,26 +427,6 @@ impl VulkanoContext {
             memory_allocator,
             command_buffer_allocator: Arc::new(command_buffer_allocator),
         }
-    }
-
-    pub fn get_device(&self) -> Arc<Device> {
-        self.device.clone()
-    }
-
-    pub fn get_queue(&self) -> Arc<Queue> {
-        self.queue.clone()
-    }
-
-    pub fn get_queue_family_index(&self) -> u32 {
-        self.queue_family_index
-    }
-
-    pub fn get_memory_allocator(&self) -> Arc<GenericMemoryAllocator<FreeListAllocator>> {
-        self.memory_allocator.clone()
-    }
-
-    pub fn get_command_buffer_allocator(&self) -> Arc<StandardCommandBufferAllocator> {
-        self.command_buffer_allocator.clone()
     }
 }
 
