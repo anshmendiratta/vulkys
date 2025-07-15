@@ -1,9 +1,4 @@
 use rapier2d::na::vector;
-use rapier2d::prelude::{
-    BroadPhaseMultiSap, CCDSolver, DefaultBroadPhase, EventHandler, ImpulseJointSet,
-    IntegrationParameters, IslandManager, MultibodyJointSet, NarrowPhase, PhysicsHooks,
-    PhysicsPipeline, QueryPipeline,
-};
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::time::Instant;
@@ -11,35 +6,23 @@ use tracing::{error, info};
 use vulkano::buffer::BufferContents;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
-use vulkano::command_buffer::{self};
-use vulkano::device::{Device, Queue};
-use vulkano::image::Image;
-use vulkano::instance::{Instance, InstanceCreateInfo};
-use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
-use vulkano::pipeline::graphics::viewport::Viewport;
-use vulkano::pipeline::GraphicsPipeline;
-use vulkano::render_pass::{Framebuffer, RenderPass};
-use vulkano::shader::ShaderModule;
-use vulkano::swapchain::{self, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo};
+use vulkano::swapchain::{self, SwapchainCreateInfo, SwapchainPresentInfo};
 use vulkano::sync::GpuFuture;
-use vulkano::{sync, Validated, VulkanError, VulkanLibrary};
+use vulkano::{sync, Validated, VulkanError};
 use winit::dpi::Size;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
-use winit::window::{Window, WindowBuilder};
 
 use crate::physics::scene::Scene;
-use crate::vulkan::core::command_buffer::allocator::StandardCommandBufferAllocator;
+use crate::vulkan::contexts::VulkanoContext;
 use crate::vulkan::primitives::get_graphics_pipeline;
 use crate::{FVec2, WINDOW_LENGTH};
 
-use super::primitives::{
-    self, create_command_buffer_allocator, create_memory_allocator, create_swapchain_and_images,
-    get_framebuffers, get_render_command_buffers, get_render_pass, get_required_extensions,
-};
-use super::type_aliases::{FenceFuture, RenderCommandBuffer};
+use super::contexts::{RapierContext, RenderContext, WindowContext};
+use super::primitives::{get_framebuffers, get_render_command_buffers};
+use super::type_aliases::FenceFuture;
 
-const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
+pub const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     width: WINDOW_LENGTH as u32,
     height: WINDOW_LENGTH as u32,
 });
@@ -59,6 +42,7 @@ pub struct WindowEventHandler {
     performance_stats: PerformanceStats,
     simulation_flags: SimulationFlags,
 }
+
 impl WindowEventHandler {
     pub fn new(
         event_loop: &EventLoop<()>,
@@ -72,7 +56,7 @@ impl WindowEventHandler {
             recreate_swapchain: false,
             is_paused: false,
         };
-        let frames_in_flight = render_ctx.images.len();
+        let frames_in_flight = render_ctx.images().len();
         let fences = vec![None; frames_in_flight];
         let previous_fence_i = 0;
 
@@ -136,6 +120,7 @@ impl WindowEventHandler {
                 }
 
                 // TODO: Do physics with rapier.
+                // BUG: "No element at index".
                 self.rapier_ctx.physics_pipeline.step(
                     &vector![0.0, scene.gravity],
                     &self.rapier_ctx.integration_parameters,
@@ -241,6 +226,7 @@ impl WindowEventHandler {
                 ..self.render_ctx.swapchain.create_info()
             })
             .expect("failed to recreate swapchain: {e}");
+
         self.render_ctx.swapchain = new_swapchain;
         self.render_ctx.framebuffers = get_framebuffers(&new_images, &self.render_ctx.render_pass);
         self.render_ctx.viewport.extent = self.window_ctx.window.inner_size().into();
@@ -269,167 +255,6 @@ struct PerformanceStats {
 impl PerformanceStats {
     fn avg(&self) -> f32 {
         self.framerates.iter().sum::<f32>() / (self.framerates.len() as f32)
-    }
-}
-
-/// Holds all the necessary data required for rendering.
-struct RenderContext {
-    // Render-useful fields.
-    pub render_cb: Option<RefCell<RenderCommandBuffer>>,
-    pub vs: Arc<ShaderModule>,
-    pub fs: Arc<ShaderModule>,
-    pub render_pass: Arc<RenderPass>,
-    pub graphics_pipeline: Arc<GraphicsPipeline>,
-    // Fields for render-useful types.
-    pub swapchain: Arc<Swapchain>,
-    pub framebuffers: Vec<Arc<Framebuffer>>,
-    pub images: Vec<Arc<Image>>,
-    // Front-facing, render-useful types.
-    pub viewport: Viewport,
-}
-impl RenderContext {
-    fn new(
-        event_loop: &EventLoop<()>,
-        window_ctx: &WindowContext,
-        vk_ctx: &VulkanoContext,
-    ) -> Self {
-        let vs = super::shaders::vs::load(vk_ctx.get_device().clone()).unwrap();
-        let fs = super::shaders::fs::load(vk_ctx.get_device().clone()).unwrap();
-        let (swapchain, images) = create_swapchain_and_images(window_ctx, vk_ctx, event_loop);
-        let render_pass = get_render_pass(vk_ctx.get_device().clone(), swapchain.clone());
-        let framebuffers = get_framebuffers(&images, &render_pass);
-        let viewport = Viewport {
-            extent: [WINDOW_LENGTH; 2],
-            ..Default::default()
-        };
-        let graphics_pipeline = get_graphics_pipeline(
-            vk_ctx.device.clone(),
-            vs.clone(),
-            fs.clone(),
-            render_pass.clone(),
-            viewport.clone(),
-        );
-
-        Self {
-            render_cb: None,
-            vs,
-            fs,
-            render_pass,
-            graphics_pipeline,
-            viewport,
-            swapchain,
-            framebuffers,
-            images,
-        }
-    }
-}
-
-struct RapierContext {
-    pub integration_parameters: IntegrationParameters,
-    pub physics_pipeline: PhysicsPipeline,
-    pub island_manager: IslandManager,
-    pub broad_phase: BroadPhaseMultiSap,
-    pub narrow_phase: NarrowPhase,
-    pub impulse_joint_set: ImpulseJointSet,
-    pub multibody_joint_set: MultibodyJointSet,
-    pub ccd_solver: CCDSolver,
-    pub query_pipeline: QueryPipeline,
-    pub physics_hooks: Box<dyn PhysicsHooks>,
-    pub event_handler: Box<dyn EventHandler>,
-}
-impl RapierContext {
-    fn new() -> Self {
-        let integration_parameters = IntegrationParameters::default();
-        let physics_pipeline = PhysicsPipeline::new();
-        let island_manager = IslandManager::new();
-        let broad_phase = DefaultBroadPhase::new();
-        let narrow_phase = NarrowPhase::new();
-        let impulse_joint_set = ImpulseJointSet::new();
-        let multibody_joint_set = MultibodyJointSet::new();
-        let ccd_solver = CCDSolver::new();
-        let query_pipeline = QueryPipeline::new();
-        let physics_hooks = ();
-        let event_handler = ();
-
-        Self {
-            integration_parameters,
-            physics_pipeline,
-            island_manager,
-            broad_phase,
-            narrow_phase,
-            impulse_joint_set,
-            multibody_joint_set,
-            ccd_solver,
-            query_pipeline,
-            physics_hooks: Box::new(physics_hooks),
-            event_handler: Box::new(event_handler),
-        }
-    }
-}
-
-pub struct WindowContext {
-    pub instance: Arc<Instance>,
-    pub window: Arc<Window>,
-}
-impl WindowContext {
-    pub fn new(event_loop: &EventLoop<()>) -> Self {
-        let window = Arc::new(
-            WindowBuilder::new()
-                .with_title("vulkys")
-                .with_inner_size(WINDOW_DIMENSION)
-                .with_resizable(false)
-                .build(&event_loop)
-                .unwrap(),
-        );
-        let (_, required_extensions) = get_required_extensions(&event_loop);
-        let library = VulkanLibrary::new().expect("could not find local vulkan");
-        let instance = Instance::new(
-            library,
-            InstanceCreateInfo {
-                enabled_extensions: required_extensions,
-                ..Default::default()
-            },
-        )
-        .expect("failed to create instance");
-
-        Self { instance, window }
-    }
-
-    pub fn window(&self) -> Arc<Window> {
-        self.window.clone()
-    }
-    pub fn instance(&self) -> Arc<Instance> {
-        self.instance.clone()
-    }
-}
-
-#[derive(Clone)]
-pub struct VulkanoContext {
-    pub device: Arc<Device>,
-    pub queue_family_index: u32,
-    pub queue: Arc<Queue>,
-    // Allocators.
-    pub memory_allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
-    pub command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
-}
-impl VulkanoContext {
-    pub fn with_window_context(win_ctx: &WindowContext, event_loop: &EventLoop<()>) -> Self {
-        let (device, queue_family_index, queue) =
-            primitives::select_device_and_queue(win_ctx, event_loop);
-        let memory_allocator = create_memory_allocator(device.clone());
-        let command_buffer_allocator = create_command_buffer_allocator(device.clone());
-
-        Self {
-            device,
-            queue_family_index,
-            queue,
-
-            memory_allocator,
-            command_buffer_allocator: Arc::new(command_buffer_allocator),
-        }
-    }
-    pub fn get_device(&self) -> Arc<Device> {
-        self.device.clone()
     }
 }
 

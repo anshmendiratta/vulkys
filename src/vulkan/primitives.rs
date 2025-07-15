@@ -43,7 +43,8 @@ use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use winit::event_loop::EventLoop;
 
-use super::core::{CustomVertex, VulkanoContext, WindowContext};
+use super::contexts::{VulkanoContext, WindowContext};
+use super::core::CustomVertex;
 use super::shaders::update_cs;
 use super::type_aliases::ComputeBufferBuilder;
 

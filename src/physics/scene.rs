@@ -11,7 +11,8 @@ use vulkano::{
 use winit::event_loop::EventLoop;
 
 use crate::vulkan::{
-    core::{CustomVertex, VulkanoContext, WindowContext, WindowEventHandler},
+    contexts::{VulkanoContext, WindowContext},
+    core::{CustomVertex, WindowEventHandler},
     procedural::Polygon,
 };
 
@@ -50,9 +51,8 @@ impl Scene {
 
             objects_map.insert(handle_index, polygon);
             collider_set.insert_with_parent(cb, handle_index, &mut rigid_body_set);
-
-            dbg!(collider_set.len(), rigid_body_set.len());
         }
+        dbg!(collider_set.len(), rigid_body_set.len());
 
         Self {
             dt: scene_info.dt,
