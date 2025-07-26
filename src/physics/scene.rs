@@ -1,7 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
+use ecolor::Color32;
 use nalgebra::vector;
-use rapier2d::prelude::{ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet};
+use rapier2d::prelude::{
+    ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
+};
 use vulkano::buffer::{Buffer, Subbuffer};
 use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
 use vulkano::{
@@ -10,11 +13,13 @@ use vulkano::{
 };
 use winit::event_loop::EventLoop;
 
+use crate::vulkan::procedural::generate_polygon_triangles;
 use crate::vulkan::{
     contexts::{VulkanoContext, WindowContext},
     core::{CustomVertex, WindowEventHandler},
     procedural::Polygon,
 };
+use crate::FVec2;
 
 use super::rigidbody::{convert_rigidbody_to_collider_builder, RigidBody};
 
@@ -27,7 +32,8 @@ pub struct SceneInfo {
 
 #[allow(dead_code)]
 pub struct Scene {
-    pub polygon_set: HashMap<RigidBodyHandle, Polygon>,
+    index_map: HashMap<u128, (RigidBodyHandle, ColliderHandle)>,
+    pub polygon_set: HashMap<u128, (Polygon, Color32)>,
     pub rigid_body_set: RigidBodySet,
     pub collider_set: ColliderSet,
     pub gravity: f32,
@@ -37,28 +43,31 @@ pub struct Scene {
 impl Scene {
     /// Initializes a new scene with the `RigidBody`s passed in.
     pub fn with_info(scene_info: SceneInfo) -> Self {
-        let mut objects_map: HashMap<RigidBodyHandle, Polygon> = HashMap::new();
+        let mut index_map = HashMap::new();
+        let mut polygon_set: HashMap<u128, (Polygon, Color32)> = HashMap::new();
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
 
-        for rb in scene_info.objects {
+        for (i, rb) in scene_info.objects.iter().enumerate() {
             let rb_position = rb.get_position();
             let polygon = rb.to_polygon();
-            let cb = convert_rigidbody_to_collider_builder(rb).build();
+            let color = rb.get_color();
+            let cb = convert_rigidbody_to_collider_builder(rb.clone()).build();
             let rbb =
                 RigidBodyBuilder::dynamic().translation(vector![rb_position.x, rb_position.y]);
-            let handle_index = rigid_body_set.insert(rbb);
+            let rb_handle = rigid_body_set.insert(rbb);
 
-            objects_map.insert(handle_index, polygon);
-            collider_set.insert_with_parent(cb, handle_index, &mut rigid_body_set);
+            let cb_handle = collider_set.insert_with_parent(cb, rb_handle, &mut rigid_body_set);
+            polygon_set.insert(i as u128, (polygon, color));
+            index_map.insert(i as u128, (rb_handle, cb_handle));
         }
-        dbg!(collider_set.len(), rigid_body_set.len());
 
         Self {
+            index_map,
             dt: scene_info.dt,
-            polygon_set: objects_map,
+            polygon_set,
             rigid_body_set,
-            collider_set: ColliderSet::new(),
+            collider_set,
             gravity: scene_info.gravity,
         }
     }
@@ -70,7 +79,7 @@ impl Scene {
         let vertex_buffer_data = {
             let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(self.polygon_set.len() * 3);
             for (_, polygon) in &self.polygon_set {
-                buffer_data = [buffer_data, polygon.clone().into_flattened()].concat();
+                buffer_data = [buffer_data, polygon.clone().0.into_flattened()].concat();
             }
             buffer_data
         };
@@ -88,6 +97,32 @@ impl Scene {
             vertex_buffer_data.clone(),
         )
         .expect("scene: could not produce vertex buffer from objects")
+    }
+
+    pub fn update_polygon_set(&mut self) {
+        for (i, (rb_handle, cb_handle)) in self.index_map.iter() {
+            let rigid_body = self.rigid_body_set.get(*rb_handle).unwrap();
+            let collider_body = self.collider_set.get(*cb_handle).unwrap();
+            let (x, y) = (
+                rigid_body.position().translation.vector[0],
+                rigid_body.position().translation.vector[1],
+            );
+            let color = self.polygon_set[i].1;
+            let radius = collider_body.shape().as_ball().unwrap().radius;
+            // NOTE: Temporary.
+            let vertex_count = 32; // Circle.
+            let polygon: Vec<[CustomVertex; 3]> = generate_polygon_triangles(
+                vertex_count,
+                FVec2::new(x, y).to_custom_vertex(Some(color)),
+                radius,
+                color,
+            );
+
+            // Update map.
+            self.polygon_set.entry(*i).and_modify(move |p| {
+                *p = (polygon, color);
+            });
+        }
     }
 
     pub fn run(self) {

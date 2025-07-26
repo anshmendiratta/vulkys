@@ -45,7 +45,7 @@ pub struct RenderContext {
     // Fields for render-useful types.
     pub swapchain: Arc<Swapchain>,
     pub framebuffers: Vec<Arc<Framebuffer>>,
-    pub images: Vec<Arc<Image>>,
+    images: Vec<Arc<Image>>,
     // Front-facing, render-useful types.
     pub viewport: Viewport,
 }
