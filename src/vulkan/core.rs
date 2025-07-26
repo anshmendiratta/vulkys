@@ -353,7 +353,7 @@ impl RapierContext {
 
         Self {
             integration_parameters,
-            physics_pipeline,
+            physics_pipeline {}
             island_manager,
             broad_phase,
             narrow_phase,
@@ -430,6 +430,12 @@ impl VulkanoContext {
     }
     pub fn get_device(&self) -> Arc<Device> {
         self.device.clone()
+    }
+    pub fn get_queue_family_index(&self) -> u32 {
+        self.queue_family_index
+    }
+    pub fn get_command_buffer_allocator(&self) -> Arc<StandardCommandBufferAllocator> {
+        self.command_buffer_allocator.clone()
     }
 }
 

@@ -58,7 +58,7 @@ impl Scene {
             dt: scene_info.dt,
             polygon_set: objects_map,
             rigid_body_set,
-            collider_set: ColliderSet::new(),
+            collider_set,
             gravity: scene_info.gravity,
         }
     }
@@ -88,6 +88,10 @@ impl Scene {
             vertex_buffer_data.clone(),
         )
         .expect("scene: could not produce vertex buffer from objects")
+    }
+
+    fn update_polygon_set(&mut self) {
+        for (handle, object) in self.rigid_body_set.iter() {}
     }
 
     pub fn run(self) {
