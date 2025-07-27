@@ -61,7 +61,7 @@ fn main() {
     let scene_info = SceneInfo {
         objects,
         dt: 1e-3,
-        gravity: 0.2,
+        gravity: 1.0,
     };
     let scene: Scene = Scene::with_info(scene_info);
     // Running simulation
