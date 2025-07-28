@@ -63,7 +63,7 @@ fn main() {
             position: FVec2::new(0., -0.5),
             velocity: FVec2::new(2.75, 2.6),
             color: Color32::from_hex("#7D7ABC").unwrap(),
-            orientation: 0.3,
+            rotation: 0.0,
         },
         2,
     );

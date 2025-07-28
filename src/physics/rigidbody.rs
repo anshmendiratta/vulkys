@@ -52,13 +52,13 @@ pub fn convert_rigidbody_to_collider_builder(rb: RigidBody) -> ColliderBuilder {
         RigidBody::Square_(
             Square {
                 half_extent,
-                orientation,
+                rotation,
                 ..
             },
             _,
         ) => ColliderBuilder::cuboid(half_extent.x, half_extent.y)
             .restitution(COEFF_RESTITUTION)
-            .rotation(orientation),
+            .rotation(rotation),
         // _ => unreachable!(),
     }
 }
@@ -106,7 +106,7 @@ impl RigidBody {
                     half_extent,
                     position,
                     velocity,
-                    orientation,
+                    rotation: orientation,
                     color,
                 },
                 _,
@@ -114,7 +114,7 @@ impl RigidBody {
                 half_extent: *half_extent,
                 position: *position,
                 velocity: *velocity,
-                orientation: *orientation,
+                rotation: *orientation,
                 color: *color,
             }),
         }

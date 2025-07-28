@@ -20,10 +20,12 @@ pub fn generate_polygon_triangles(
         return vec![[with_center.clone(), with_center.clone(), with_center]];
     }
 
+    let polygon_external_angle = PI / n as f32;
+
     let angles: Vec<f32> = vec![0.; n as usize]
         .into_iter()
         .enumerate()
-        .map(|(idx, _)| 2.0 * PI / (n as f32) * idx as f32)
+        .map(|(idx, _)| polygon_external_angle + 2.0 * PI / (n as f32) * idx as f32)
         .collect();
 
     let mut outer_coordinates: Vec<CustomVertex> = angles

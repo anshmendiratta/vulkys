@@ -59,7 +59,7 @@ impl Scene {
             let rb_handle = rigid_body_set.insert(rbb);
             let cb_handle = collider_set.insert_with_parent(cb, rb_handle, &mut rigid_body_set);
             let rotation = rigid_body_set.get(rb_handle).unwrap().rotation();
-            let polygon = rb.to_polygon(rotation.re);
+            let polygon = rb.to_polygon(rotation.angle());
 
             object_set.insert(i as u128, (rb.clone(), polygon, color));
             index_map.insert(i as u128, (rb_handle, cb_handle));
@@ -162,7 +162,7 @@ impl Scene {
                         .shape()
                         .as_cuboid()
                         .unwrap()
-                        .bounding_sphere(rapier_rigid_body.position())
+                        .local_bounding_sphere()
                         .radius
                 }
                 _ => unreachable!(),
@@ -173,7 +173,7 @@ impl Scene {
                 vertex_count,
                 FVec2::new(x, y).to_custom_vertex(Some(color.clone())),
                 radius,
-                rapier_rigid_body.rotation().re,
+                rapier_rigid_body.rotation().angle(),
                 color.clone(),
             );
 

@@ -9,7 +9,7 @@ pub struct Square {
     pub half_extent: FVec2,
     pub position: FVec2,
     pub velocity: FVec2,
-    pub orientation: f32,
+    pub rotation: f32,
     pub color: Color32,
 }
 
@@ -38,7 +38,7 @@ impl Square {
         self.half_extent
     }
     pub fn get_orientation(&self) -> f32 {
-        self.orientation
+        self.rotation
     }
 }
 
