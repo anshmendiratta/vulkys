@@ -19,6 +19,7 @@ Example mains in `examples/`.
   - Mint (Sway): Complete.
   - Ubuntu (WSL): Complete.
 - Windows: image format runtime error.
+- MacOS: Complete.
 
 ## Commits
 

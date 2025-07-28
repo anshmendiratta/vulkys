@@ -1,11 +1,12 @@
 use ecolor::Color32;
 use vulkys::{
+    FVec2,
     physics::{
         circle::Circle,
         rigidbody::RigidBody,
         scene::{Scene, SceneInfo},
+        square::Square,
     },
-    FVec2,
 };
 
 fn main() {
@@ -47,16 +48,26 @@ fn main() {
         },
         1,
     );
-    let circle_3: RigidBody = RigidBody::Circle_(
-        Circle {
-            radius: 0.3,
+    // let circle_3: RigidBody = RigidBody::Circle_(
+    //     Circle {
+    //         radius: 0.3,
+    //         position: FVec2::new(0., -0.5),
+    //         velocity: FVec2::new(2.75, 2.6),
+    //         color: Color32::from_hex("#7D7ABC").unwrap(),
+    //     },
+    //     2,
+    // );
+    let square_1: RigidBody = RigidBody::Square_(
+        Square {
+            half_extent: FVec2::new(0.5, 0.5),
             position: FVec2::new(0., -0.5),
             velocity: FVec2::new(2.75, 2.6),
             color: Color32::from_hex("#7D7ABC").unwrap(),
+            orientation: 0.3,
         },
         2,
     );
-    let objects: Vec<RigidBody> = vec![circle_1, circle_2, circle_3];
+    let objects: Vec<RigidBody> = vec![circle_1, circle_2, square_1];
     // Initialize scene
     let scene_info = SceneInfo {
         objects,
