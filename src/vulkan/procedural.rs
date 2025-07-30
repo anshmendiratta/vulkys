@@ -1,8 +1,7 @@
-use crate::FVec2;
-
 use super::core::CustomVertex;
 
 use ecolor::Color32;
+use glm::Vec3;
 use libm::{cos, sin};
 use std::f32::consts::PI;
 
@@ -31,11 +30,13 @@ pub fn generate_polygon_triangles(
     let mut outer_coordinates: Vec<CustomVertex> = angles
         .iter()
         .map(|angle| CustomVertex {
-            position_in: FVec2::new(
+            // TODO: Add z component. Temporary zero.
+            position: Vec3::new(
                 with_long_radius * (cos((angle.clone() + with_rotation) as f64) as f32)
-                    + with_center.position_in.x,
+                    + with_center.position.x,
                 with_long_radius * (sin((angle.clone() + with_rotation) as f64) as f32)
-                    + with_center.position_in.y,
+                    + with_center.position.y,
+                0.,
             ),
             color: with_color.to_array(),
         })

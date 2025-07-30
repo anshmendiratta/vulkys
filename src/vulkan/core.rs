@@ -1,5 +1,6 @@
 #![allow(static_mut_refs)]
 
+use glm::Vec3;
 use nalgebra::vector;
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -15,10 +16,10 @@ use winit::dpi::Size;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
 
+use crate::WINDOW_LENGTH;
 use crate::physics::scene::Scene;
 use crate::vulkan::contexts::VulkanoContext;
 use crate::vulkan::primitives::get_graphics_pipeline;
-use crate::{FVec2, WINDOW_LENGTH};
 
 use super::camera;
 use super::contexts::{RapierContext, RenderContext, WindowContext};
@@ -453,7 +454,7 @@ impl PerformanceStats {
 #[repr(C)]
 pub struct CustomVertex {
     #[format(R32G32_SFLOAT)]
-    pub position_in: FVec2,
+    pub position: Vec3,
     #[format(R8G8B8A8_UNORM)]
     pub color: [u8; 4],
 }

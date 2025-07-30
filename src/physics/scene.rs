@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use ecolor::Color32;
+use glm::Vec3;
 use nalgebra::vector;
 use rapier2d::prelude::{
     ColliderBuilder, ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
@@ -13,7 +14,6 @@ use vulkano::{
 };
 use winit::event_loop::EventLoop;
 
-use crate::FVec2;
 use crate::vulkan::procedural::generate_polygon_triangles;
 use crate::vulkan::{
     contexts::{VulkanoContext, WindowContext},
@@ -171,7 +171,10 @@ impl Scene {
             let vertex_count = self.object_set.get(i).unwrap().0.get_vertex_count(); // Circle.
             let polygon: Vec<[CustomVertex; 3]> = generate_polygon_triangles(
                 vertex_count,
-                FVec2::new(x, y).to_custom_vertex(Some(color.clone())),
+                CustomVertex {
+                    position: Vec3::new(x, y, 0.),
+                    color: color.to_array(),
+                },
                 radius,
                 rapier_rigid_body.rotation().angle(),
                 color.clone(),

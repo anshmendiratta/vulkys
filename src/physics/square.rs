@@ -1,14 +1,13 @@
 use ecolor::Color32;
-
-use crate::FVec2;
+use glm::Vec3;
 
 use super::rigidbody::GenericObject;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Square {
-    pub half_extent: FVec2,
-    pub position: FVec2,
-    pub velocity: FVec2,
+    pub half_extent: Vec3,
+    pub position: Vec3,
+    pub velocity: Vec3,
     pub rotation: f32,
     pub color: Color32,
 }
@@ -22,7 +21,7 @@ impl GenericObject for Square {
             self.half_extent, self.position, self.velocity
         )
     }
-    fn get_position(&self) -> FVec2 {
+    fn get_position(&self) -> Vec3 {
         self.position
     }
     fn get_color(&self) -> Color32 {
@@ -34,7 +33,7 @@ impl GenericObject for Square {
 }
 
 impl Square {
-    pub fn get_half_extent(&self) -> FVec2 {
+    pub fn get_half_extent(&self) -> Vec3 {
         self.half_extent
     }
     pub fn get_orientation(&self) -> f32 {
@@ -60,7 +59,7 @@ impl Square {
 //         None
 //     }
 //     fn resolve_world_collision(&mut self, in_boundaries_xy: WorldCollisionInfo) {
-//         let mut distance_to_offset = FVec2::new(0., 0.);
+//         let mut distance_to_offset = Vec3::new(0., 0.);
 //         let position = self.get_position();
 //         if !in_boundaries_xy.get_crossed_x() {
 //             self.velocity.x *= -1. * COEFF_RESTITUTION;

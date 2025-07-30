@@ -1,12 +1,10 @@
 use ecolor::Color32;
-use vulkys::{
-    physics::{
-        circle::Circle,
-        rigidbody::RigidBody,
-        scene::{Scene, SceneInfo},
-        square::Square,
-    },
-    FVec2,
+use nalgebra_glm::Vec3;
+use vulkys::physics::{
+    circle::Circle,
+    rigidbody::RigidBody,
+    scene::{Scene, SceneInfo},
+    square::Square,
 };
 
 fn main() {
@@ -33,8 +31,8 @@ fn main() {
     let circle_1: RigidBody = RigidBody::Circle_(
         Circle {
             radius: 0.25,
-            position: FVec2::new(0.5, 0.5),
-            velocity: FVec2::new(-1.5, -1.0),
+            position: Vec3::new(0.5, 0.5, 0.5),
+            velocity: Vec3::new(-1.5, -1.0, 0.),
             color: Color32::from_hex("#23F0C7").unwrap(),
         },
         0,
@@ -42,8 +40,8 @@ fn main() {
     let circle_2: RigidBody = RigidBody::Circle_(
         Circle {
             radius: 0.25,
-            position: FVec2::new(-0.5, 0.65),
-            velocity: FVec2::new(1.5, 0.),
+            position: Vec3::new(-0.5, 0.65, 1.),
+            velocity: Vec3::new(1.5, 0., 0.),
             color: Color32::from_hex("#EF767A").unwrap(),
         },
         1,
@@ -51,17 +49,17 @@ fn main() {
     // let circle_3: RigidBody = RigidBody::Circle_(
     //     Circle {
     //         radius: 0.3,
-    //         position: FVec2::new(0., -0.5),
-    //         velocity: FVec2::new(2.75, 2.6),
+    //         position: Vec3::new(0., -0.5),
+    //         velocity: Vec3::new(2.75, 2.6),
     //         color: Color32::from_hex("#7D7ABC").unwrap(),
     //     },
     //     2,
     // );
     let square_1: RigidBody = RigidBody::Square_(
         Square {
-            half_extent: FVec2::new(0.2, 0.2),
-            position: FVec2::new(0., -0.5),
-            velocity: FVec2::new(2.75, 2.6),
+            half_extent: Vec3::new(0.2, 0.2, 0.2),
+            position: Vec3::new(0., -0.5, 1.),
+            velocity: Vec3::new(2.75, 2.6, 0.),
             color: Color32::from_hex("#7D7ABC").unwrap(),
             rotation: 0.0,
         },

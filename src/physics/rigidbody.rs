@@ -2,9 +2,12 @@ use super::circle::Circle;
 use super::lib::COEFF_RESTITUTION;
 use super::square::Square;
 
-use crate::FVec2;
-use crate::vulkan::procedural::{Polygon, generate_polygon_triangles};
+use crate::vulkan::{
+    core::CustomVertex,
+    procedural::{Polygon, generate_polygon_triangles},
+};
 use ecolor::Color32;
+use glm::Vec3;
 use rapier2d::prelude::ColliderBuilder;
 
 #[derive(PartialEq, Clone, Copy)]
@@ -31,7 +34,7 @@ impl RigidBodySelection {
 pub trait GenericObject {
     fn get_debug(&self) -> String;
     fn get_radius(&self) -> f32;
-    fn get_position(&self) -> FVec2;
+    fn get_position(&self) -> Vec3;
     fn get_color(&self) -> Color32;
 }
 
@@ -129,10 +132,14 @@ impl RigidBody {
         let inner_object = self.get_object();
         let long_radius = inner_object.get_radius();
         let position = inner_object.get_position();
-        let center_coordinate = FVec2::new(position.x, position.y);
+        // TODO: Add z component. Temporary zero.
+        let center_coordinate = Vec3::new(position.x, position.y, 0.);
         generate_polygon_triangles(
             self.get_vertex_count(),
-            center_coordinate.to_custom_vertex(Some(self.get_color())),
+            CustomVertex {
+                position: center_coordinate,
+                color: self.get_color().to_array(),
+            },
             long_radius,
             rotation,
             self.get_color(),
@@ -150,25 +157,25 @@ impl RigidBody {
             RigidBody::Square_(c, _) => c.get_radius(),
         }
     }
-    pub fn get_position(&self) -> FVec2 {
+    pub fn get_position(&self) -> Vec3 {
         match self {
             RigidBody::Circle_(c, _) => c.position,
             RigidBody::Square_(c, _) => c.position,
         }
     }
-    pub fn get_velocity(&self) -> FVec2 {
+    pub fn get_velocity(&self) -> Vec3 {
         match self {
             RigidBody::Circle_(c, _) => c.velocity,
             RigidBody::Square_(c, _) => c.velocity,
         }
     }
-    pub fn update_position(&mut self, position: FVec2) {
+    pub fn update_position(&mut self, position: Vec3) {
         match self {
             RigidBody::Circle_(c, _) => c.position = position,
             RigidBody::Square_(c, _) => c.position = position,
         }
     }
-    pub fn update_velocity(&mut self, velocity: FVec2) {
+    pub fn update_velocity(&mut self, velocity: Vec3) {
         match self {
             RigidBody::Circle_(c, _) => c.velocity = velocity,
             RigidBody::Square_(c, _) => c.velocity = velocity,
