@@ -453,7 +453,7 @@ impl PerformanceStats {
 #[derive(BufferContents, Vertex, Debug, Clone, PartialEq)]
 #[repr(C)]
 pub struct CustomVertex {
-    #[format(R32G32_SFLOAT)]
+    #[format(R32G32B32_SFLOAT)]
     pub position: Vec3,
     #[format(R8G8B8A8_UNORM)]
     pub color: [u8; 4],
