@@ -1,12 +1,12 @@
 use ecolor::Color32;
 use vulkys::{
-    FVec2,
     physics::{
         circle::Circle,
         rigidbody::RigidBody,
         scene::{Scene, SceneInfo},
         square::Square,
     },
+    FVec2,
 };
 
 fn main() {
@@ -59,7 +59,7 @@ fn main() {
     // );
     let square_1: RigidBody = RigidBody::Square_(
         Square {
-            half_extent: FVec2::new(0.5, 0.5),
+            half_extent: FVec2::new(0.2, 0.2),
             position: FVec2::new(0., -0.5),
             velocity: FVec2::new(2.75, 2.6),
             color: Color32::from_hex("#7D7ABC").unwrap(),

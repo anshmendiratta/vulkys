@@ -34,18 +34,23 @@ use vulkano::pipeline::graphics::vertex_input::VertexDefinition;
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
+use vulkano::pipeline::layout::PipelineLayoutCreateFlags;
+use vulkano::pipeline::layout::PipelineLayoutCreateInfo;
+use vulkano::pipeline::layout::PushConstantRange;
 use vulkano::pipeline::ComputePipeline;
 use vulkano::pipeline::Pipeline;
 use vulkano::pipeline::PipelineBindPoint;
 use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo};
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
+use vulkano::shader::ShaderStages;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use winit::event_loop::EventLoop;
 
+use crate::vulkan::contexts::PushConstants;
+
 use super::contexts::{VulkanoContext, WindowContext};
 use super::core::CustomVertex;
-use super::shaders::update_cs;
 use super::type_aliases::ComputeBufferBuilder;
 
 pub fn get_required_extensions(
@@ -63,7 +68,6 @@ pub fn get_compute_command_buffer<T: BufferContents + ?Sized>(
     vk_ctx: VulkanoContext,
     shader: Arc<ShaderModule>,
     data: Vec<Subbuffer<T>>,
-    push_constants: Option<update_cs::ComputeConstants>,
     work_group_counts: [u32; 3],
 ) -> Result<ComputeBufferBuilder> {
     let (device, queue_family_index) = (vk_ctx.get_device(), vk_ctx.get_queue_family_index());
@@ -115,9 +119,9 @@ pub fn get_compute_command_buffer<T: BufferContents + ?Sized>(
             0,
             descriptor_set,
         )?;
-    if let Some(constants) = push_constants {
-        command_buffer_builder.push_constants(pipeline_layout.clone(), 0, constants)?;
-    };
+    // if let Some(constants) = push_constants {
+    //     command_buffer_builder.push_constants(pipeline_layout.clone(), 0, constants)?;
+    // };
     command_buffer_builder.dispatch(work_group_counts)?;
 
     Ok(command_buffer_builder)
@@ -283,12 +287,25 @@ pub fn create_command_buffer_allocator(device: Arc<Device>) -> StandardCommandBu
 }
 
 pub fn get_render_command_buffers(
+    device: Arc<Device>,
     command_buffer_allocator: &StandardCommandBufferAllocator,
-    queue: &Arc<Queue>,
-    pipeline: &Arc<GraphicsPipeline>,
-    framebuffers: &Vec<Arc<Framebuffer>>,
+    queue: Arc<Queue>,
+    pipeline: Arc<GraphicsPipeline>,
+    framebuffers: Vec<Arc<Framebuffer>>,
     vertex_buffer: &Subbuffer<[CustomVertex]>,
 ) -> anyhow::Result<Vec<Arc<PrimaryAutoCommandBuffer>>> {
+    let push_constants = PushConstants::new();
+    let pipeline_layout_create_info = PipelineLayoutCreateInfo {
+        flags: PipelineLayoutCreateFlags::empty(),
+        push_constant_ranges: vec![PushConstantRange {
+            stages: ShaderStages::VERTEX,
+            size: std::mem::size_of::<PushConstants>() as u32,
+            offset: 0,
+        }],
+        ..Default::default()
+    };
+    let pipeline_layout = PipelineLayout::new(device, pipeline_layout_create_info).unwrap();
+
     framebuffers
         .iter()
         .map(
@@ -301,6 +318,8 @@ pub fn get_render_command_buffers(
                 .unwrap();
 
                 command_buffer_builder
+                    .push_constants(pipeline_layout.clone(), 0, push_constants)
+                    .unwrap()
                     .begin_render_pass(
                         RenderPassBeginInfo {
                             clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],

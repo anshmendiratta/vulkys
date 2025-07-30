@@ -1,21 +1,23 @@
 use std::{cell::RefCell, sync::Arc};
 
+use bytemuck::AnyBitPattern;
+use glm::Mat4;
 use rapier2d::prelude::{
     BroadPhaseMultiSap, CCDSolver, DefaultBroadPhase, EventHandler, ImpulseJointSet,
     IntegrationParameters, IslandManager, MultibodyJointSet, NarrowPhase, PhysicsHooks,
     PhysicsPipeline, QueryPipeline,
 };
 use vulkano::{
+    VulkanLibrary,
     command_buffer::allocator::StandardCommandBufferAllocator,
     device::{Device, Queue},
     image::Image,
     instance::{Instance, InstanceCreateInfo},
     memory::allocator::{FreeListAllocator, GenericMemoryAllocator},
-    pipeline::{graphics::viewport::Viewport, GraphicsPipeline},
+    pipeline::{GraphicsPipeline, graphics::viewport::Viewport},
     render_pass::{Framebuffer, RenderPass},
     shader::ShaderModule,
     swapchain::Swapchain,
-    VulkanLibrary,
 };
 use winit::{
     event_loop::EventLoop,
@@ -33,6 +35,27 @@ use super::{
     },
     type_aliases::RenderCommandBuffer,
 };
+
+#[derive(AnyBitPattern, Clone, Copy)]
+pub struct PushConstants {
+    view_matrix: Mat4,
+    projection_matrix: Mat4,
+    model_matrix: Mat4,
+}
+
+impl PushConstants {
+    pub fn new() -> Self {
+        Self {
+            view_matrix: Mat4::default(),
+            projection_matrix: Mat4::default(),
+            model_matrix: {
+                let mut zeroes = Mat4::zeros();
+                zeroes.m44 = 1.;
+                zeroes
+            },
+        }
+    }
+}
 
 /// Holds all the necessary data required for rendering.
 pub struct RenderContext {

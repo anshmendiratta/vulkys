@@ -1,5 +1,7 @@
 use std::ops::{Add, AddAssign, Mul, Sub};
 
+extern crate nalgebra_glm as glm;
+
 use ecolor::Color32;
 use libm::atan2f;
 use vulkan::core::CustomVertex;

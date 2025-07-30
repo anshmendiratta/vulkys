@@ -1,3 +1,5 @@
+#![allow(static_mut_refs)]
+
 use nalgebra::vector;
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -8,7 +10,7 @@ use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use vulkano::swapchain::{self, SwapchainCreateInfo, SwapchainPresentInfo};
 use vulkano::sync::GpuFuture;
-use vulkano::{sync, Validated, VulkanError};
+use vulkano::{Validated, VulkanError, sync};
 use winit::dpi::Size;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoop;
@@ -18,6 +20,7 @@ use crate::vulkan::contexts::VulkanoContext;
 use crate::vulkan::primitives::get_graphics_pipeline;
 use crate::{FVec2, WINDOW_LENGTH};
 
+use super::camera;
 use super::contexts::{RapierContext, RenderContext, WindowContext};
 use super::primitives::{get_framebuffers, get_render_command_buffers};
 use super::type_aliases::FenceFuture;
@@ -94,8 +97,8 @@ impl WindowEventHandler {
                 event: WindowEvent::KeyboardInput { input, .. },
                 ..
             } => match input.virtual_keycode {
+                // Quit.
                 Some(winit::event::VirtualKeyCode::Q) => {
-                    // Quit.
                     dbg!(self.performance_stats.avg());
                     info!("10 fps samples: {:?}", {
                         self.performance_stats
@@ -104,13 +107,33 @@ impl WindowEventHandler {
                             .take(10)
                             .collect::<Vec<_>>()
                     });
-                    std::process::exit(0);
+                    std::process::exit(69420);
                 }
+                // Pause.
                 Some(winit::event::VirtualKeyCode::P) => {
-                    // Pause.
                     self.simulation_flags.is_paused = true;
                     return;
                 }
+                // Camera controls.
+                Some(winit::event::VirtualKeyCode::Right) => {
+                    unsafe { camera::CAMERA.increment_theta() };
+                }
+                Some(winit::event::VirtualKeyCode::Left) => {
+                    unsafe { camera::CAMERA.decrement_theta() };
+                }
+                Some(winit::event::VirtualKeyCode::Up) => {
+                    unsafe { camera::CAMERA.decrement_phi() };
+                }
+                Some(winit::event::VirtualKeyCode::Down) => {
+                    unsafe { camera::CAMERA.increment_phi() };
+                }
+                Some(winit::event::VirtualKeyCode::Plus) => {
+                    unsafe { camera::CAMERA.decrement_r() };
+                }
+                Some(winit::event::VirtualKeyCode::Minus) => {
+                    unsafe { camera::CAMERA.increment_r() };
+                }
+                // Resume.
                 Some(winit::event::VirtualKeyCode::R) => self.simulation_flags.is_paused = false, // Resume.
                 _ => info!("{} was pressed", input.scancode),
             },
@@ -146,10 +169,11 @@ impl WindowEventHandler {
                     Some(render_cb) => &render_cb,
                     None => &RefCell::new(
                         get_render_command_buffers(
+                            self.vk_ctx.device.clone(),
                             &self.vk_ctx.command_buffer_allocator,
-                            &self.vk_ctx.queue,
-                            &self.render_ctx.graphics_pipeline,
-                            &self.render_ctx.framebuffers,
+                            self.vk_ctx.queue.clone(),
+                            self.render_ctx.graphics_pipeline.clone(),
+                            self.render_ctx.framebuffers.clone(),
                             &vertex_buffer,
                         )
                         .expect("Could not get render command buffers in frame loop."),
