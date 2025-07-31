@@ -57,6 +57,7 @@ impl RawCuboid {
         }
 
         // Rotation.
+        // TODO: Type errors.
         let rotation = self.rotation.to_rotation_matrix().matrix();
         for mut vertex in &mut vertices {
             vertex *= rotation;
