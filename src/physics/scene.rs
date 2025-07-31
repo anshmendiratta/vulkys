@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use ecolor::Color32;
 use glm::Vec3;
 use nalgebra::vector;
-use rapier2d::prelude::{
+use rapier3d::prelude::{
     ColliderBuilder, ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
 };
 use vulkano::buffer::{Buffer, Subbuffer};
@@ -49,39 +49,44 @@ impl Scene {
         let mut collider_set = ColliderSet::new();
 
         for (i, rb) in scene_info.objects.iter().enumerate() {
-            let rb_position = rb.get_position();
-            let rb_velocity = rb.get_velocity();
+            let rb_position = rb.get_init_position();
+            let rb_velocity = rb.get_init_velocity();
             let color = rb.get_color();
             let cb = convert_rigidbody_to_collider_builder(rb.clone()).build();
             let rbb = RigidBodyBuilder::dynamic()
-                .translation(vector![rb_position.x, rb_position.y])
-                .linvel(vector![rb_velocity.x, rb_velocity.y]);
+                .translation(vector![rb_position.x, rb_position.y, rb_position.z])
+                .linvel(vector![rb_velocity.x, rb_velocity.y, rb_velocity.z]);
             let rb_handle = rigid_body_set.insert(rbb);
             let cb_handle = collider_set.insert_with_parent(cb, rb_handle, &mut rigid_body_set);
             let rotation = rigid_body_set.get(rb_handle).unwrap().rotation();
-            let polygon = rb.to_polygon(rotation.angle());
+            let (vertices, indices) = match rb.type_to_string() {
+                "Cube" => cube,
+                "Ball" => cube,
+            };
 
             object_set.insert(i as u128, (rb.clone(), polygon, color));
             index_map.insert(i as u128, (rb_handle, cb_handle));
         }
 
+        // FIX: Correct world colliders for 3D. Namely, remove the ceiling collider and add x/z colliders with a negative y collider.
+        // FIX: Also fix translations.
         // Add world colliders.
         let pos_x_world_rigidbody = RigidBodyBuilder::fixed()
-            .translation(vector![2., 0.])
+            .translation(vector![2., 0., 0.])
             .build();
-        let pos_x_world_collider = ColliderBuilder::cuboid(1., 1.).build();
+        let pos_x_world_collider = ColliderBuilder::cuboid(1., 1., 1.).build();
         let neg_x_world_rigidbody = RigidBodyBuilder::fixed()
-            .translation(vector![-2., 0.])
+            .translation(vector![-2., 0., 0.])
             .build();
-        let neg_x_world_collider = ColliderBuilder::cuboid(1., 1.).build();
+        let neg_x_world_collider = ColliderBuilder::cuboid(1., 1., 1.).build();
         let pos_y_world_rigidbody = RigidBodyBuilder::fixed()
-            .translation(vector![0., 2.])
+            .translation(vector![0., 2., 0.])
             .build();
-        let pos_y_world_collider = ColliderBuilder::cuboid(1., 1.).build();
+        let pos_y_world_collider = ColliderBuilder::cuboid(1., 1., 1.).build();
         let neg_y_world_rigidbody = RigidBodyBuilder::fixed()
-            .translation(vector![0., -2.])
+            .translation(vector![0., -2., 0.])
             .build();
-        let neg_y_world_collider = ColliderBuilder::cuboid(1., 1.).build();
+        let neg_y_world_collider = ColliderBuilder::cuboid(1., 1., 1.).build();
 
         // Discard handles because they will not be referenced.
         let mut pxwrb_handle = rigid_body_set.insert(pos_x_world_rigidbody);

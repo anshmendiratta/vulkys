@@ -2,10 +2,9 @@ use std::{cell::RefCell, sync::Arc};
 
 use bytemuck::AnyBitPattern;
 use glm::Mat4;
-use rapier2d::prelude::{
-    BroadPhaseMultiSap, CCDSolver, DefaultBroadPhase, EventHandler, ImpulseJointSet,
-    IntegrationParameters, IslandManager, MultibodyJointSet, NarrowPhase, PhysicsHooks,
-    PhysicsPipeline, QueryPipeline,
+use rapier3d::prelude::{
+    CCDSolver, DefaultBroadPhase, EventHandler, ImpulseJointSet, IntegrationParameters,
+    IslandManager, MultibodyJointSet, NarrowPhase, PhysicsHooks, PhysicsPipeline,
 };
 use vulkano::{
     VulkanLibrary,
@@ -118,12 +117,11 @@ pub struct RapierContext {
     pub integration_parameters: IntegrationParameters,
     pub physics_pipeline: PhysicsPipeline,
     pub island_manager: IslandManager,
-    pub broad_phase: BroadPhaseMultiSap,
+    pub broad_phase: DefaultBroadPhase,
     pub narrow_phase: NarrowPhase,
     pub impulse_joint_set: ImpulseJointSet,
     pub multibody_joint_set: MultibodyJointSet,
     pub ccd_solver: CCDSolver,
-    pub query_pipeline: QueryPipeline,
     pub physics_hooks: Box<dyn PhysicsHooks>,
     pub event_handler: Box<dyn EventHandler>,
 }
@@ -138,7 +136,6 @@ impl RapierContext {
         let impulse_joint_set = ImpulseJointSet::new();
         let multibody_joint_set = MultibodyJointSet::new();
         let ccd_solver = CCDSolver::new();
-        let query_pipeline = QueryPipeline::new();
         let physics_hooks = ();
         let event_handler = ();
 
@@ -151,7 +148,6 @@ impl RapierContext {
             impulse_joint_set,
             multibody_joint_set,
             ccd_solver,
-            query_pipeline,
             physics_hooks: Box::new(physics_hooks),
             event_handler: Box::new(event_handler),
         }

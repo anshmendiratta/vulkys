@@ -144,7 +144,7 @@ impl WindowEventHandler {
                 }
 
                 self.rapier_ctx.physics_pipeline.step(
-                    &vector![0.0, scene.gravity],
+                    &vector![0., scene.gravity, 0.],
                     &self.rapier_ctx.integration_parameters,
                     &mut self.rapier_ctx.island_manager,
                     &mut self.rapier_ctx.broad_phase,
@@ -154,7 +154,7 @@ impl WindowEventHandler {
                     &mut self.rapier_ctx.impulse_joint_set,
                     &mut self.rapier_ctx.multibody_joint_set,
                     &mut self.rapier_ctx.ccd_solver,
-                    Some(&mut self.rapier_ctx.query_pipeline),
+                    // Some(&mut self.rapier_ctx.query_pipeline),
                     &*self.rapier_ctx.physics_hooks,
                     &*self.rapier_ctx.event_handler,
                 );

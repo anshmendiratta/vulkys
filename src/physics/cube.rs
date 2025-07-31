@@ -1,30 +1,28 @@
 use ecolor::Color32;
 use glm::Vec3;
+use rapier3d::math::Rotation;
 
 use crate::render::cube::{CUBE_INDICES, CUBE_VERTICES};
 
 use super::rigidbody::GenericObject;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Square {
-    pub half_extent: Vec3,
-    pub position: Vec3,
-    pub velocity: Vec3,
-    pub rotation: f32,
+pub struct RawCuboid {
+    pub half_extent: Vec3, // Doubles as the "scalars" for the cuboid.
+    pub init_position: Vec3,
+    pub init_velocity: Vec3,
+    pub rotation: Rotation<f32>,  
     pub color: Color32,
 }
 
-impl GenericObject for Square {
+impl GenericObject for RawCuboid {
     fn get_debug(&self) -> String {
         format!(
             "half_extent = {},
                 p = {},
                 v = {}",
-            self.half_extent, self.position, self.velocity
+            self.half_extent, self.init_position, self.init_velocity
         )
-    }
-    fn get_position(&self) -> Vec3 {
-        self.position
     }
     fn get_color(&self) -> Color32 {
         self.color
@@ -32,17 +30,35 @@ impl GenericObject for Square {
     fn get_radius(&self) -> f32 {
         (self.half_extent.x.powf(2.) + self.half_extent.y.powf(2.)).powf(0.5)
     }
+    fn get_init_position(&self) -> Vec3 {
+        self.init_position
+    }
+    fn get_init_velocity(&self) -> Vec3 {
+        self.init_velocity
+    }
 }
 
-impl Square {
+impl RawCuboid {
     pub fn get_half_extent(&self) -> Vec3 {
         self.half_extent
     }
-    pub fn get_orientation(&self) -> f32 {
+    pub fn get_orientation(&self) -> Vec3 {
         self.rotation
     }
     pub fn get_vertices(&self) -> [Vec3; 8] {
-        CUBE_VERTICES
+        let vertices = CUBE_VERTICES.clone();
+        let scalars = self.half_extent.map(|e| e * 2.);
+
+        // Scales.
+        for mut vertex in vertices {
+            vertex.x *= scalars.x;
+            vertex.y *= scalars.y;
+            vertex.z *= scalars.z;
+        }
+
+        let rotation = glm::rotate_vec3(v, angle, normal)
+
+        vertices
     }
     pub fn get_vertex_indices(&self) -> [usize; 36] {
         CUBE_INDICES
