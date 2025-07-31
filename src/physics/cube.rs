@@ -11,7 +11,7 @@ pub struct RawCuboid {
     pub half_extent: Vec3, // Doubles as the "scalars" for the cuboid.
     pub init_position: Vec3,
     pub init_velocity: Vec3,
-    pub rotation: Rotation<f32>,  
+    pub rotation: Rotation<f32>,
     pub color: Color32,
 }
 
@@ -42,21 +42,25 @@ impl RawCuboid {
     pub fn get_half_extent(&self) -> Vec3 {
         self.half_extent
     }
-    pub fn get_orientation(&self) -> Vec3 {
+    pub fn get_orientation(&self) -> Rotation<f32> {
         self.rotation
     }
     pub fn get_vertices(&self) -> [Vec3; 8] {
-        let vertices = CUBE_VERTICES.clone();
+        let mut vertices = CUBE_VERTICES.clone();
         let scalars = self.half_extent.map(|e| e * 2.);
 
         // Scales.
-        for mut vertex in vertices {
+        for mut vertex in &mut vertices {
             vertex.x *= scalars.x;
             vertex.y *= scalars.y;
             vertex.z *= scalars.z;
         }
 
-        let rotation = glm::rotate_vec3(v, angle, normal)
+        // Rotation.
+        let rotation = self.rotation.to_rotation_matrix().matrix();
+        for mut vertex in &mut vertices {
+            vertex *= rotation;
+        }
 
         vertices
     }
