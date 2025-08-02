@@ -1,14 +1,15 @@
-use nalgebra::{Matrix4, Vector3};
+use glm::Vec3;
+use nalgebra::Matrix4;
 
-static CAMERA_LOOK_AT: Vector3<f32> = Vector3::new(0., 0., 0.);
-static WORLD_UP: Vector3<f32> = Vector3::new(0., -1., 0.);
+static CAMERA_LOOK_AT: Vec3 = Vec3::new(0., 0., 0.);
+static WORLD_UP: Vec3 = Vec3::new(0., -1., 0.);
 pub static mut CAMERA: Camera = Camera {
-    position: Vector3::new(3.464, 0.9553, 0.7854), // Corresponding to (x, y, z) = (2, 2, 2).
+    position: Vec3::new(3.464, 0.9553, 0.7854), // Corresponding to (x, y, z) = (2, 2, 2).
 };
 
 /// `position` is a vector of (r, theta, phi). That is, the positionn fo the camera in spherical coordinates.
 pub struct Camera {
-    position: Vector3<f32>,
+    position: Vec3,
 }
 
 impl Camera {
@@ -16,12 +17,12 @@ impl Camera {
         glm::look_at(&self.position_as_cartesian(), &CAMERA_LOOK_AT, &WORLD_UP)
     }
 
-    pub fn position_as_cartesian(&self) -> Vector3<f32> {
+    pub fn position_as_cartesian(&self) -> Vec3 {
         let x = self.position.x * self.position.z.sin() * self.position.y.cos(); // r * sin(phi) * cos(theta)
         let y = self.position.x * self.position.z.sin() * self.position.y.sin(); // r * sin(phi) * sin(theta)
         let z = self.position.x * self.position.z.cos(); // r * cos(phi)
 
-        Vector3::new(x, y, z)
+        Vec3::new(x, y, z)
     }
 
     pub fn increment_r(&mut self) {

@@ -61,10 +61,10 @@ fn main() {
     let square_1: RigidBody = RigidBody::Cuboid(
         RawCuboid {
             half_extent: Vec3::new(0.2, 0.2, 0.2),
-            init_position: Vec3::new(0., -0.5, 1.),
+            init_position: Vec3::new(0., 0.0, 0.),
             init_velocity: Vec3::new(2.75, 2.6, 0.),
             color: Color32::from_hex("#7D7ABC").unwrap(),
-            rotation: Rotation3::from_axis_angle(&Vec3::y_axis(), PI / 4.),
+            rotation: Rotation3::from_axis_angle(&Vec3::y_axis(), 0.),
         },
         2,
     );

@@ -35,11 +35,11 @@ use super::{
     type_aliases::RenderCommandBuffer,
 };
 
-#[derive(AnyBitPattern, Clone, Copy)]
+#[derive(AnyBitPattern, Clone, Copy, Debug)]
 pub struct PushConstants {
-    view_matrix: Mat4,
-    projection_matrix: Mat4,
-    model_matrix: Mat4,
+    pub view_matrix: Mat4,
+    pub projection_matrix: Mat4,
+    pub model_matrix: Mat4,
 }
 
 impl PushConstants {

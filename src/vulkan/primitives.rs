@@ -1,19 +1,21 @@
 use anyhow::Result;
+use glm::Mat4;
+use std::f32::consts::PI;
 use std::sync::Arc;
 use vulkano::buffer::BufferContents;
 use vulkano::buffer::Subbuffer;
 use vulkano::command_buffer;
-use vulkano::command_buffer::allocator::{
-    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
-};
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::command_buffer::PrimaryAutoCommandBuffer;
 use vulkano::command_buffer::RenderPassBeginInfo;
 use vulkano::command_buffer::SubpassBeginInfo;
 use vulkano::command_buffer::SubpassEndInfo;
-use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
+use vulkano::command_buffer::allocator::{
+    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
+};
 use vulkano::descriptor_set::PersistentDescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{
     Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
@@ -24,7 +26,11 @@ use vulkano::instance::InstanceExtensions;
 use vulkano::memory::allocator::{
     FreeListAllocator, GenericMemoryAllocator, StandardMemoryAllocator,
 };
+use vulkano::pipeline::ComputePipeline;
+use vulkano::pipeline::Pipeline;
+use vulkano::pipeline::PipelineBindPoint;
 use vulkano::pipeline::compute::ComputePipelineCreateInfo;
+use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
 use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
 use vulkano::pipeline::graphics::multisample::MultisampleState;
@@ -32,14 +38,10 @@ use vulkano::pipeline::graphics::rasterization::RasterizationState;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 use vulkano::pipeline::graphics::vertex_input::VertexDefinition;
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
-use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
 use vulkano::pipeline::layout::PipelineLayoutCreateFlags;
 use vulkano::pipeline::layout::PipelineLayoutCreateInfo;
 use vulkano::pipeline::layout::PushConstantRange;
-use vulkano::pipeline::ComputePipeline;
-use vulkano::pipeline::Pipeline;
-use vulkano::pipeline::PipelineBindPoint;
 use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo};
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
@@ -49,6 +51,7 @@ use winit::event_loop::EventLoop;
 
 use crate::vulkan::contexts::PushConstants;
 
+use super::camera::CAMERA;
 use super::contexts::{VulkanoContext, WindowContext};
 use super::core::CustomVertex;
 use super::type_aliases::ComputeBufferBuilder;
@@ -294,7 +297,34 @@ pub fn get_render_command_buffers(
     framebuffers: Vec<Arc<Framebuffer>>,
     vertex_buffer: &Subbuffer<[CustomVertex]>,
 ) -> anyhow::Result<Vec<Arc<PrimaryAutoCommandBuffer>>> {
-    let push_constants = PushConstants::new();
+    let model_matrix_scale = 0.3;
+    let push_constants = PushConstants {
+        view_matrix: unsafe { CAMERA.to_view_matrix() },
+        projection_matrix: glm::perspective(1.0, 60. * PI / 180., 0.1, 100.),
+        model_matrix: Mat4::new(
+            model_matrix_scale,
+            0.,
+            0.,
+            0.,
+            0.,
+            model_matrix_scale,
+            0.,
+            0.,
+            0.,
+            0.,
+            model_matrix_scale,
+            0.,
+            0.,
+            0.,
+            0.,
+            model_matrix_scale,
+        ),
+    };
+    dbg!(
+        &push_constants.projection_matrix
+            * &push_constants.view_matrix
+            * &push_constants.model_matrix
+    );
     let pipeline_layout_create_info = PipelineLayoutCreateInfo {
         flags: PipelineLayoutCreateFlags::empty(),
         push_constant_ranges: vec![PushConstantRange {
