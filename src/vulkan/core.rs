@@ -158,7 +158,7 @@ impl WindowEventHandler {
                     &*self.rapier_ctx.physics_hooks,
                     &*self.rapier_ctx.event_handler,
                 );
-                scene.update_polygon_set();
+                // scene.update_polygon_set();
 
                 if self.simulation_flags.recreate_swapchain {
                     self.recreate_swapchain_and_pipeline();

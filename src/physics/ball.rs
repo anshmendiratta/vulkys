@@ -1,6 +1,8 @@
 use ecolor::Color32;
 use glm::Vec3;
 
+use crate::vulkan::core::CustomVertex;
+
 use super::rigidbody::GenericObject;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,15 +22,31 @@ impl GenericObject for RawBall {
             self.radius, self.init_position, self.init_velocity
         )
     }
+
+    fn get_vertices(&self) -> Vec<CustomVertex> {
+        // TODO: Fill in.
+        let vertices = vec![];
+        vertices
+    }
+
+    fn get_indices(&self) -> Vec<usize> {
+        // TODO: Fill in.
+        let indices = vec![];
+        indices
+    }
+
     fn get_radius(&self) -> f32 {
         self.radius
     }
+
     fn get_color(&self) -> Color32 {
         self.color
     }
+
     fn get_init_position(&self) -> Vec3 {
         self.init_position
     }
+
     fn get_init_velocity(&self) -> Vec3 {
         self.init_velocity
     }

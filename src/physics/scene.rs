@@ -1,7 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use ecolor::Color32;
-use glm::Vec3;
 use nalgebra::vector;
 use rapier3d::prelude::{
     ColliderBuilder, ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
@@ -14,14 +12,12 @@ use vulkano::{
 };
 use winit::event_loop::EventLoop;
 
-use crate::vulkan::procedural::generate_polygon_triangles;
 use crate::vulkan::{
     contexts::{VulkanoContext, WindowContext},
     core::{CustomVertex, WindowEventHandler},
-    procedural::Polygon,
 };
 
-use super::rigidbody::{RigidBody, convert_rigidbody_to_collider_builder};
+use super::rigidbody::RigidBody;
 
 #[derive(Clone)]
 pub struct SceneInfo {
@@ -33,7 +29,7 @@ pub struct SceneInfo {
 #[allow(dead_code)]
 pub struct Scene {
     index_map: HashMap<u128, (RigidBodyHandle, ColliderHandle)>,
-    pub object_set: HashMap<u128, (RigidBody, Polygon, Color32)>,
+    pub object_set: HashMap<u128, RigidBody>,
     pub rigid_body_set: RigidBodySet,
     pub collider_set: ColliderSet,
     pub gravity: f32,
@@ -44,27 +40,24 @@ impl Scene {
     /// Initializes a new scene with the `RigidBody`s passed in.
     pub fn with_info(scene_info: SceneInfo) -> Self {
         let mut index_map = HashMap::new();
-        let mut object_set: HashMap<u128, (RigidBody, Polygon, Color32)> = HashMap::new();
+        let mut object_set: HashMap<u128, RigidBody> = HashMap::new();
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
 
         for (i, rb) in scene_info.objects.iter().enumerate() {
             let rb_position = rb.get_init_position();
             let rb_velocity = rb.get_init_velocity();
-            let color = rb.get_color();
-            let cb = convert_rigidbody_to_collider_builder(rb.clone()).build();
+            // let color = rb.get_color();
+            let cb = rb.convert_to_collider().build();
             let rbb = RigidBodyBuilder::dynamic()
                 .translation(vector![rb_position.x, rb_position.y, rb_position.z])
                 .linvel(vector![rb_velocity.x, rb_velocity.y, rb_velocity.z]);
             let rb_handle = rigid_body_set.insert(rbb);
             let cb_handle = collider_set.insert_with_parent(cb, rb_handle, &mut rigid_body_set);
-            let rotation = rigid_body_set.get(rb_handle).unwrap().rotation();
-            let (vertices, indices) = match rb.type_to_string() {
-                "Cube" => cube,
-                "Ball" => cube,
-            };
+            // let rotation = rigid_body_set.get(rb_handle).unwrap().rotation();
+            // let (vertices, indices) = (rb.get_vertices(), rb.get_vertex_indices());
 
-            object_set.insert(i as u128, (rb.clone(), polygon, color));
+            object_set.insert(i as u128, rb.clone());
             index_map.insert(i as u128, (rb_handle, cb_handle));
         }
 
@@ -129,9 +122,10 @@ impl Scene {
         allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
     ) -> Subbuffer<[CustomVertex]> {
         let vertex_buffer_data = {
-            let mut buffer_data: Vec<CustomVertex> = Vec::with_capacity(self.object_set.len() * 3);
-            for (_, polygon) in &self.object_set {
-                buffer_data = [buffer_data, polygon.clone().1.into_flattened()].concat();
+            let mut buffer_data: Vec<CustomVertex> = Vec::new();
+            for (i, _) in self.object_set.iter() {
+                let rigid_body = self.object_set.get(i).unwrap();
+                buffer_data = [buffer_data, rigid_body.get_vertices()].concat();
             }
             buffer_data
         };
@@ -151,46 +145,45 @@ impl Scene {
         .expect("scene: could not produce vertex buffer from objects")
     }
 
-    pub fn update_polygon_set(&mut self) {
-        for (i, (rb_handle, cb_handle)) in self.index_map.iter() {
-            let (rigid_body, _, color) = self.object_set.get(i).unwrap().clone();
-            let rapier_rigid_body = self.rigid_body_set.get(*rb_handle).unwrap();
-            let rapier_collider_body = self.collider_set.get(*cb_handle).unwrap();
-            let (x, y) = (
-                rapier_rigid_body.position().translation.vector[0],
-                rapier_rigid_body.position().translation.vector[1],
-            );
-            let radius = match rigid_body.type_to_string() {
-                "Circle" => rapier_collider_body.shape().as_ball().unwrap().radius,
-                "Square" => {
-                    rapier_collider_body
-                        .shape()
-                        .as_cuboid()
-                        .unwrap()
-                        .local_bounding_sphere()
-                        .radius
-                }
-                _ => unreachable!(),
-            };
-            // NOTE: Temporary.
-            let vertex_count = self.object_set.get(i).unwrap().0.get_vertex_count(); // Circle.
-            let polygon: Vec<[CustomVertex; 3]> = generate_polygon_triangles(
-                vertex_count,
-                CustomVertex {
-                    position: Vec3::new(x, y, 0.),
-                    color: color.to_array(),
-                },
-                radius,
-                rapier_rigid_body.rotation().angle(),
-                color.clone(),
-            );
+    // pub fn update_polygon_set(&mut self) {
+    //     for (i, (rb_handle, cb_handle)) in self.index_map.iter() {
+    //         let rigid_body = self.object_set.get(i).unwrap().clone();
+    //         let rapier_rigid_body = self.rigid_body_set.get(*rb_handle).unwrap();
+    //         let rapier_collider_body = self.collider_set.get(*cb_handle).unwrap();
+    //         let (x, y) = (
+    //             rapier_rigid_body.position().translation.vector[0],
+    //             rapier_rigid_body.position().translation.vector[1],
+    //         );
+    //         let radius = match rigid_body.type_to_string() {
+    //             "Circle" => rapier_collider_body.shape().as_ball().unwrap().radius,
+    //             "Square" => {
+    //                 rapier_collider_body
+    //                     .shape()
+    //                     .as_cuboid()
+    //                     .unwrap()
+    //                     .local_bounding_sphere()
+    //                     .radius
+    //             }
+    //             _ => unreachable!(),
+    //         };
+    // NOTE: Temporary. Adjust `position` in the polygon def.
+    // let polygon: Vec<[CustomVertex; 3]> = generate_polygon_triangles(
+    //     rigid_body.get_vertex_count(),
+    //     CustomVertex {
+    //         position: Vec3::new(x, y, 0.),
+    //         color: rigid_body.get_color().to_array(),
+    //     },
+    //     radius,
+    //     rapier_rigid_body.rotation().angle(),
+    //     rigid_bodycolor.clone(),
+    // );
 
-            // Update map.
-            self.object_set.entry(*i).and_modify(move |p| {
-                *p = (rigid_body.clone(), polygon, color.clone());
-            });
-        }
-    }
+    // Update map.
+    //         self.object_set.entry(*i).and_modify(move |p| {
+    //             *p = (rigid_body.clone(), polygon, color.clone());
+    //         });
+    //     }
+    // }
 
     pub fn run(self) {
         let event_loop = EventLoop::new();
