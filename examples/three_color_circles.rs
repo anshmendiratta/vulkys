@@ -1,4 +1,6 @@
-use std::f32::consts::PI;
+#![allow(unused_variables)]
+
+use std::f32::consts::FRAC_PI_2;
 
 use ecolor::Color32;
 use nalgebra::Rotation3;
@@ -64,7 +66,7 @@ fn main() {
             init_position: Vec3::new(0., 0.0, 0.),
             init_velocity: Vec3::new(2.75, 2.6, 0.),
             color: Color32::from_hex("#7D7ABC").unwrap(),
-            rotation: Rotation3::from_axis_angle(&Vec3::y_axis(), 0.),
+            rotation: Rotation3::from_axis_angle(&Vec3::x_axis(), FRAC_PI_2),
         },
         2,
     );

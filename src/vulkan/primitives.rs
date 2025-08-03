@@ -1,8 +1,7 @@
-use anyhow::Result;
 use glm::Mat4;
 use std::f32::consts::PI;
 use std::sync::Arc;
-use vulkano::buffer::BufferContents;
+use vulkano::buffer::IndexBuffer;
 use vulkano::buffer::Subbuffer;
 use vulkano::command_buffer;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
@@ -13,9 +12,6 @@ use vulkano::command_buffer::SubpassEndInfo;
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
 };
-use vulkano::descriptor_set::PersistentDescriptorSet;
-use vulkano::descriptor_set::WriteDescriptorSet;
-use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{
     Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
@@ -26,10 +22,6 @@ use vulkano::instance::InstanceExtensions;
 use vulkano::memory::allocator::{
     FreeListAllocator, GenericMemoryAllocator, StandardMemoryAllocator,
 };
-use vulkano::pipeline::ComputePipeline;
-use vulkano::pipeline::Pipeline;
-use vulkano::pipeline::PipelineBindPoint;
-use vulkano::pipeline::compute::ComputePipelineCreateInfo;
 use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
 use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
@@ -54,7 +46,6 @@ use crate::vulkan::contexts::PushConstants;
 use super::camera::CAMERA;
 use super::contexts::{VulkanoContext, WindowContext};
 use super::core::CustomVertex;
-use super::type_aliases::ComputeBufferBuilder;
 
 pub fn get_required_extensions(
     event_loop: &EventLoop<()>,
@@ -65,69 +56,6 @@ pub fn get_required_extensions(
     };
     let required_extensions = Surface::required_extensions(&event_loop);
     (device_extensions, required_extensions)
-}
-
-pub fn get_compute_command_buffer<T: BufferContents + ?Sized>(
-    vk_ctx: VulkanoContext,
-    shader: Arc<ShaderModule>,
-    data: Vec<Subbuffer<T>>,
-    work_group_counts: [u32; 3],
-) -> Result<ComputeBufferBuilder> {
-    let (device, queue_family_index) = (vk_ctx.get_device(), vk_ctx.get_queue_family_index());
-    let stage = PipelineShaderStageCreateInfo::new(shader.entry_point("main").unwrap());
-    let layout = PipelineLayout::new(
-        device.clone(),
-        PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
-            .into_pipeline_layout_create_info(device.clone())
-            .unwrap(),
-    )?;
-    let compute_pipeline = ComputePipeline::new(
-        device.clone(),
-        None,
-        ComputePipelineCreateInfo::stage_layout(stage, layout),
-    )
-    .expect("failed to create compute pipeline");
-
-    let descriptor_set_allocator =
-        StandardDescriptorSetAllocator::new(device.clone(), Default::default());
-    let pipeline_layout = compute_pipeline.layout();
-    let descriptor_set_layouts = pipeline_layout.set_layouts();
-    let descriptor_set_layout_index = 0;
-    let descriptor_set_layout = descriptor_set_layouts
-        .get(descriptor_set_layout_index)
-        .expect("compute shader: descriptor set layout index out of bounds");
-    let descriptor_set = PersistentDescriptorSet::new(
-        &descriptor_set_allocator,
-        descriptor_set_layout.clone(),
-        {
-            let mut write_descriptor_sets: Vec<WriteDescriptorSet> = vec![];
-            for (idx, datum) in data.iter().enumerate() {
-                write_descriptor_sets.push(WriteDescriptorSet::buffer(idx as u32, datum.clone()));
-            }
-            write_descriptor_sets
-        },
-        [],
-    )?;
-
-    let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-        &vk_ctx.get_command_buffer_allocator(),
-        queue_family_index,
-        command_buffer::CommandBufferUsage::MultipleSubmit,
-    )?;
-    command_buffer_builder
-        .bind_pipeline_compute(compute_pipeline.clone())?
-        .bind_descriptor_sets(
-            PipelineBindPoint::Compute,
-            compute_pipeline.layout().clone(),
-            0,
-            descriptor_set,
-        )?;
-    // if let Some(constants) = push_constants {
-    //     command_buffer_builder.push_constants(pipeline_layout.clone(), 0, constants)?;
-    // };
-    command_buffer_builder.dispatch(work_group_counts)?;
-
-    Ok(command_buffer_builder)
 }
 
 pub fn get_render_pass(device: Arc<Device>, swapchain: Arc<Swapchain>) -> Arc<RenderPass> {
@@ -239,7 +167,7 @@ pub fn select_physical_device(
         .0
 }
 
-pub fn select_device_and_queue(
+pub fn select_logical_device_and_queue(
     win_ctx: &WindowContext,
     event_loop: &EventLoop<()>,
 ) -> (Arc<Device>, u32, Arc<Queue>) {
@@ -296,6 +224,7 @@ pub fn get_render_command_buffers(
     pipeline: Arc<GraphicsPipeline>,
     framebuffers: Vec<Arc<Framebuffer>>,
     vertex_buffer: &Subbuffer<[CustomVertex]>,
+    index_buffer: IndexBuffer,
 ) -> anyhow::Result<Vec<Arc<PrimaryAutoCommandBuffer>>> {
     let model_matrix_scale = 0.3;
     let push_constants = PushConstants {
@@ -320,11 +249,11 @@ pub fn get_render_command_buffers(
             model_matrix_scale,
         ),
     };
-    dbg!(
-        &push_constants.projection_matrix
-            * &push_constants.view_matrix
-            * &push_constants.model_matrix
-    );
+    // dbg!(
+    //     &push_constants.projection_matrix
+    //         * &push_constants.view_matrix
+    //         * &push_constants.model_matrix
+    // );
     let pipeline_layout_create_info = PipelineLayoutCreateInfo {
         flags: PipelineLayoutCreateFlags::empty(),
         push_constant_ranges: vec![PushConstantRange {
@@ -348,8 +277,8 @@ pub fn get_render_command_buffers(
                 .unwrap();
 
                 command_buffer_builder
-                    .push_constants(pipeline_layout.clone(), 0, push_constants)
-                    .unwrap()
+                    // .push_constants(pipeline_layout.clone(), 0, push_constants)
+                    // .unwrap()
                     .begin_render_pass(
                         RenderPassBeginInfo {
                             clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],
@@ -362,7 +291,9 @@ pub fn get_render_command_buffers(
                     )?
                     .bind_pipeline_graphics(pipeline.clone())?
                     .bind_vertex_buffers(0, vertex_buffer.clone())?
-                    .draw(vertex_buffer.len() as u32, 1, 0, 0)?
+                    .bind_index_buffer(index_buffer.clone())
+                    .unwrap()
+                    .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)?
                     .end_render_pass(SubpassEndInfo::default())?;
 
                 Ok(command_buffer_builder.build()?)

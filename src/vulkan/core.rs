@@ -165,7 +165,8 @@ impl WindowEventHandler {
                 }
 
                 let vertex_buffer =
-                    scene.return_objects_as_vertex_buffer(self.vk_ctx.memory_allocator.clone());
+                    scene.return_vertex_buffer(self.vk_ctx.memory_allocator.clone());
+                let index_buffer = scene.return_index_buffer(self.vk_ctx.memory_allocator.clone());
                 let render_command_buffers = match &self.render_ctx.render_cb {
                     Some(render_cb) => &render_cb,
                     None => &RefCell::new(
@@ -176,6 +177,7 @@ impl WindowEventHandler {
                             self.render_ctx.graphics_pipeline.clone(),
                             self.render_ctx.framebuffers.clone(),
                             &vertex_buffer,
+                            index_buffer,
                         )
                         .expect("Could not get render command buffers in frame loop."),
                     ),

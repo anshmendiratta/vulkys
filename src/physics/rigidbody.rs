@@ -34,7 +34,7 @@ pub trait GenericObject {
     fn get_radius(&self) -> f32;
     fn get_color(&self) -> Color32;
     fn get_vertices(&self) -> Vec<CustomVertex>;
-    fn get_indices(&self) -> Vec<usize>;
+    fn get_indices(&self) -> Vec<u16>;
     fn get_init_position(&self) -> Vec3;
     fn get_init_velocity(&self) -> Vec3;
 }
@@ -86,7 +86,7 @@ impl RigidBody {
         custom_vertices
     }
 
-    pub fn get_vertex_indices(&self) -> Vec<usize> {
+    pub fn get_vertex_indices(&self) -> Vec<u16> {
         let indices = match self {
             RigidBody::Cuboid(c, _) => c.get_vertex_indices(),
             _ => vec![],

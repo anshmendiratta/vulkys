@@ -9,15 +9,16 @@ pub mod vs {
             layout(location = 0) out vec4 f_color;
             layout(location = 1) out vec3 v_coord;
           
-            layout(push_constant) uniform Matrices {
-                mat4 projection;
-                mat4 view;
-                mat4 model;
-            };
+            // layout(push_constant) uniform Matrices {
+            //     mat4 projection;
+            //     mat4 view;
+            //     mat4 model;
+            // };
 
             void main() {
-                mat4 v_transform = projection * view * model;
-                gl_Position = v_transform * vec4(position, 1.0);
+                // mat4 v_transform = projection * view * model;
+                // gl_Position = v_transform * vec4(position, 1.0);
+                gl_Position = vec4(position, 1.0);
 
                 f_color = color;
                 v_coord = position;

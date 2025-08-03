@@ -29,7 +29,7 @@ impl GenericObject for RawBall {
         vertices
     }
 
-    fn get_indices(&self) -> Vec<usize> {
+    fn get_indices(&self) -> Vec<u16> {
         // TODO: Fill in.
         let indices = vec![];
         indices

@@ -204,7 +204,7 @@ pub struct VulkanoContext {
 impl VulkanoContext {
     pub fn with_window_context(win_ctx: &WindowContext, event_loop: &EventLoop<()>) -> Self {
         let (device, queue_family_index, queue) =
-            primitives::select_device_and_queue(win_ctx, event_loop);
+            primitives::select_logical_device_and_queue(win_ctx, event_loop);
         let memory_allocator = create_memory_allocator(device.clone());
         let command_buffer_allocator = create_command_buffer_allocator(device.clone());
 

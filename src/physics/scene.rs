@@ -4,7 +4,7 @@ use nalgebra::vector;
 use rapier3d::prelude::{
     ColliderBuilder, ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
 };
-use vulkano::buffer::{Buffer, Subbuffer};
+use vulkano::buffer::{Buffer, IndexBuffer, Subbuffer};
 use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
 use vulkano::{
     buffer::{BufferCreateInfo, BufferUsage},
@@ -117,7 +117,7 @@ impl Scene {
         }
     }
 
-    pub fn return_objects_as_vertex_buffer(
+    pub fn return_vertex_buffer(
         &self,
         allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
     ) -> Subbuffer<[CustomVertex]> {
@@ -146,6 +146,37 @@ impl Scene {
             vertex_buffer_data.clone(),
         )
         .expect("scene: could not produce vertex buffer from objects")
+    }
+
+    pub fn return_index_buffer(
+        &self,
+        allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
+    ) -> IndexBuffer {
+        let index_buffer_data = {
+            let mut buffer_data: Vec<u16> = Vec::new();
+            for (i, _) in self.object_set.iter() {
+                let rigid_body = self.object_set.get(i).unwrap();
+                buffer_data = [buffer_data, rigid_body.get_vertex_indices()].concat();
+            }
+            buffer_data
+        };
+
+        let index_subbuffer = Buffer::from_iter(
+            allocator,
+            BufferCreateInfo {
+                usage: BufferUsage::INDEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            index_buffer_data.clone(),
+        )
+        .expect("scene: could not produce index buffer from objects");
+
+        IndexBuffer::U16(index_subbuffer)
     }
 
     // pub fn update_polygon_set(&mut self) {

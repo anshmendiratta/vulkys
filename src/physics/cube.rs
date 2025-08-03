@@ -49,7 +49,7 @@ impl GenericObject for RawCuboid {
         // self.get_vertices()
     }
 
-    fn get_indices(&self) -> Vec<usize> {
+    fn get_indices(&self) -> Vec<u16> {
         self.get_vertex_indices()
     }
 }
@@ -84,10 +84,12 @@ impl RawCuboid {
             .map(|v| self.rotation * *v)
             .collect::<Vec<_>>();
 
+        dbg!(&vertices);
+
         vertices
     }
 
-    pub fn get_vertex_indices(&self) -> Vec<usize> {
+    pub fn get_vertex_indices(&self) -> Vec<u16> {
         CUBE_INDICES.to_vec()
     }
 }
