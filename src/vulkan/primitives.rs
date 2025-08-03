@@ -249,11 +249,6 @@ pub fn get_render_command_buffers(
             model_matrix_scale,
         ),
     };
-    // dbg!(
-    //     &push_constants.projection_matrix
-    //         * &push_constants.view_matrix
-    //         * &push_constants.model_matrix
-    // );
     let pipeline_layout_create_info = PipelineLayoutCreateInfo {
         flags: PipelineLayoutCreateFlags::empty(),
         push_constant_ranges: vec![PushConstantRange {
@@ -277,8 +272,8 @@ pub fn get_render_command_buffers(
                 .unwrap();
 
                 command_buffer_builder
-                    // .push_constants(pipeline_layout.clone(), 0, push_constants)
-                    // .unwrap()
+                    .push_constants(pipeline_layout.clone(), 0, push_constants)
+                    .unwrap()
                     .begin_render_pass(
                         RenderPassBeginInfo {
                             clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],

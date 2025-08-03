@@ -78,6 +78,7 @@ impl RawCuboid {
             })
             .collect::<Vec<_>>();
 
+        dbg!(&self.rotation);
         // Rotation.
         vertices = vertices
             .iter_mut()
