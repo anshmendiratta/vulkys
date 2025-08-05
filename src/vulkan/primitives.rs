@@ -1,29 +1,39 @@
-use glm::Mat4;
-use std::f32::consts::PI;
+use std::f32::consts::FRAC_PI_2;
 use std::sync::Arc;
+
+use glm::Mat4;
+use glm::Vec3;
+use glm::Vec4;
+use vulkano::buffer::BufferContents;
 use vulkano::buffer::IndexBuffer;
 use vulkano::buffer::Subbuffer;
+use vulkano::buffer::allocator::SubbufferAllocator;
 use vulkano::command_buffer;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::command_buffer::PrimaryAutoCommandBuffer;
 use vulkano::command_buffer::RenderPassBeginInfo;
 use vulkano::command_buffer::SubpassBeginInfo;
-use vulkano::command_buffer::SubpassEndInfo;
-use vulkano::command_buffer::allocator::{
-    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
-};
+use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
+use vulkano::descriptor_set::DescriptorSet;
+use vulkano::descriptor_set::WriteDescriptorSet;
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{
     Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
 };
+use vulkano::format::Format;
+use vulkano::image::ImageCreateInfo;
 use vulkano::image::view::ImageView;
 use vulkano::image::{Image, ImageUsage};
 use vulkano::instance::InstanceExtensions;
-use vulkano::memory::allocator::{
-    FreeListAllocator, GenericMemoryAllocator, StandardMemoryAllocator,
-};
+use vulkano::memory::allocator::AllocationCreateInfo;
+use vulkano::memory::allocator::StandardMemoryAllocator;
+use vulkano::pipeline::Pipeline;
 use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
+use vulkano::pipeline::graphics::color_blend::ColorBlendState;
+use vulkano::pipeline::graphics::depth_stencil::DepthState;
+use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
 use vulkano::pipeline::graphics::multisample::MultisampleState;
 use vulkano::pipeline::graphics::rasterization::RasterizationState;
@@ -31,21 +41,24 @@ use vulkano::pipeline::graphics::vertex_input::Vertex;
 use vulkano::pipeline::graphics::vertex_input::VertexDefinition;
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
-use vulkano::pipeline::layout::PipelineLayoutCreateFlags;
-use vulkano::pipeline::layout::PipelineLayoutCreateInfo;
-use vulkano::pipeline::layout::PushConstantRange;
 use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo};
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::ShaderModule;
-use vulkano::shader::ShaderStages;
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo};
 use winit::event_loop::EventLoop;
 
-use crate::vulkan::contexts::PushConstants;
-
 use super::camera::CAMERA;
 use super::contexts::{VulkanoContext, WindowContext};
-use super::core::CustomVertex;
+use super::core::vs;
+
+#[derive(BufferContents, Vertex, Debug, Clone, PartialEq)]
+#[repr(C)]
+pub struct CustomVertex {
+    #[format(R32G32B32_SFLOAT)]
+    pub position: Vec3,
+    #[format(R8G8B8A8_UNORM)]
+    pub color: [u8; 4],
+}
 
 pub fn get_required_extensions(
     event_loop: &EventLoop<()>,
@@ -54,7 +67,7 @@ pub fn get_required_extensions(
         khr_swapchain: true,
         ..DeviceExtensions::empty()
     };
-    let required_extensions = Surface::required_extensions(&event_loop);
+    let required_extensions = Surface::required_extensions(event_loop).unwrap();
     (device_extensions, required_extensions)
 }
 
@@ -67,20 +80,43 @@ pub fn get_render_pass(device: Arc<Device>, swapchain: Arc<Swapchain>) -> Arc<Re
                 samples: 1,
                 load_op: Clear,
                 store_op: Store,
+            },
+            depth_stencil: {
+                format: Format::D16_UNORM,
+                samples: 1,
+                load_op: Clear,
+                store_op: Store,
+            }
         },
-    },
         pass: {
             color: [color],
-            depth_stencil: {},
+            depth_stencil: {depth_stencil},
         }
     )
     .unwrap()
 }
 
 pub fn get_framebuffers(
+    memory_allocator: &Arc<StandardMemoryAllocator>,
     images: &Vec<Arc<Image>>,
     render_pass: &Arc<RenderPass>,
 ) -> Vec<Arc<Framebuffer>> {
+    let depth_buffer = ImageView::new_default(
+        Image::new(
+            memory_allocator.clone(),
+            ImageCreateInfo {
+                image_type: vulkano::image::ImageType::Dim2d,
+                format: Format::D16_UNORM,
+                extent: images[0].extent(),
+                usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT | ImageUsage::TRANSIENT_ATTACHMENT,
+                ..Default::default()
+            },
+            AllocationCreateInfo::default(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+
     images
         .iter()
         .map(|image| -> Arc<Framebuffer> {
@@ -88,7 +124,7 @@ pub fn get_framebuffers(
             Framebuffer::new(
                 render_pass.clone(),
                 FramebufferCreateInfo {
-                    attachments: vec![view],
+                    attachments: vec![view, depth_buffer.clone()],
                     ..Default::default()
                 },
             )
@@ -204,61 +240,48 @@ pub fn select_logical_device_and_queue(
     (device, queue_family_index, queues.next().unwrap())
 }
 
-pub fn create_memory_allocator(
-    device: Arc<Device>,
-) -> Arc<GenericMemoryAllocator<FreeListAllocator>> {
-    Arc::new(StandardMemoryAllocator::new_default(device))
-}
-
-pub fn create_command_buffer_allocator(device: Arc<Device>) -> StandardCommandBufferAllocator {
-    StandardCommandBufferAllocator::new(
-        device.clone(),
-        StandardCommandBufferAllocatorCreateInfo::default(),
-    )
-}
-
 pub fn get_render_command_buffers(
     device: Arc<Device>,
-    command_buffer_allocator: &StandardCommandBufferAllocator,
+    memory_allocator: &Arc<StandardMemoryAllocator>,
+    command_buffer_allocator: &Arc<StandardCommandBufferAllocator>,
     queue: Arc<Queue>,
     pipeline: Arc<GraphicsPipeline>,
     framebuffers: Vec<Arc<Framebuffer>>,
     vertex_buffer: &Subbuffer<[CustomVertex]>,
     index_buffer: IndexBuffer,
 ) -> anyhow::Result<Vec<Arc<PrimaryAutoCommandBuffer>>> {
-    let model_matrix_scale = 0.3;
-    let push_constants = PushConstants {
-        view_matrix: unsafe { CAMERA.to_view_matrix() },
-        projection_matrix: glm::perspective(1.0, 60. * PI / 180., 0.1, 100.),
-        model_matrix: Mat4::new(
-            model_matrix_scale,
-            0.,
-            0.,
-            0.,
-            0.,
-            model_matrix_scale,
-            0.,
-            0.,
-            0.,
-            0.,
-            model_matrix_scale,
-            0.,
-            0.,
-            0.,
-            0.,
-            model_matrix_scale,
-        ),
+    let uniform_buffer = {
+        let view = unsafe { CAMERA.to_view_matrix() };
+        let projection = glm::perspective_rh(1., FRAC_PI_2, 0.1, 100.);
+
+        let model = Mat4::from_diagonal(&Vec4::identity());
+        let uniforms = vs::Data {
+            model: model.data.0,
+            view: view.data.0,
+            proj: projection.data.0,
+        };
+
+        let uniform_buffer_allocator =
+            SubbufferAllocator::new(memory_allocator.clone(), Default::default());
+        let buffer = uniform_buffer_allocator.allocate_sized().unwrap();
+        *buffer.write().unwrap() = uniforms;
+
+        buffer
     };
-    let pipeline_layout_create_info = PipelineLayoutCreateInfo {
-        flags: PipelineLayoutCreateFlags::empty(),
-        push_constant_ranges: vec![PushConstantRange {
-            stages: ShaderStages::VERTEX,
-            size: std::mem::size_of::<PushConstants>() as u32,
-            offset: 0,
-        }],
-        ..Default::default()
-    };
-    let pipeline_layout = PipelineLayout::new(device, pipeline_layout_create_info).unwrap();
+
+    // Descriptor set.
+    let descriptor_set_allocator = Arc::new(StandardDescriptorSetAllocator::new(
+        device.clone(),
+        Default::default(),
+    ));
+    let descriptor_set_layout = pipeline.layout().set_layouts()[0];
+    let descriptor_set = DescriptorSet::new(
+        descriptor_set_allocator,
+        descriptor_set_layout,
+        [WriteDescriptorSet::buffer(0, uniform_buffer)],
+        [],
+    )
+    .unwrap();
 
     framebuffers
         .iter()
@@ -272,11 +295,9 @@ pub fn get_render_command_buffers(
                 .unwrap();
 
                 command_buffer_builder
-                    .push_constants(pipeline_layout.clone(), 0, push_constants)
-                    .unwrap()
                     .begin_render_pass(
                         RenderPassBeginInfo {
-                            clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],
+                            clear_values: vec![Some([0., 0., 0., 1.].into()), Some(1_f32.into())],
                             ..command_buffer::RenderPassBeginInfo::framebuffer(framebuffer.clone())
                         },
                         SubpassBeginInfo {
@@ -288,8 +309,18 @@ pub fn get_render_command_buffers(
                     .bind_vertex_buffers(0, vertex_buffer.clone())?
                     .bind_index_buffer(index_buffer.clone())
                     .unwrap()
-                    .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)?
-                    .end_render_pass(SubpassEndInfo::default())?;
+                    .bind_descriptor_sets(
+                        vulkano::pipeline::PipelineBindPoint::Graphics,
+                        pipeline.layout().clone(),
+                        0,
+                        descriptor_set,
+                    )
+                    .unwrap();
+                unsafe {
+                    command_buffer_builder.draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
+                }
+                .unwrap();
+                command_buffer_builder.end_render_pass(Default::default())?;
 
                 Ok(command_buffer_builder.build()?)
             },
@@ -306,9 +337,7 @@ pub fn get_graphics_pipeline(
 ) -> Arc<GraphicsPipeline> {
     let vs = vertex_shader.entry_point("main").unwrap();
     let fs = fragment_shader.entry_point("main").unwrap();
-    let vertex_shader_state = CustomVertex::per_vertex()
-        .definition(&vs.info().input_interface)
-        .unwrap();
+    let vertex_shader_state = CustomVertex::per_vertex().definition(&vs).unwrap();
     let stages = [
         PipelineShaderStageCreateInfo::new(vs),
         PipelineShaderStageCreateInfo::new(fs),
@@ -336,14 +365,16 @@ pub fn get_graphics_pipeline(
                 viewports: [viewport].into(),
                 ..Default::default()
             }),
+            depth_stencil_state: Some(DepthStencilState {
+                depth: Some(DepthState::simple()),
+                ..Default::default()
+            }),
             rasterization_state: Some(RasterizationState::default()),
             multisample_state: Some(MultisampleState::default()),
-            color_blend_state: Some(
-                vulkano::pipeline::graphics::color_blend::ColorBlendState::with_attachment_states(
-                    subpass.num_color_attachments(),
-                    ColorBlendAttachmentState::default(),
-                ),
-            ),
+            color_blend_state: Some(ColorBlendState {
+                attachments: [ColorBlendAttachmentState::default()].into(),
+                ..Default::default()
+            }),
             subpass: Some(subpass.into()),
             ..GraphicsPipelineCreateInfo::layout(layout)
         },

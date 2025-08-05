@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
 use vulkano::{
-    command_buffer::{
-        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder,
-        CommandBufferExecFuture, PrimaryAutoCommandBuffer,
-    },
+    command_buffer::{CommandBufferExecFuture, PrimaryAutoCommandBuffer},
     swapchain::{PresentFuture, SwapchainAcquireFuture},
     sync::{
-        future::{FenceSignalFuture, JoinFuture},
         GpuFuture,
+        future::{FenceSignalFuture, JoinFuture},
     },
 };
 
@@ -16,10 +13,4 @@ pub type SwapchainJoinFuture = JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFu
 pub type FenceFuture =
     FenceSignalFuture<PresentFuture<CommandBufferExecFuture<SwapchainJoinFuture>>>;
 
-pub type ComputeBufferBuilder = AutoCommandBufferBuilder<
-    PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>,
-    Arc<StandardCommandBufferAllocator>,
->;
-
 pub type RenderCommandBuffer = Vec<Arc<PrimaryAutoCommandBuffer>>;
-pub type ComputeCommandBuffer = Arc<PrimaryAutoCommandBuffer<Arc<StandardCommandBufferAllocator>>>;

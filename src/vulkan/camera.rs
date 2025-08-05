@@ -1,20 +1,19 @@
-use glm::Vec3;
-use nalgebra::Matrix4;
-
-static CAMERA_LOOK_AT: Vec3 = Vec3::new(0., 0., 0.);
-static WORLD_UP: Vec3 = Vec3::new(0., -1., 0.);
-pub static mut CAMERA: Camera = Camera {
-    position: Vec3::new(3.464, 0.9553, 0.7854), // Corresponding to (x, y, z) = (2, 2, 2).
-};
+use glm::{Mat4, Vec3};
 
 /// `position` is a vector of (r, theta, phi). That is, the positionn fo the camera in spherical coordinates.
 pub struct Camera {
     position: Vec3,
 }
 
+static CAMERA_LOOK_AT: Vec3 = Vec3::new(0., 0., 0.);
+static WORLD_UP: Vec3 = Vec3::new(0., -1., 0.);
+pub static mut CAMERA: Camera = Camera {
+    position: Vec3::new(5.464, 0.9553, 0.7854),
+};
+
 impl Camera {
-    pub fn to_view_matrix(&self) -> Matrix4<f32> {
-        glm::look_at(&self.position_as_cartesian(), &CAMERA_LOOK_AT, &WORLD_UP)
+    pub fn to_view_matrix(&self) -> Mat4 {
+        glm::look_at_rh(&self.position_as_cartesian(), &CAMERA_LOOK_AT, &WORLD_UP)
     }
 
     pub fn position_as_cartesian(&self) -> Vec3 {

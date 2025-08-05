@@ -1,19 +1,16 @@
 #![allow(static_mut_refs)]
 
-use glm::Vec3;
 use nalgebra::vector;
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{error, info};
-use vulkano::buffer::BufferContents;
-use vulkano::pipeline::graphics::vertex_input::Vertex;
 
 use vulkano::swapchain::{self, SwapchainCreateInfo, SwapchainPresentInfo};
 use vulkano::sync::GpuFuture;
 use vulkano::{Validated, VulkanError, sync};
 use winit::dpi::Size;
-use winit::event::{Event, WindowEvent};
+use winit::event::{Event, KeyEvent, WindowEvent};
 use winit::event_loop::EventLoop;
 
 use crate::WINDOW_LENGTH;
@@ -22,7 +19,9 @@ use crate::vulkan::contexts::VulkanoContext;
 use crate::vulkan::primitives::get_graphics_pipeline;
 
 use super::camera;
-use super::contexts::{RapierContext, RenderContext, WindowContext};
+use super::contexts::{
+    PerformanceStats, RapierContext, RenderContext, SimulationFlags, WindowContext,
+};
 use super::primitives::{get_framebuffers, get_render_command_buffers};
 use super::type_aliases::FenceFuture;
 
@@ -78,7 +77,7 @@ impl WindowEventHandler {
     }
 
     pub fn run_with_scene(mut self, mut scene: Scene, event_loop: EventLoop<()>) {
-        event_loop.run(move |event, _, _| {
+        event_loop.run(move |event, _| {
             let time_before_update = Instant::now();
             self.handle_window_event(&mut scene, &event);
             let fps = 1_f32 / time_before_update.elapsed().as_secs_f32();
@@ -95,11 +94,19 @@ impl WindowEventHandler {
                 ..
             } => std::process::exit(69),
             Event::WindowEvent {
-                event: WindowEvent::KeyboardInput { input, .. },
+                event:
+                    WindowEvent::KeyboardInput {
+                        event:
+                            KeyEvent {
+                                logical_key: logical,
+                                ..
+                            },
+                        ..
+                    },
                 ..
-            } => match input.virtual_keycode {
+            } => match logical.to_text() {
                 // Quit.
-                Some(winit::event::VirtualKeyCode::Q) => {
+                Some("q") => {
                     dbg!(self.performance_stats.avg());
                     info!("10 fps samples: {:?}", {
                         self.performance_stats
@@ -110,35 +117,35 @@ impl WindowEventHandler {
                     });
                     std::process::exit(69420);
                 }
-                // Pause.
-                Some(winit::event::VirtualKeyCode::P) => {
+                // Pause,
+                Some("p") => {
                     self.simulation_flags.is_paused = true;
                     return;
                 }
                 // Camera controls.
-                Some(winit::event::VirtualKeyCode::Right) => {
+                Some("ArrowRight") => {
                     unsafe { camera::CAMERA.increment_theta() };
                 }
-                Some(winit::event::VirtualKeyCode::Left) => {
+                Some("ArrowLeft") => {
                     unsafe { camera::CAMERA.decrement_theta() };
                 }
-                Some(winit::event::VirtualKeyCode::Up) => {
+                Some("ArrowUp") => {
                     unsafe { camera::CAMERA.decrement_phi() };
                 }
-                Some(winit::event::VirtualKeyCode::Down) => {
+                Some("ArrowDown") => {
                     unsafe { camera::CAMERA.increment_phi() };
                 }
-                Some(winit::event::VirtualKeyCode::Plus) => {
+                Some("=") => {
                     unsafe { camera::CAMERA.decrement_r() };
                 }
-                Some(winit::event::VirtualKeyCode::Minus) => {
+                Some("-") => {
                     unsafe { camera::CAMERA.increment_r() };
                 }
                 // Resume.
-                Some(winit::event::VirtualKeyCode::R) => self.simulation_flags.is_paused = false, // Resume.
-                _ => info!("{} was pressed", input.scancode),
+                Some("r") => self.simulation_flags.is_paused = false, // Resume.
+                _ => info!("{:?} was pressed", logical.to_text()),
             },
-            Event::MainEventsCleared => {
+            Event::Resumed => {
                 if self.simulation_flags.is_paused {
                     return;
                 }
@@ -172,6 +179,7 @@ impl WindowEventHandler {
                     None => &RefCell::new(
                         get_render_command_buffers(
                             self.vk_ctx.device.clone(),
+                            &self.vk_ctx.memory_allocator,
                             &self.vk_ctx.command_buffer_allocator,
                             self.vk_ctx.queue.clone(),
                             self.render_ctx.graphics_pipeline.clone(),
@@ -254,7 +262,11 @@ impl WindowEventHandler {
             .expect("failed to recreate swapchain: {e}");
 
         self.render_ctx.swapchain = new_swapchain;
-        self.render_ctx.framebuffers = get_framebuffers(&new_images, &self.render_ctx.render_pass);
+        self.render_ctx.framebuffers = get_framebuffers(
+            &self.vk_ctx.memory_allocator,
+            &new_images,
+            &self.render_ctx.render_pass,
+        );
         self.render_ctx.viewport.extent = self.window_ctx.window.inner_size().into();
         self.render_ctx.graphics_pipeline = get_graphics_pipeline(
             self.vk_ctx.device.clone(),
@@ -266,197 +278,16 @@ impl WindowEventHandler {
     }
 }
 
-/// User-options for the application.
-#[derive(Default)]
-struct SimulationFlags {
-    pub recreate_swapchain: bool,
-    pub is_paused: bool,
-}
-
-/// Performance logging for debugging.
-#[derive(Default)]
-struct PerformanceStats {
-    pub framerates: Vec<f32>,
-}
-impl PerformanceStats {
-    fn avg(&self) -> f32 {
-        self.framerates.iter().sum::<f32>() / (self.framerates.len() as f32)
+pub mod vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        path: "src/vulkan/vert.glsl"
     }
 }
 
-/// Holds all the necessary data required for rendering.
-// struct RenderContext {
-//     // Render-useful fields.
-//     pub render_cb: Option<RefCell<RenderCommandBuffer>>,
-//     pub vs: Arc<ShaderModule>,
-//     pub fs: Arc<ShaderModule>,
-//     pub render_pass: Arc<RenderPass>,
-//     pub graphics_pipeline: Arc<GraphicsPipeline>,
-//     // Fields for render-useful types.
-//     pub swapchain: Arc<Swapchain>,
-//     pub framebuffers: Vec<Arc<Framebuffer>>,
-//     pub images: Vec<Arc<Image>>,
-//     // Front-facing, render-useful types.
-//     pub viewport: Viewport,
-// }
-// impl RenderContext {
-//     fn new(
-//         event_loop: &EventLoop<()>,
-//         window_ctx: &WindowContext,
-//         vk_ctx: &VulkanoContext,
-//     ) -> Self {
-//         let vs = super::shaders::vs::load(vk_ctx.get_device().clone()).unwrap();
-//         let fs = super::shaders::fs::load(vk_ctx.get_device().clone()).unwrap();
-//         let (swapchain, images) = create_swapchain_and_images(window_ctx, vk_ctx, event_loop);
-//         let render_pass = get_render_pass(vk_ctx.get_device().clone(), swapchain.clone());
-//         let framebuffers = get_framebuffers(&images, &render_pass);
-//         let viewport = Viewport {
-//             extent: [WINDOW_LENGTH; 2],
-//             ..Default::default()
-//         };
-//         let graphics_pipeline = get_graphics_pipeline(
-//             vk_ctx.device.clone(),
-//             vs.clone(),
-//             fs.clone(),
-//             render_pass.clone(),
-//             viewport.clone(),
-//         );
-
-//         Self {
-//             render_cb: None,
-//             vs,
-//             fs,
-//             render_pass,
-//             graphics_pipeline,
-//             viewport,
-//             swapchain,
-//             framebuffers,
-//             images,
-//         }
-//     }
-// }
-
-// struct RapierContext {
-//     pub integration_parameters: IntegrationParameters,
-//     pub physics_pipeline: PhysicsPipeline,
-//     pub island_manager: IslandManager,
-//     pub broad_phase: BroadPhaseMultiSap,
-//     pub narrow_phase: NarrowPhase,
-//     pub impulse_joint_set: ImpulseJointSet,
-//     pub multibody_joint_set: MultibodyJointSet,
-//     pub ccd_solver: CCDSolver,
-//     pub query_pipeline: QueryPipeline,
-//     pub physics_hooks: Box<dyn PhysicsHooks>,
-//     pub event_handler: Box<dyn EventHandler>,
-// }
-
-// impl RapierContext {
-//     fn new() -> Self {
-//         let integration_parameters = IntegrationParameters::default();
-//         let physics_pipeline = PhysicsPipeline::new();
-//         let island_manager = IslandManager::new();
-//         let broad_phase = DefaultBroadPhase::new();
-//         let narrow_phase = NarrowPhase::new();
-//         let impulse_joint_set = ImpulseJointSet::new();
-//         let multibody_joint_set = MultibodyJointSet::new();
-//         let ccd_solver = CCDSolver::new();
-//         let query_pipeline = QueryPipeline::new();
-//         let physics_hooks = ();
-//         let event_handler = ();
-
-//         Self {
-//             integration_parameters,
-//             physics_pipeline {}
-//             island_manager,
-//             broad_phase,
-//             narrow_phase,
-//             impulse_joint_set,
-//             multibody_joint_set,
-//             ccd_solver,
-//             query_pipeline,
-//             physics_hooks: Box::new(physics_hooks),
-//             event_handler: Box::new(event_handler),
-//         }
-//     }
-// }
-
-// pub struct WindowContext {
-//     pub instance: Arc<Instance>,
-//     pub window: Arc<Window>,
-// }
-// impl WindowContext {
-//     pub fn new(event_loop: &EventLoop<()>) -> Self {
-//         let window = Arc::new(
-//             WindowBuilder::new()
-//                 .with_title("vulkys")
-//                 .with_inner_size(WINDOW_DIMENSION)
-//                 .with_resizable(false)
-//                 .build(&event_loop)
-//                 .unwrap(),
-//         );
-//         let (_, required_extensions) = get_required_extensions(&event_loop);
-//         let library = VulkanLibrary::new().expect("could not find local vulkan");
-//         let instance = Instance::new(
-//             library,
-//             InstanceCreateInfo {
-//                 enabled_extensions: required_extensions,
-//                 ..Default::default()
-//             },
-//         )
-//         .expect("failed to create instance");
-
-//         Self { instance, window }
-//     }
-
-//     pub fn window(&self) -> Arc<Window> {
-//         self.window.clone()
-//     }
-//     pub fn instance(&self) -> Arc<Instance> {
-//         self.instance.clone()
-//     }
-// }
-
-// #[derive(Clone)]
-// pub struct VulkanoContext {
-//     pub device: Arc<Device>,
-//     pub queue_family_index: u32,
-//     pub queue: Arc<Queue>,
-//     // Allocators.
-//     pub memory_allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
-//     pub command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
-// }
-// impl VulkanoContext {
-//     pub fn with_window_context(win_ctx: &WindowContext, event_loop: &EventLoop<()>) -> Self {
-//         let (device, queue_family_index, queue) =
-//             primitives::select_device_and_queue(win_ctx, event_loop);
-//         let memory_allocator = create_memory_allocator(device.clone());
-//         let command_buffer_allocator = create_command_buffer_allocator(device.clone());
-
-//         Self {
-//             device,
-//             queue_family_index,
-//             queue,
-
-//             memory_allocator,
-//             command_buffer_allocator: Arc::new(command_buffer_allocator),
-//         }
-//     }
-//     pub fn get_device(&self) -> Arc<Device> {
-//         self.device.clone()
-//     }
-//     pub fn get_queue_family_index(&self) -> u32 {
-//         self.queue_family_index
-//     }
-//     pub fn get_command_buffer_allocator(&self) -> Arc<StandardCommandBufferAllocator> {
-//         self.command_buffer_allocator.clone()
-//     }
-// }
-
-#[derive(BufferContents, Vertex, Debug, Clone, PartialEq)]
-#[repr(C)]
-pub struct CustomVertex {
-    #[format(R32G32B32_SFLOAT)]
-    pub position: Vec3,
-    #[format(R8G8B8A8_UNORM)]
-    pub color: [u8; 4],
+pub mod fs {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        path: "src/vulkan/frag.glsl"
+    }
 }

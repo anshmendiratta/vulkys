@@ -1,13 +1,11 @@
 #![allow(unused_variables)]
 
-use std::f32::consts::FRAC_PI_2;
-
 use ecolor::Color32;
 use nalgebra::Rotation3;
 use nalgebra_glm::Vec3;
 use vulkys::physics::{
     ball::RawBall,
-    cube::RawCuboid,
+    cuboid::RawCuboid,
     rigidbody::RigidBody,
     scene::{Scene, SceneInfo},
 };
@@ -63,10 +61,10 @@ fn main() {
     let square_1: RigidBody = RigidBody::Cuboid(
         RawCuboid {
             half_extent: Vec3::new(0.2, 0.2, 0.2),
-            init_position: Vec3::new(0., 0.0, 0.),
+            init_position: Vec3::new(1., -1., -1.),
             init_velocity: Vec3::new(2.75, 2.6, 0.),
             color: Color32::from_hex("#ffd23d").unwrap(),
-            rotation: Rotation3::from_euler_angles(0.5, 0.4, 0.4),
+            init_rotation: Rotation3::from_euler_angles(0.5, 0.6, 0.6),
         },
         2,
     );
@@ -75,7 +73,7 @@ fn main() {
     let scene_info = SceneInfo {
         objects,
         dt: 1e-3,
-        gravity: 1.0,
+        gravity: 0.01,
     };
     let scene: Scene = Scene::with_info(scene_info);
     // Running simulation

@@ -1,11 +1,12 @@
-use crate::vulkan::core::CustomVertex;
+use crate::vulkan::primitives::CustomVertex;
 
 use super::ball::RawBall;
-use super::cube::RawCuboid;
+use super::cuboid::RawCuboid;
 use super::lib::COEFF_RESTITUTION;
 
 use ecolor::Color32;
 use glm::Vec3;
+use nalgebra::Rotation3;
 use rapier3d::prelude::ColliderBuilder;
 
 #[derive(PartialEq, Clone, Copy)]
@@ -29,15 +30,15 @@ impl RigidBodySelection {
     }
 }
 
-pub trait GenericObject {
-    fn get_debug(&self) -> String;
-    fn get_radius(&self) -> f32;
-    fn get_color(&self) -> Color32;
-    fn get_vertices(&self) -> Vec<CustomVertex>;
-    fn get_indices(&self) -> Vec<u16>;
-    fn get_init_position(&self) -> Vec3;
-    fn get_init_velocity(&self) -> Vec3;
-}
+// pub trait GenericObject {
+//     fn get_debug(&self) -> String;
+//     fn get_radius(&self) -> f32;
+//     fn get_color(&self) -> Color32;
+//     fn get_vertices(&self) -> Vec<CustomVertex>;
+//     fn get_indices(&self) -> Vec<u16>;
+//     fn get_init_position(&self) -> Vec3;
+//     fn get_init_velocity(&self) -> Vec3;
+// }
 
 type RBid = u8;
 #[derive(Clone, Debug, PartialEq)]
@@ -57,7 +58,7 @@ impl RigidBody {
             RigidBody::Cuboid(
                 RawCuboid {
                     half_extent,
-                    rotation,
+                    init_rotation: rotation,
                     ..
                 },
                 _,
@@ -68,10 +69,14 @@ impl RigidBody {
         }
     }
 
-    pub fn get_vertices(&self) -> Vec<CustomVertex> {
+    pub fn get_vertices(
+        &self,
+        with_rotation: Rotation3<f32>,
+        with_translation: Vec3,
+    ) -> Vec<CustomVertex> {
         let vertices = match self {
             // RigidBody::Ball_(b, _) => b.get_vertices(),
-            RigidBody::Cuboid(c, _) => c.get_vertices(),
+            RigidBody::Cuboid(c, _) => c.get_vertices(with_rotation, with_translation),
             _ => vec![],
         };
 
@@ -169,24 +174,27 @@ impl RigidBody {
         }
     }
 
-    pub fn get_radius(&self) -> f32 {
-        match self {
-            RigidBody::Ball(c, _) => c.radius,
-            RigidBody::Cuboid(c, _) => c.get_radius(),
-        }
-    }
+    // pub fn get_radius(&self) -> f32 {
+    //     match self {
+    //         RigidBody::Ball(c, _) => c.radius,
+    //         RigidBody::Cuboid(c, _) => c.get_half_extent(),
+    //     }
+    // }
 
     pub fn get_init_position(&self) -> Vec3 {
         match self {
-            RigidBody::Ball(c, _) => c.get_init_position(),
+            // RigidBody::Ball(c, _) => c.get_init_position(),
             RigidBody::Cuboid(c, _) => c.get_init_position(),
+            // FIX.
+            _ => Vec3::zeros(),
         }
     }
 
     pub fn get_init_velocity(&self) -> Vec3 {
         match self {
-            RigidBody::Ball(c, _) => c.get_init_velocity(),
             RigidBody::Cuboid(c, _) => c.get_init_velocity(),
+            // FIX.
+            _ => Vec3::zeros(),
         }
     }
 

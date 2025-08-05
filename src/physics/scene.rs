@@ -5,16 +5,17 @@ use rapier3d::prelude::{
     ColliderBuilder, ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
 };
 use vulkano::buffer::{Buffer, IndexBuffer, Subbuffer};
-use vulkano::memory::allocator::{FreeListAllocator, GenericMemoryAllocator};
+use vulkano::memory::allocator::StandardMemoryAllocator;
 use vulkano::{
     buffer::{BufferCreateInfo, BufferUsage},
     memory::allocator::{AllocationCreateInfo, MemoryTypeFilter},
 };
 use winit::event_loop::EventLoop;
 
+use crate::vulkan::primitives::CustomVertex;
 use crate::vulkan::{
     contexts::{VulkanoContext, WindowContext},
-    core::{CustomVertex, WindowEventHandler},
+    core::WindowEventHandler,
 };
 
 use super::rigidbody::RigidBody;
@@ -54,8 +55,6 @@ impl Scene {
                 .linvel(vector![rb_velocity.x, rb_velocity.y, rb_velocity.z]);
             let rb_handle = rigid_body_set.insert(rbb);
             let cb_handle = collider_set.insert_with_parent(cb, rb_handle, &mut rigid_body_set);
-            // let rotation = rigid_body_set.get(rb_handle).unwrap().rotation();
-            // let (vertices, indices) = (rb.get_vertices(), rb.get_vertex_indices());
 
             object_set.insert(i as u128, rb.clone());
             index_map.insert(i as u128, (rb_handle, cb_handle));
@@ -64,48 +63,14 @@ impl Scene {
         // FIX: Correct world colliders for 3D. Namely, remove the ceiling collider and add x/z colliders with a negative y collider.
         // FIX: Also fix translations.
         // Add world colliders.
-        let pos_x_world_rigidbody = RigidBodyBuilder::fixed()
-            .translation(vector![2., 0., 0.])
+        let floor_rb = RigidBodyBuilder::fixed()
+            .translation(vector![0., -1., 0.])
             .build();
-        let pos_x_world_collider = ColliderBuilder::cuboid(1., 1., 1.).build();
-        let neg_x_world_rigidbody = RigidBodyBuilder::fixed()
-            .translation(vector![-2., 0., 0.])
-            .build();
-        let neg_x_world_collider = ColliderBuilder::cuboid(1., 1., 1.).build();
-        let pos_y_world_rigidbody = RigidBodyBuilder::fixed()
-            .translation(vector![0., 2., 0.])
-            .build();
-        let pos_y_world_collider = ColliderBuilder::cuboid(1., 1., 1.).build();
-        let neg_y_world_rigidbody = RigidBodyBuilder::fixed()
-            .translation(vector![0., -2., 0.])
-            .build();
-        let neg_y_world_collider = ColliderBuilder::cuboid(1., 1., 1.).build();
+        let floor_cb = ColliderBuilder::cuboid(100., 0.5, 100.).build();
 
-        // Discard handles because they will not be referenced.
-        let mut pxwrb_handle = rigid_body_set.insert(pos_x_world_rigidbody);
-        let _ = collider_set.insert_with_parent(
-            pos_x_world_collider,
-            pxwrb_handle,
-            &mut rigid_body_set,
-        );
-        pxwrb_handle = rigid_body_set.insert(neg_x_world_rigidbody);
-        let _ = collider_set.insert_with_parent(
-            neg_x_world_collider,
-            pxwrb_handle,
-            &mut rigid_body_set,
-        );
-        pxwrb_handle = rigid_body_set.insert(pos_y_world_rigidbody);
-        let _ = collider_set.insert_with_parent(
-            pos_y_world_collider,
-            pxwrb_handle,
-            &mut rigid_body_set,
-        );
-        pxwrb_handle = rigid_body_set.insert(neg_y_world_rigidbody);
-        let _ = collider_set.insert_with_parent(
-            neg_y_world_collider,
-            pxwrb_handle,
-            &mut rigid_body_set,
-        );
+        let floor_rb_handle = rigid_body_set.insert(floor_rb);
+        // Discard handle because it will not be referenced.
+        let _ = collider_set.insert_with_parent(floor_cb, floor_rb_handle, &mut rigid_body_set);
 
         Self {
             index_map,
@@ -119,13 +84,21 @@ impl Scene {
 
     pub fn return_vertex_buffer(
         &self,
-        allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
+        allocator: Arc<StandardMemoryAllocator>,
     ) -> Subbuffer<[CustomVertex]> {
         let vertex_buffer_data = {
             let mut buffer_data: Vec<CustomVertex> = Vec::new();
             for (i, _) in self.object_set.iter() {
                 let rigid_body = self.object_set.get(i).unwrap();
-                buffer_data = [buffer_data, rigid_body.get_vertices()].concat();
+                let (rb_handle, _) = self.index_map.get(i).unwrap();
+                let rapier_rigid_body = self.rigid_body_set.get(*rb_handle).unwrap();
+                let _translation = rapier_rigid_body.translation();
+                let rotation = rapier_rigid_body.rotation().to_rotation_matrix();
+                buffer_data = [
+                    buffer_data,
+                    rigid_body.get_vertices(rotation, rigid_body.get_init_position()),
+                ]
+                .concat();
             }
             buffer_data
         };
@@ -148,10 +121,7 @@ impl Scene {
         .expect("scene: could not produce vertex buffer from objects")
     }
 
-    pub fn return_index_buffer(
-        &self,
-        allocator: Arc<GenericMemoryAllocator<FreeListAllocator>>,
-    ) -> IndexBuffer {
+    pub fn return_index_buffer(&self, allocator: Arc<StandardMemoryAllocator>) -> IndexBuffer {
         let index_buffer_data = {
             let mut buffer_data: Vec<u16> = Vec::new();
             for (i, _) in self.object_set.iter() {
@@ -176,73 +146,16 @@ impl Scene {
         )
         .expect("scene: could not produce index buffer from objects");
 
+        // dbg!(&index_buffer_data, index_buffer_data.len());
+
         IndexBuffer::U16(index_subbuffer)
     }
 
-    // pub fn update_polygon_set(&mut self) {
-    //     for (i, (rb_handle, cb_handle)) in self.index_map.iter() {
-    //         let rigid_body = self.object_set.get(i).unwrap().clone();
-    //         let rapier_rigid_body = self.rigid_body_set.get(*rb_handle).unwrap();
-    //         let rapier_collider_body = self.collider_set.get(*cb_handle).unwrap();
-    //         let (x, y) = (
-    //             rapier_rigid_body.position().translation.vector[0],
-    //             rapier_rigid_body.position().translation.vector[1],
-    //         );
-    //         let radius = match rigid_body.type_to_string() {
-    //             "Circle" => rapier_collider_body.shape().as_ball().unwrap().radius,
-    //             "Square" => {
-    //                 rapier_collider_body
-    //                     .shape()
-    //                     .as_cuboid()
-    //                     .unwrap()
-    //                     .local_bounding_sphere()
-    //                     .radius
-    //             }
-    //             _ => unreachable!(),
-    //         };
-    // NOTE: Temporary. Adjust `position` in the polygon def.
-    // let polygon: Vec<[CustomVertex; 3]> = generate_polygon_triangles(
-    //     rigid_body.get_vertex_count(),
-    //     CustomVertex {
-    //         position: Vec3::new(x, y, 0.),
-    //         color: rigid_body.get_color().to_array(),
-    //     },
-    //     radius,
-    //     rapier_rigid_body.rotation().angle(),
-    //     rigid_bodycolor.clone(),
-    // );
-
-    // Update map.
-    //         self.object_set.entry(*i).and_modify(move |p| {
-    //             *p = (rigid_body.clone(), polygon, color.clone());
-    //         });
-    //     }
-    // }
-
     pub fn run(self) {
-        let event_loop = EventLoop::new();
+        let event_loop = EventLoop::new().unwrap();
         let window_ctx = WindowContext::new(&event_loop);
         let vk_ctx = VulkanoContext::with_window_context(&window_ctx, &event_loop);
         let window_ctx_handler = WindowEventHandler::new(&event_loop, vk_ctx, window_ctx);
         window_ctx_handler.run_with_scene(self, event_loop);
     }
-
-    // pub fn recreate_hash_from_objects(&mut self) {
-    //     let polygons: Vec<Polygon> = self.objects.iter().map(|body| body.to_polygon()).collect();
-
-    //     let mut objects_as_hash: HashMap<u8, (RigidBody, Polygon)> =
-    //         HashMap::with_capacity_and_hasher(self.objects.len(), RandomState::new());
-    //     for (rigidbody, polygon) in std::iter::zip(&self.objects, polygons) {
-    //         objects_as_hash.insert(rigidbody.get_id(), (rigidbody.clone(), polygon));
-    //     }
-
-    //     self.objects_map = objects_as_hash;
-    // }
-
-    // pub fn recreate_objects_from_hash(&mut self) {
-    //     self.objects.clear();
-    //     for (rigidbody, _) in self.objects_map.values() {
-    //         self.objects.push(rigidbody.clone());
-    //     }
-    // }
 }

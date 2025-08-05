@@ -12,7 +12,7 @@ use vulkano::{
     device::{Device, Queue},
     image::Image,
     instance::{Instance, InstanceCreateInfo},
-    memory::allocator::{FreeListAllocator, GenericMemoryAllocator},
+    memory::allocator::{FreeListAllocator, GenericMemoryAllocator, StandardMemoryAllocator},
     pipeline::{GraphicsPipeline, graphics::viewport::Viewport},
     render_pass::{Framebuffer, RenderPass},
     shader::ShaderModule,
@@ -20,17 +20,16 @@ use vulkano::{
 };
 use winit::{
     event_loop::EventLoop,
-    window::{Window, WindowBuilder},
+    window::{Window, WindowAttributes},
 };
 
 use crate::WINDOW_LENGTH;
 
 use super::{
-    core::WINDOW_DIMENSION,
+    core::{WINDOW_DIMENSION, fs, vs},
     primitives::{
-        self, create_command_buffer_allocator, create_memory_allocator,
-        create_swapchain_and_images, get_framebuffers, get_graphics_pipeline, get_render_pass,
-        get_required_extensions,
+        self, create_swapchain_and_images, get_framebuffers, get_graphics_pipeline,
+        get_render_pass, get_required_extensions,
     },
     type_aliases::RenderCommandBuffer,
 };
@@ -78,11 +77,11 @@ impl RenderContext {
         window_ctx: &WindowContext,
         vk_ctx: &VulkanoContext,
     ) -> Self {
-        let vs = super::shaders::vs::load(vk_ctx.get_device().clone()).unwrap();
-        let fs = super::shaders::fs::load(vk_ctx.get_device().clone()).unwrap();
+        let vs = vs::load(vk_ctx.get_device().clone()).unwrap();
+        let fs = fs::load(vk_ctx.get_device().clone()).unwrap();
         let (swapchain, images) = create_swapchain_and_images(window_ctx, vk_ctx, event_loop);
         let render_pass = get_render_pass(vk_ctx.get_device().clone(), swapchain.clone());
-        let framebuffers = get_framebuffers(&images, &render_pass);
+        let framebuffers = get_framebuffers(&vk_ctx.memory_allocator, &images, &render_pass);
         let viewport = Viewport {
             extent: [WINDOW_LENGTH; 2],
             ..Default::default()
@@ -162,11 +161,12 @@ pub struct WindowContext {
 impl WindowContext {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
         let window = Arc::new(
-            WindowBuilder::new()
-                .with_title("vulkys")
-                .with_inner_size(WINDOW_DIMENSION)
-                .with_resizable(false)
-                .build(&event_loop)
+            event_loop
+                .create_window(WindowAttributes {
+                    resizable: false,
+                    inner_size: Some(WINDOW_DIMENSION),
+                    ..Default::default()
+                })
                 .unwrap(),
         );
         let (_, required_extensions) = get_required_extensions(&event_loop);
@@ -205,16 +205,18 @@ impl VulkanoContext {
     pub fn with_window_context(win_ctx: &WindowContext, event_loop: &EventLoop<()>) -> Self {
         let (device, queue_family_index, queue) =
             primitives::select_logical_device_and_queue(win_ctx, event_loop);
-        let memory_allocator = create_memory_allocator(device.clone());
-        let command_buffer_allocator = create_command_buffer_allocator(device.clone());
+        let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
+        let command_buffer_allocator = Arc::new(StandardCommandBufferAllocator::new(
+            device.clone(),
+            Default::default(),
+        ));
 
         Self {
             device,
             queue_family_index,
             queue,
-
             memory_allocator,
-            command_buffer_allocator: Arc::new(command_buffer_allocator),
+            command_buffer_allocator,
         }
     }
     pub fn get_device(&self) -> Arc<Device> {
@@ -225,5 +227,23 @@ impl VulkanoContext {
     }
     pub fn get_command_buffer_allocator(&self) -> Arc<StandardCommandBufferAllocator> {
         self.command_buffer_allocator.clone()
+    }
+}
+
+/// User-options for the application.
+#[derive(Default)]
+pub struct SimulationFlags {
+    pub recreate_swapchain: bool,
+    pub is_paused: bool,
+}
+
+/// Performance logging for debugging.
+#[derive(Default)]
+pub struct PerformanceStats {
+    pub framerates: Vec<f32>,
+}
+impl PerformanceStats {
+    pub fn avg(&self) -> f32 {
+        self.framerates.iter().sum::<f32>() / (self.framerates.len() as f32)
     }
 }
