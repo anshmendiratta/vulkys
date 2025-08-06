@@ -6,5 +6,5 @@ layout(location = 1) in vec3 v_coord;
 layout(location = 0) out vec4 out_color;
 
 void main() {
-    out_color = 0.1 * f_color / gl_FragCoord.z;
+    out_color = f_color;
 }

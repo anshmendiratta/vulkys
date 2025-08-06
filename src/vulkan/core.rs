@@ -426,7 +426,10 @@ impl ApplicationHandler for App {
                 command_buffer_builder
                     .begin_render_pass(
                         RenderPassBeginInfo {
-                            clear_values: vec![Some([0., 0., 0., 1.].into()), Some(1_f32.into())],
+                            clear_values: vec![
+                                Some([0.8, 0.8, 0.8, 1.].into()),
+                                Some(1_f32.into()),
+                            ],
                             ..RenderPassBeginInfo::framebuffer(
                                 rcx.framebuffers[image_idx as usize].clone(),
                             )

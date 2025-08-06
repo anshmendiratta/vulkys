@@ -80,7 +80,7 @@ impl RawCuboid {
 
         // Rotation.
         for vertex in vertices.iter_mut() {
-            *vertex = with_rotation * *vertex;
+            *vertex = self.init_rotation * *vertex;
         }
 
         // Translation.
