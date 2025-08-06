@@ -3,12 +3,16 @@
 use ecolor::Color32;
 use nalgebra::Rotation3;
 use nalgebra_glm::Vec3;
-use vulkys::physics::{
-    ball::RawBall,
-    cuboid::RawCuboid,
-    rigidbody::RigidBody,
-    scene::{Scene, SceneInfo},
+use vulkys::{
+    physics::{
+        ball::RawBall,
+        cuboid::RawCuboid,
+        rigidbody::RigidBody,
+        scene::{Scene, SceneInfo},
+    },
+    vulkan::core::App,
 };
+use winit::event_loop::EventLoop;
 
 fn main() {
     let open = std::fs::OpenOptions::new()
@@ -76,6 +80,8 @@ fn main() {
         gravity: 0.01,
     };
     let scene: Scene = Scene::with_info(scene_info);
-    // Running simulation
-    scene.run();
+    let event_loop = EventLoop::new().unwrap();
+    let mut app = App::new(&event_loop, scene);
+    // Running simulation. Ignore error.
+    let _ = event_loop.run_app(&mut app);
 }

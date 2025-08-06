@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use crate::vulkan::primitives::CustomVertex;
 use nalgebra::vector;
 use rapier3d::prelude::{
     ColliderBuilder, ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
@@ -9,13 +10,6 @@ use vulkano::memory::allocator::StandardMemoryAllocator;
 use vulkano::{
     buffer::{BufferCreateInfo, BufferUsage},
     memory::allocator::{AllocationCreateInfo, MemoryTypeFilter},
-};
-use winit::event_loop::EventLoop;
-
-use crate::vulkan::primitives::CustomVertex;
-use crate::vulkan::{
-    contexts::{VulkanoContext, WindowContext},
-    core::WindowEventHandler,
 };
 
 use super::rigidbody::RigidBody;
@@ -149,13 +143,5 @@ impl Scene {
         // dbg!(&index_buffer_data, index_buffer_data.len());
 
         IndexBuffer::U16(index_subbuffer)
-    }
-
-    pub fn run(self) {
-        let event_loop = EventLoop::new().unwrap();
-        let window_ctx = WindowContext::new(&event_loop);
-        let vk_ctx = VulkanoContext::with_window_context(&window_ctx, &event_loop);
-        let window_ctx_handler = WindowEventHandler::new(&event_loop, vk_ctx, window_ctx);
-        window_ctx_handler.run_with_scene(self, event_loop);
     }
 }
