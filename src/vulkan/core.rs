@@ -5,7 +5,8 @@ use nalgebra::vector;
 use std::f32::consts::FRAC_PI_2;
 use std::sync::Arc;
 use tracing::{error, info};
-use vulkano::buffer::allocator::SubbufferAllocator;
+use vulkano::buffer::BufferUsage;
+use vulkano::buffer::allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo};
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::{
     AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo,
@@ -18,7 +19,7 @@ use vulkano::device::{Device, DeviceCreateInfo, Queue, QueueCreateInfo, QueueFla
 use vulkano::format::Format;
 use vulkano::image::ImageUsage;
 use vulkano::instance::{Instance, InstanceCreateInfo};
-use vulkano::memory::allocator::StandardMemoryAllocator;
+use vulkano::memory::allocator::{MemoryTypeFilter, StandardMemoryAllocator};
 use vulkano::pipeline::Pipeline;
 use winit::application::ApplicationHandler;
 use winit::window::{Window, WindowId};
@@ -386,8 +387,15 @@ impl ApplicationHandler for App {
                         proj: projection.data.0,
                     };
 
-                    let uniform_buffer_allocator =
-                        SubbufferAllocator::new(self.memory_allocator.clone(), Default::default());
+                    let uniform_buffer_allocator = SubbufferAllocator::new(
+                        self.memory_allocator.clone(),
+                        SubbufferAllocatorCreateInfo {
+                            buffer_usage: BufferUsage::UNIFORM_BUFFER,
+                            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                                | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                            ..Default::default()
+                        },
+                    );
                     let buffer = uniform_buffer_allocator.allocate_sized().unwrap();
                     *buffer.write().unwrap() = uniforms;
 
@@ -411,7 +419,7 @@ impl ApplicationHandler for App {
                 let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
                     self.command_buffer_allocator.clone(),
                     self.queue.queue_family_index(),
-                    CommandBufferUsage::MultipleSubmit,
+                    CommandBufferUsage::OneTimeSubmit,
                 )
                 .unwrap();
 

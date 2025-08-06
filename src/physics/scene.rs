@@ -97,8 +97,6 @@ impl Scene {
             buffer_data
         };
 
-        // dbg!(&vertex_buffer_data);
-
         Buffer::from_iter(
             allocator,
             BufferCreateInfo {
