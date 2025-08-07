@@ -32,12 +32,14 @@ Although not uploaded to GitHub with the intention of maintenance or feature-req
 ## Goals
 - [ ] Document more thoroughly.
 - [ ] Add new Rapier3D object types.
+- [ ] Add shading so objects such as balls do not need further detailing.
 
 ### Performance
 - [ ] Add FPS counter for debugging and visuals.
 - [ ] Add multi-threading.
 
 ### QoL
-- [ ] Add shading to objects so objects such as balls do not need further detailing.
 - [ ] Anti-aliasing for objects.
+- [ ] Add a global directional light source (sun) and shadows.
+- [ ] Try to add materials/finishes (diffuse/glossy/metallic).
 - [ ] Use textures for background and ojects.
