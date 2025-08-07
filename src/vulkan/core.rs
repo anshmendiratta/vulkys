@@ -4,6 +4,7 @@ use glm::{Mat4, Vec4};
 use nalgebra::vector;
 use std::f32::consts::FRAC_PI_2;
 use std::sync::Arc;
+use std::time::Instant;
 use tracing::{error, info};
 use vulkano::buffer::BufferUsage;
 use vulkano::buffer::allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo};
@@ -147,12 +148,6 @@ impl App {
 
     // pub fn run_with_scene(mut self, mut scene: Scene, event_loop: EventLoop<()>) {
     //     event_loop.run(move |event, _| {
-    //         let time_before_update = Instant::now();
-    //         self.handle_window_event(&mut scene, &event);
-    //         let fps = 1_f32 / time_before_update.elapsed().as_secs_f32();
-    //         if fps < 10000. {
-    //             self.performance_stats.framerates.push(fps);
-    //         }
     //     });
     // }
 }
@@ -288,7 +283,6 @@ impl ApplicationHandler for App {
                     },
                 ..
             } => match logical.to_text() {
-                // Pause,
                 Some("p") => {
                     self.simulation_flags.is_paused = true;
                     return;
@@ -321,6 +315,10 @@ impl ApplicationHandler for App {
                     return;
                 }
 
+                // Performance logging start.
+                let time_before_update = Instant::now();
+
+                // Physics.
                 self.rapier_cx.physics_pipeline.step(
                     &vector![0., self.scene.gravity, 0.],
                     &self.rapier_cx.integration_parameters,
@@ -369,6 +367,7 @@ impl ApplicationHandler for App {
                         Err(e) => panic!("failed to acquire the next image: {e}"),
                     };
 
+                // Set up for drawing.
                 let vertex_buffer = self
                     .scene
                     .return_vertex_buffer(self.memory_allocator.clone());
@@ -416,6 +415,7 @@ impl ApplicationHandler for App {
                 )
                 .unwrap();
 
+                // Drawing.
                 let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
                     self.command_buffer_allocator.clone(),
                     self.queue.queue_family_index(),
@@ -463,6 +463,7 @@ impl ApplicationHandler for App {
 
                 let command_buffer = command_buffer_builder.build().unwrap();
 
+                // Synchronization.
                 self.simulation_flags.recreate_swapchain = if suboptimal { true } else { false };
                 if let Some(image_fence) = &rcx.fences[image_idx as usize] {
                     image_fence.wait(None).unwrap();
@@ -503,6 +504,12 @@ impl ApplicationHandler for App {
                 };
 
                 rcx.previous_fence_i = image_idx;
+
+                // Performance logging end.
+                let fps = 1_f32 / time_before_update.elapsed().as_secs_f32();
+                if fps < 10000. {
+                    self.performance_stats.framerates.push(fps);
+                }
             }
             _ => (),
         }

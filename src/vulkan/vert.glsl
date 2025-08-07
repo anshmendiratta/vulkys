@@ -13,8 +13,8 @@ layout(set = 0, binding = 0) uniform Data {
 
 void main() {
     mat4 v_transform = uniforms.proj * uniforms.view * uniforms.model;
-    gl_Position = v_transform * vec4(position, 1.0);
-    // gl_Position = vec4(position, 1.0);
+    // gl_Position = v_transform * vec4(position, 1.0);
+    gl_Position = vec4(position, 1.0);
 
     f_color = color;
     v_coord = position;
