@@ -235,8 +235,10 @@ impl ApplicationHandler for App {
 
         let framebuffers = create_framebuffers(&self.memory_allocator, &images, &render_pass);
 
+        let window_size = window.inner_size();
         let pipeline = create_pipeline(
             self.device.clone(),
+            window_size,
             vs.clone(),
             fs.clone(),
             render_pass.clone(),
@@ -351,6 +353,7 @@ impl ApplicationHandler for App {
                         create_framebuffers(&self.memory_allocator, &new_images, &rcx.render_pass);
                     rcx.pipeline = create_pipeline(
                         self.device.clone(),
+                        rcx.window.inner_size(),
                         rcx.vs.clone(),
                         rcx.fs.clone(),
                         rcx.render_pass.clone(),
@@ -379,8 +382,9 @@ impl ApplicationHandler for App {
                 let uniform_buffer = {
                     let view = unsafe { CAMERA.to_view_matrix() };
                     let projection = glm::perspective_rh(1., FRAC_PI_2, 0.1, 100.);
+                    let model = Mat4::from_diagonal(&Vec4::new(1., 1., 1., 1.));
+                    dbg!(model);
 
-                    let model = Mat4::from_diagonal(&Vec4::identity());
                     let uniforms = vs::Data {
                         model: model.data.0,
                         view: view.data.0,

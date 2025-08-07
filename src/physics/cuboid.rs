@@ -4,8 +4,6 @@ use nalgebra::Rotation3;
 
 use crate::render::cuboid::{CUBE_INDICES, CUBE_VERTICES};
 
-// use super::rigidbody::GenericObject;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawCuboid {
     pub half_extent: Vec3, // Doubles as the "scalars" for the cuboid.
@@ -14,41 +12,6 @@ pub struct RawCuboid {
     pub init_rotation: Rotation3<f32>,
     pub color: Color32,
 }
-
-// impl GenericObject for RawCuboid {
-//     fn get_debug(&self) -> String {
-//         format!(
-//             "half_extent = {},
-//                 p = {},
-//                 v = {}",
-//             self.half_extent, self.init_position, self.init_velocity
-//         )
-//     }
-
-//     fn get_color(&self) -> Color32 {
-//         self.color
-//     }
-
-//     fn get_radius(&self) -> f32 {
-//         (self.half_extent.x.powf(2.) + self.half_extent.y.powf(2.)).powf(0.5)
-//     }
-
-//     fn get_init_position(&self) -> Vec3 {
-//         self.init_position
-//     }
-
-//     fn get_init_velocity(&self) -> Vec3 {
-//         self.init_velocity
-//     }
-
-//     fn get_vertices(&self) -> Vec<CustomVertex> {
-//         self.get_vertices()
-//     }
-
-//     fn get_indices(&self) -> Vec<u16> {
-//         self.get_vertex_indices()
-//     }
-// }
 
 impl RawCuboid {
     pub fn get_init_position(&self) -> Vec3 {
@@ -80,7 +43,7 @@ impl RawCuboid {
 
         // Rotation.
         for vertex in vertices.iter_mut() {
-            *vertex = self.init_rotation * *vertex;
+            *vertex = with_rotation * *vertex;
         }
 
         // Translation.

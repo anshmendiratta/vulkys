@@ -26,9 +26,8 @@ use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCre
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::EntryPoint;
 use vulkano::swapchain::{Surface, Swapchain};
+use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
-
-use crate::WINDOW_LENGTH;
 
 #[derive(BufferContents, Vertex, Debug, Clone, PartialEq)]
 #[repr(C)]
@@ -114,6 +113,7 @@ pub fn create_framebuffers(
 
 pub fn create_pipeline(
     device: Arc<Device>,
+    window_size: PhysicalSize<u32>,
     vertex_shader: EntryPoint,
     fragment_shader: EntryPoint,
     render_pass: Arc<RenderPass>,
@@ -146,7 +146,7 @@ pub fn create_pipeline(
             }),
             viewport_state: Some(ViewportState {
                 viewports: [Viewport {
-                    extent: [WINDOW_LENGTH; 2],
+                    extent: window_size.into(),
                     ..Default::default()
                 }]
                 .into(),

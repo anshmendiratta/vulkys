@@ -6,9 +6,9 @@ pub struct Camera {
 }
 
 static CAMERA_LOOK_AT: Vec3 = Vec3::new(0., 0., 0.);
-static WORLD_UP: Vec3 = Vec3::new(0., -1., 0.);
+static WORLD_UP: Vec3 = Vec3::new(0., 1., 0.);
 pub static mut CAMERA: Camera = Camera {
-    position: Vec3::new(5.464, 0.9553, 0.7854),
+    position: Vec3::new(3.464, 0.9553, 0.7854),
 };
 
 impl Camera {

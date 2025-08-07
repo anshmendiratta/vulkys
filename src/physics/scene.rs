@@ -86,13 +86,10 @@ impl Scene {
                 let rigid_body = self.object_set.get(i).unwrap();
                 let (rb_handle, _) = self.index_map.get(i).unwrap();
                 let rapier_rigid_body = self.rigid_body_set.get(*rb_handle).unwrap();
-                let _translation = rapier_rigid_body.translation();
+                let translation = rapier_rigid_body.translation();
                 let rotation = rapier_rigid_body.rotation().to_rotation_matrix();
-                buffer_data = [
-                    buffer_data,
-                    rigid_body.get_vertices(rotation, rigid_body.get_init_position()),
-                ]
-                .concat();
+                buffer_data =
+                    [buffer_data, rigid_body.get_vertices(rotation, *translation)].concat();
             }
             buffer_data
         };
