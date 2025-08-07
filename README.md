@@ -9,8 +9,12 @@ An easy-to-use but extensive physics engine meant to be accessible to those with
 
 ## Usage
 
-1. Create objects in `main.rs`. Create a scene with said objects in a `Vec<RigidBody>` using `Scene::with_objects` and then use `scene.run()`.
-2. `cargo r` should run fine. Do not run on release.
+1. Create objects in `main.rs`.
+2. Create a scene with said objects in a `Vec<RigidBody>` using `Scene::with_objects`.
+3. Create an `App` with `App::with_scene(scene)`.
+4. Create an `EventLoop`.
+5. Run the app using `event_loop.run_app(&mut app)`.
+6. `cargo r` should run fine.
 
 Example mains in `examples/`.
 
@@ -26,19 +30,14 @@ Example mains in `examples/`.
 Although not uploaded to GitHub with the intention of maintenance or feature-requests, pull requests (PRs) and issues are welcome.
 
 ## Goals
-- [ ] Copy images into swapchain so the current, un-updated ones are not being recreated.
 - [ ] Document more thoroughly.
-- [x] Allow choice of timestep and gravity. Normalize these values to be somewhat intuitive.
-- [ ] Add new object types.
+- [ ] Add new Rapier3D object types.
 
 ### Performance
-- [x] ~~Profile current program.~~
-- [x] ~~Have collision resolution run on a compute shader.~~
 - [ ] Add FPS counter for debugging and visuals.
-- [ ] Copy images into swapchain so the current, un-updated ones are not being recreated.
 - [ ] Add multi-threading.
-- [ ] Use Bounding Boxes for preliminary collision checking.
 
 ### QoL
+- [ ] Add shading to objects so objects such as balls do not need further detailing.
 - [ ] Anti-aliasing for objects.
 - [ ] Use textures for background and ojects.
