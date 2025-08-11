@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use glm::Vec3;
+use glm::{Vec3, Vec4};
 use vulkano::buffer::BufferContents;
 use vulkano::device::{Device, DeviceExtensions};
 use vulkano::format::Format;
@@ -31,11 +31,18 @@ use winit::event_loop::EventLoop;
 
 #[derive(BufferContents, Vertex, Debug, Clone, PartialEq)]
 #[repr(C)]
-pub struct CustomVertex {
+pub struct DrawVertex {
     #[format(R32G32B32_SFLOAT)]
     pub position: Vec3,
-    #[format(R8G8B8A8_UNORM)]
-    pub color: [u8; 4],
+    #[format(R32G32B32A32_SFLOAT)]
+    pub color: Vec4,
+}
+
+#[derive(BufferContents, Vertex, Debug, Clone, PartialEq)]
+#[repr(C)]
+pub struct DrawNormal {
+    #[format(R32G32B32_SFLOAT)]
+    pub normal: Vec3,
 }
 
 pub fn get_required_extensions(
@@ -118,7 +125,7 @@ pub fn create_pipeline(
     fragment_shader: EntryPoint,
     render_pass: Arc<RenderPass>,
 ) -> Arc<GraphicsPipeline> {
-    let vertex_shader_state = CustomVertex::per_vertex()
+    let vertex_shader_state = [DrawVertex::per_vertex(), DrawNormal::per_vertex()]
         .definition(&vertex_shader)
         .unwrap();
     let stages = [

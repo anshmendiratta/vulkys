@@ -20,3 +20,12 @@ pub static CUBE_INDICES: [u16; 36] = [
     1, 6, 4, 4, 7, 6, // left face
     0, 3, 2, 2, 5, 3, // right face
 ];
+
+pub static CUBE_NORMALS: [Vec3; 6] = [
+    Vec3::new(1., 0., 0.),
+    Vec3::new(0., 1., 0.),
+    Vec3::new(0., 0., 1.),
+    Vec3::new(-1., 0., 0.),
+    Vec3::new(0., -1., 0.),
+    Vec3::new(0., 0., -1.),
+];

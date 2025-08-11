@@ -2,7 +2,7 @@ use ecolor::Color32;
 use glm::Vec3;
 use nalgebra::Rotation3;
 
-use crate::render::cuboid::{CUBE_INDICES, CUBE_VERTICES};
+use crate::render::cuboid::{CUBE_INDICES, CUBE_NORMALS, CUBE_VERTICES};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawCuboid {
@@ -52,6 +52,30 @@ impl RawCuboid {
         }
 
         vertices
+    }
+
+    pub fn get_normals(&self, with_rotation: Rotation3<f32>, with_translation: Vec3) -> Vec<Vec3> {
+        let mut normals: Vec<Vec3> = CUBE_NORMALS.clone().to_vec();
+        let scalars = self.half_extent.map(|e| e * 2.);
+
+        // Scales.
+        for normal in normals.iter_mut() {
+            normal.x *= scalars.x;
+            normal.y *= scalars.y;
+            normal.z *= scalars.z;
+        }
+
+        // Rotation.
+        for normal in normals.iter_mut() {
+            *normal = with_rotation * *normal;
+        }
+
+        // Translation.
+        // for normal in normals.iter_mut() {
+        //     *normal += with_translation;
+        // }
+
+        normals
     }
 
     pub fn get_vertex_indices(&self) -> Vec<u16> {

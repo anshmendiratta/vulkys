@@ -1,11 +1,11 @@
-use crate::vulkan::primitives::CustomVertex;
+use crate::vulkan::primitives::{DrawNormal, DrawVertex};
 
 use super::ball::RawBall;
 use super::cuboid::RawCuboid;
 use super::lib::COEFF_RESTITUTION;
 
 use ecolor::Color32;
-use glm::Vec3;
+use glm::{Vec3, Vec4};
 use nalgebra::Rotation3;
 use rapier3d::prelude::ColliderBuilder;
 
@@ -30,16 +30,6 @@ impl RigidBodySelection {
     }
 }
 
-// pub trait GenericObject {
-//     fn get_debug(&self) -> String;
-//     fn get_radius(&self) -> f32;
-//     fn get_color(&self) -> Color32;
-//     fn get_vertices(&self) -> Vec<CustomVertex>;
-//     fn get_indices(&self) -> Vec<u16>;
-//     fn get_init_position(&self) -> Vec3;
-//     fn get_init_velocity(&self) -> Vec3;
-// }
-
 type RBid = u8;
 #[derive(Clone, Debug, PartialEq)]
 pub enum RigidBody {
@@ -47,7 +37,6 @@ pub enum RigidBody {
     Cuboid(RawCuboid, RBid),
 }
 
-#[allow(dead_code)]
 impl RigidBody {
     pub fn convert_to_collider(&self) -> ColliderBuilder {
         match self {
@@ -73,22 +62,42 @@ impl RigidBody {
         &self,
         with_rotation: Rotation3<f32>,
         with_translation: Vec3,
-    ) -> Vec<CustomVertex> {
+    ) -> Vec<DrawVertex> {
         let vertices = match self {
             // RigidBody::Ball_(b, _) => b.get_vertices(),
             RigidBody::Cuboid(c, _) => c.get_vertices(with_rotation, with_translation),
             _ => vec![],
         };
 
-        let custom_vertices: Vec<CustomVertex> = vertices
+        vertices
             .iter()
-            .map(|v| CustomVertex {
+            .map(|v| DrawVertex {
                 position: *v,
-                color: self.get_color().to_array(),
+                color: {
+                    let [r, g, b, a] = self.get_color().to_array().map(|x| x as f32);
+                    Vec4::new(r / 255., g / 255., b / 255., a / 255.)
+                },
             })
-            .collect();
+            .collect()
+    }
 
-        custom_vertices
+    pub fn get_normals(
+        &self,
+        with_rotation: Rotation3<f32>,
+        with_translation: Vec3,
+    ) -> Vec<DrawNormal> {
+        let normals = match self {
+            // RigidBody::Ball_(b, _) => b.get_vertices(),
+            RigidBody::Cuboid(c, _) => c.get_normals(with_rotation, with_translation),
+            _ => vec![],
+        };
+
+        normals
+            .iter()
+            .map(|n| DrawNormal {
+                normal: (*n).into(),
+            })
+            .collect()
     }
 
     pub fn get_vertex_indices(&self) -> Vec<u16> {
@@ -107,41 +116,6 @@ impl RigidBody {
         }
     }
 
-    // pub fn get_object(&self) -> Box<dyn GenericObject> {
-    //     match self {
-    //         RigidBody::Ball_(
-    //             RawBall {
-    //                 radius,
-    //                 init_position: position,
-    //                 init_velocity: velocity,
-    //                 color,
-    //             },
-    //             _,
-    //         ) => Box::new(RawBall {
-    //             radius: *radius,
-    //             init_position: *position,
-    //             init_velocity: *velocity,
-    //             color: *color,
-    //         }),
-    //         RigidBody::Cuboid_(
-    //             RawCuboid {
-    //                 half_extent,
-    //                 init_position: position,
-    //                 init_velocity: velocity,
-    //                 rotation: orientation,
-    //                 color,
-    //             },
-    //             _,
-    //         ) => Box::new(RawCuboid {
-    //             half_extent: *half_extent,
-    //             init_position: *position,
-    //             init_velocity: *velocity,
-    //             rotation: *orientation,
-    //             color: *color,
-    //         }),
-    //     }
-    // }
-
     pub fn get_vertex_count(&self) -> u8 {
         match self {
             RigidBody::Ball(_, _) => 32,
@@ -149,37 +123,12 @@ impl RigidBody {
         }
     }
 
-    // pub fn to_polygon(&self, rotation: f32) -> Polygon {
-    //     let inner_object = self.get_object();
-    //     let long_radius = inner_object.get_radius();
-    //     let position = inner_object.get_init_position();
-    //     // TODO: Add z component. Temporary zero.
-    //     let center_coordinate = Vec3::new(position.x, position.y, 0.);
-    //     generate_polygon_triangles(
-    //         self.get_vertex_count(),
-    //         CustomVertex {
-    //             position: center_coordinate,
-    //             color: self.get_color().to_array(),
-    //         },
-    //         long_radius,
-    //         rotation,
-    //         self.get_color(),
-    //     )
-    // }
-
     pub fn get_color(&self) -> Color32 {
         match self {
             RigidBody::Ball(c, _) => c.color,
             RigidBody::Cuboid(c, _) => c.color,
         }
     }
-
-    // pub fn get_radius(&self) -> f32 {
-    //     match self {
-    //         RigidBody::Ball(c, _) => c.radius,
-    //         RigidBody::Cuboid(c, _) => c.get_half_extent(),
-    //     }
-    // }
 
     pub fn get_init_position(&self) -> Vec3 {
         match self {
@@ -197,11 +146,6 @@ impl RigidBody {
             _ => Vec3::zeros(),
         }
     }
-
-    // fn get_debug(&self) -> String {
-    //     let inner_object = self.get_object();
-    //     inner_object.get_debug()
-    // }
 
     pub fn type_to_string(&self) -> &str {
         match self {

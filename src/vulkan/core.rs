@@ -2,7 +2,6 @@
 
 use glm::{Mat4, Vec4};
 use nalgebra::vector;
-use std::f32::consts::FRAC_PI_2;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{error, info};
@@ -19,7 +18,7 @@ use vulkano::device::physical::PhysicalDeviceType;
 use vulkano::device::{Device, DeviceCreateInfo, Queue, QueueCreateInfo, QueueFlags};
 use vulkano::format::Format;
 use vulkano::image::ImageUsage;
-use vulkano::instance::{Instance, InstanceCreateInfo};
+use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo};
 use vulkano::memory::allocator::{MemoryTypeFilter, StandardMemoryAllocator};
 use vulkano::pipeline::Pipeline;
 use winit::application::ApplicationHandler;
@@ -79,6 +78,7 @@ impl App {
             library,
             InstanceCreateInfo {
                 enabled_extensions: instance_extensions,
+                flags: InstanceCreateFlags::ENUMERATE_PORTABILITY,
                 ..Default::default()
             },
         )
@@ -290,29 +290,31 @@ impl ApplicationHandler for App {
                     return;
                 }
                 // Camera controls.
-                Some("ArrowRight") => {
+                Some("d") => {
                     unsafe { camera::CAMERA.increment_theta() };
                 }
-                Some("ArrowLeft") => {
+                Some("a") => {
                     unsafe { camera::CAMERA.decrement_theta() };
                 }
-                Some("ArrowUp") => {
+                Some("w") => {
                     unsafe { camera::CAMERA.decrement_phi() };
                 }
-                Some("ArrowDown") => {
+                Some("s") => {
                     unsafe { camera::CAMERA.increment_phi() };
                 }
                 Some("=") => {
-                    unsafe { camera::CAMERA.decrement_r() };
+                    unsafe { camera::CAMERA.increment_r() };
                 }
                 Some("-") => {
-                    unsafe { camera::CAMERA.increment_r() };
+                    unsafe { camera::CAMERA.decrement_r() };
                 }
                 // Resume.
                 Some("r") => self.simulation_flags.is_paused = false, // Resume.
                 _ => info!("{:?} was pressed", logical.to_text()),
             },
             WindowEvent::RedrawRequested => {
+                dbg!(unsafe { CAMERA.position_as_cartesian() });
+
                 if self.simulation_flags.is_paused {
                     return;
                 }
@@ -374,15 +376,17 @@ impl ApplicationHandler for App {
                 let vertex_buffer = self
                     .scene
                     .return_vertex_buffer(self.memory_allocator.clone());
+                let normal_buffer = self
+                    .scene
+                    .return_normal_buffer(self.memory_allocator.clone());
                 let index_buffer = self
                     .scene
                     .return_index_buffer(self.memory_allocator.clone());
 
                 let uniform_buffer = {
                     let view = unsafe { CAMERA.to_view_matrix() };
-                    let projection = glm::perspective_rh(1., FRAC_PI_2, 0.1, 100.);
+                    let projection = glm::perspective_rh(1., glm::pi::<f32>() / 3., 0.1, 100.);
                     let model = Mat4::from_diagonal(&Vec4::new(1., 1., 1., 1.));
-                    dbg!(model);
 
                     let uniforms = vs::Data {
                         model: model.data.0,
@@ -431,7 +435,7 @@ impl ApplicationHandler for App {
                     .begin_render_pass(
                         RenderPassBeginInfo {
                             clear_values: vec![
-                                Some([0.8, 0.8, 0.8, 1.].into()),
+                                Some([0.2, 0.2, 0.2, 1.].into()),
                                 Some(1_f32.into()),
                             ],
                             ..RenderPassBeginInfo::framebuffer(
@@ -446,7 +450,7 @@ impl ApplicationHandler for App {
                     .unwrap()
                     .bind_pipeline_graphics(rcx.pipeline.clone())
                     .unwrap()
-                    .bind_vertex_buffers(0, vertex_buffer.clone())
+                    .bind_vertex_buffers(0, (vertex_buffer.clone(), normal_buffer.clone()))
                     .unwrap()
                     .bind_index_buffer(index_buffer.clone())
                     .unwrap()
@@ -517,6 +521,11 @@ impl ApplicationHandler for App {
             }
             _ => (),
         }
+    }
+
+    fn about_to_wait(&mut self, _: &ActiveEventLoop) {
+        let rcx = self.render_cx.as_mut().unwrap();
+        rcx.window.request_redraw();
     }
 }
 

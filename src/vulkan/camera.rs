@@ -8,7 +8,7 @@ pub struct Camera {
 static CAMERA_LOOK_AT: Vec3 = Vec3::new(0., 0., 0.);
 static WORLD_UP: Vec3 = Vec3::new(0., 1., 0.);
 pub static mut CAMERA: Camera = Camera {
-    position: Vec3::new(3.464, 0.9553, 0.7854),
+    position: Vec3::new(3.464, 0., 0.),
 };
 
 impl Camera {
@@ -25,26 +25,38 @@ impl Camera {
     }
 
     pub fn increment_r(&mut self) {
-        self.position.x += 0.1
+        self.position.x += 0.3;
+        self.clamp_self();
     }
 
     pub fn increment_theta(&mut self) {
-        self.position.y += 0.1
+        self.position.y += 0.3;
+        self.clamp_self();
     }
 
     pub fn increment_phi(&mut self) {
-        self.position.z += 0.1
+        self.position.z += 0.3;
+        self.clamp_self();
     }
 
     pub fn decrement_r(&mut self) {
-        self.position.x -= 0.1
+        self.position.x -= 0.3;
+        self.clamp_self();
     }
 
     pub fn decrement_theta(&mut self) {
-        self.position.y -= 0.1
+        self.position.y -= 0.3;
+        self.clamp_self();
     }
 
     pub fn decrement_phi(&mut self) {
-        self.position.z -= 0.1
+        self.position.z -= 0.3;
+        self.clamp_self();
+    }
+
+    pub fn clamp_self(&mut self) {
+        self.position.x = glm::clamp_scalar(self.position.x, 0., 100.);
+        self.position.y = glm::clamp_scalar(self.position.x, 0., glm::pi::<f32>() * 2.);
+        self.position.z = glm::clamp_scalar(self.position.z, 0., glm::pi())
     }
 }

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::vulkan::primitives::CustomVertex;
+use crate::vulkan::primitives::{DrawNormal, DrawVertex};
 use nalgebra::vector;
 use rapier3d::prelude::{
     ColliderBuilder, ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
@@ -58,9 +58,11 @@ impl Scene {
         // FIX: Also fix translations.
         // Add world colliders.
         let floor_rb = RigidBodyBuilder::fixed()
-            .translation(vector![0., -1., 0.])
+            .translation(vector![0., 3., 0.])
             .build();
-        let floor_cb = ColliderBuilder::cuboid(100., 0.5, 100.).build();
+        let floor_cb = ColliderBuilder::cuboid(100., 1., 100.)
+            .translation(vector![0., 3., 0.])
+            .build();
 
         let floor_rb_handle = rigid_body_set.insert(floor_rb);
         // Discard handle because it will not be referenced.
@@ -79,9 +81,9 @@ impl Scene {
     pub fn return_vertex_buffer(
         &self,
         allocator: Arc<StandardMemoryAllocator>,
-    ) -> Subbuffer<[CustomVertex]> {
+    ) -> Subbuffer<[DrawVertex]> {
         let vertex_buffer_data = {
-            let mut buffer_data: Vec<CustomVertex> = Vec::new();
+            let mut buffer_data: Vec<DrawVertex> = Vec::new();
             for (i, _) in self.object_set.iter() {
                 let rigid_body = self.object_set.get(i).unwrap();
                 let (rb_handle, _) = self.index_map.get(i).unwrap();
@@ -110,6 +112,40 @@ impl Scene {
         .expect("scene: could not produce vertex buffer from objects")
     }
 
+    pub fn return_normal_buffer(
+        &self,
+        allocator: Arc<StandardMemoryAllocator>,
+    ) -> Subbuffer<[DrawNormal]> {
+        let normal_buffer_data = {
+            let mut buffer_data: Vec<DrawNormal> = Vec::new();
+            for (i, _) in self.object_set.iter() {
+                let rigid_body = self.object_set.get(i).unwrap();
+                let (rb_handle, _) = self.index_map.get(i).unwrap();
+                let rapier_rigid_body = self.rigid_body_set.get(*rb_handle).unwrap();
+                let translation = rapier_rigid_body.translation();
+                let rotation = rapier_rigid_body.rotation().to_rotation_matrix();
+                buffer_data =
+                    [buffer_data, rigid_body.get_normals(rotation, *translation)].concat();
+            }
+            buffer_data
+        };
+
+        Buffer::from_iter(
+            allocator,
+            BufferCreateInfo {
+                usage: BufferUsage::VERTEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            normal_buffer_data.clone(),
+        )
+        .expect("scene: could not produce normal buffer from objects")
+    }
+
     pub fn return_index_buffer(&self, allocator: Arc<StandardMemoryAllocator>) -> IndexBuffer {
         let index_buffer_data = {
             let mut buffer_data: Vec<u16> = Vec::new();
@@ -134,8 +170,6 @@ impl Scene {
             index_buffer_data.clone(),
         )
         .expect("scene: could not produce index buffer from objects");
-
-        // dbg!(&index_buffer_data, index_buffer_data.len());
 
         IndexBuffer::U16(index_subbuffer)
     }
