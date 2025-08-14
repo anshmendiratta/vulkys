@@ -15,15 +15,12 @@ layout(set = 0, binding = 0) uniform Data {
 } uniforms;
 
 void main() {
-    mat4 model_view = uniforms.view * uniforms.model;
-    mat4 v_transform = uniforms.proj * uniforms.view * uniforms.model;
+    mat3 normal_matrix = mat3(transpose(inverse(uniforms.model)));
 
-    gl_Position = v_transform * vec4(position, 1.0);
-    // gl_Position.z = -gl_Position.z;
-    // gl_Position.y = -gl_Position.y;
-    // gl_Position = vec4(position, 1.0);
+    gl_Position = uniforms.proj * uniforms.view * uniforms.model * vec4(position, 1.0);
+    gl_Position.xy *= -1; // Correction because of the Math/OpenGL convention used.
 
     f_color = color;
     v_coord = position;
-    v_normal = transpose(inverse(mat3(model_view))) * normal;
+    v_normal = normal_matrix * normal;
 }

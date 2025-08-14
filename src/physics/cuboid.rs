@@ -71,14 +71,18 @@ impl RawCuboid {
         }
 
         // Translation.
-        // for normal in normals.iter_mut() {
-        //     *normal += with_translation;
-        // }
+        for normal in normals.iter_mut() {
+            *normal += with_translation;
+        }
 
         normals
     }
 
     pub fn get_vertex_indices(&self) -> Vec<u16> {
-        CUBE_INDICES.to_vec()
+        CUBE_INDICES
+            .to_vec()
+            .iter()
+            .map(|i| *i as u16)
+            .collect::<Vec<_>>()
     }
 }

@@ -58,10 +58,10 @@ impl Scene {
         // FIX: Also fix translations.
         // Add world colliders.
         let floor_rb = RigidBodyBuilder::fixed()
-            .translation(vector![0., 3., 0.])
+            .translation(vector![0., 1., 0.])
             .build();
-        let floor_cb = ColliderBuilder::cuboid(100., 1., 100.)
-            .translation(vector![0., 3., 0.])
+        let floor_cb = ColliderBuilder::cuboid(100., 0.5, 100.)
+            .translation(vector![0., 1., 0.])
             .build();
 
         let floor_rb_handle = rigid_body_set.insert(floor_rb);

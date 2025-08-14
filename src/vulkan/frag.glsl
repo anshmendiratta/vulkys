@@ -6,10 +6,15 @@ layout(location = 2) in vec3 v_normal;
 
 layout(location = 0) out vec4 out_color;
 
-const vec3 LIGHT = vec3(1., 1., 0.);
+const vec3 LIGHT = vec3(
+    4,
+    0,
+    0
+);
 
 void main() {
-    float brightness = dot(normalize(v_normal), normalize(LIGHT));
+    vec3 vert_to_light = LIGHT - v_coord;
+    float brightness = dot(normalize(v_normal), normalize(vert_to_light));
     vec3 dark = vec3(0.2, 0.2, 0.2);
     vec3 light = vec3(1., 1., 1.);
     vec3 out_color_grayscale = mix(dark, light, brightness);

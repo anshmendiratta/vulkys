@@ -297,24 +297,22 @@ impl ApplicationHandler for App {
                     unsafe { camera::CAMERA.decrement_theta() };
                 }
                 Some("w") => {
-                    unsafe { camera::CAMERA.decrement_phi() };
-                }
-                Some("s") => {
                     unsafe { camera::CAMERA.increment_phi() };
                 }
+                Some("s") => {
+                    unsafe { camera::CAMERA.decrement_phi() };
+                }
                 Some("=") => {
-                    unsafe { camera::CAMERA.increment_r() };
+                    unsafe { camera::CAMERA.decrement_r() };
                 }
                 Some("-") => {
-                    unsafe { camera::CAMERA.decrement_r() };
+                    unsafe { camera::CAMERA.increment_r() };
                 }
                 // Resume.
                 Some("r") => self.simulation_flags.is_paused = false, // Resume.
                 _ => info!("{:?} was pressed", logical.to_text()),
             },
             WindowEvent::RedrawRequested => {
-                dbg!(unsafe { CAMERA.position_as_cartesian() });
-
                 if self.simulation_flags.is_paused {
                     return;
                 }
@@ -385,7 +383,10 @@ impl ApplicationHandler for App {
 
                 let uniform_buffer = {
                     let view = unsafe { CAMERA.to_view_matrix() };
-                    let projection = glm::perspective_rh(1., glm::pi::<f32>() / 3., 0.1, 100.);
+                    let aspect_ratio = rcx.swapchain.image_extent()[0] as f32
+                        / rcx.swapchain.image_extent()[1] as f32;
+                    let projection =
+                        glm::perspective_rh(aspect_ratio, glm::pi::<f32>() / 3., 0.1, 100.);
                     let model = Mat4::from_diagonal(&Vec4::new(1., 1., 1., 1.));
 
                     let uniforms = vs::Data {

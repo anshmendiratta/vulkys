@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use glm::Vec3;
 
 // Unit cube.
@@ -12,7 +14,7 @@ pub static CUBE_VERTICES: [Vec3; 8] = [
     Vec3::new(-0.5, -0.5, -0.5), //  left bottom front
 ];
 
-pub static CUBE_INDICES: [u16; 36] = [
+pub static CUBE_INDICES: [usize; 36] = [
     0, 1, 2, 2, 4, 1, // back face
     3, 6, 5, 5, 7, 6, // front face
     0, 1, 3, 3, 6, 1, // top face
@@ -21,11 +23,13 @@ pub static CUBE_INDICES: [u16; 36] = [
     0, 3, 2, 2, 5, 3, // right face
 ];
 
-pub static CUBE_NORMALS: [Vec3; 6] = [
-    Vec3::new(1., 0., 0.),
-    Vec3::new(0., 1., 0.),
-    Vec3::new(0., 0., 1.),
-    Vec3::new(-1., 0., 0.),
-    Vec3::new(0., -1., 0.),
-    Vec3::new(0., 0., -1.),
+pub static CUBE_NORMALS: [Vec3; 8] = [
+    Vec3::new(0.5774, 0.5774, 0.57740),
+    Vec3::new(-0.5774, 0.5774, 0.57740),
+    Vec3::new(0.5774, -0.5774, 0.57740),
+    Vec3::new(0.5774, 0.5774, -0.57740),
+    Vec3::new(-0.5774, -0.5774, 0.57740),
+    Vec3::new(0.5774, -0.5774, -0.57740),
+    Vec3::new(-0.5774, 0.5774, -0.57740),
+    Vec3::new(-0.5774, -0.5774, -0.57740),
 ];
