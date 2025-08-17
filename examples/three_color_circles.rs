@@ -35,34 +35,37 @@ fn main() {
         .init();
 
     // Initialize objects
-    let circle_1: RigidBody = RigidBody::Ball(
+    let ball_1: RigidBody = RigidBody::Ball(
         RawBall {
             radius: 0.25,
             init_position: Vec3::new(0.5, 0.5, 0.5),
             init_velocity: Vec3::new(-1.5, -1.0, 0.),
+            init_rotation: Rotation3::identity(),
             color: Color32::from_hex("#23F0C7").unwrap(),
         },
         0,
     );
-    let circle_2: RigidBody = RigidBody::Ball(
+    let ball_2: RigidBody = RigidBody::Ball(
         RawBall {
             radius: 0.25,
             init_position: Vec3::new(-0.5, 0.65, 1.),
             init_velocity: Vec3::new(1.5, 0., 0.),
+            init_rotation: Rotation3::identity(),
             color: Color32::from_hex("#EF767A").unwrap(),
         },
         1,
     );
-    let circle_3: RigidBody = RigidBody::Ball(
+    let ball_3: RigidBody = RigidBody::Ball(
         RawBall {
             radius: 0.3,
             init_position: Vec3::new(0., -0.5, 0.),
             init_velocity: Vec3::new(2.75, 2.6, 0.),
+            init_rotation: Rotation3::identity(),
             color: Color32::from_hex("#7D7ABC").unwrap(),
         },
         2,
     );
-    let square_1: RigidBody = RigidBody::Cuboid(
+    let cuboid_1: RigidBody = RigidBody::Cuboid(
         RawCuboid {
             half_extent: Vec3::new(0.2, 0.2, 0.2),
             init_position: Vec3::new(0., 0., 0.),
@@ -72,7 +75,7 @@ fn main() {
         },
         2,
     );
-    let objects: Vec<RigidBody> = vec![square_1];
+    let objects: Vec<RigidBody> = vec![ball_3];
     // Initialize scene
     let scene_info = SceneInfo {
         objects,

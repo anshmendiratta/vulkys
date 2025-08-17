@@ -1,3 +1,5 @@
+use std::f32::consts::FRAC_PI_4;
+
 use glm::{Mat4, Vec3};
 
 /// `position` is a vector of (r, theta, phi). That is, the positionn fo the camera in spherical coordinates.
@@ -8,7 +10,7 @@ pub struct Camera {
 static CAMERA_LOOK_AT: Vec3 = Vec3::new(0., 0., 0.);
 static WORLD_UP: Vec3 = Vec3::new(0., 1., 0.);
 pub static mut CAMERA: Camera = Camera {
-    position: Vec3::new(3.464, 0., 0.),
+    position: Vec3::new(1.464, FRAC_PI_4, FRAC_PI_4),
 };
 
 impl Camera {
@@ -18,7 +20,7 @@ impl Camera {
 
     pub fn position_as_cartesian(&self) -> Vec3 {
         let x = self.position.x * self.position.z.sin() * self.position.y.cos(); // r * sin(phi) * cos(theta)
-        let y = -self.position.x * self.position.z.cos(); // r * cos(phi)
+        let y = self.position.x * self.position.z.cos(); // r * cos(phi)
         let z = self.position.x * self.position.z.sin() * self.position.y.sin(); // r * sin(phi) * sin(theta)
 
         Vec3::new(x, y, z)

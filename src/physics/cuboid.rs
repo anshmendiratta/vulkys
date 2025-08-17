@@ -2,7 +2,7 @@ use ecolor::Color32;
 use glm::Vec3;
 use nalgebra::Rotation3;
 
-use crate::render::cuboid::{CUBE_INDICES, CUBE_NORMALS, CUBE_VERTICES};
+use crate::models::cuboid::{CUBOID_INDICES, DEFAULT_CUBOID_NORMALS, DEFAULT_CUBOID_VERTICES};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawCuboid {
@@ -22,6 +22,10 @@ impl RawCuboid {
         self.init_velocity
     }
 
+    pub fn get_init_rotation(&self) -> Rotation3<f32> {
+        self.init_rotation
+    }
+
     pub fn get_half_extent(&self) -> Vec3 {
         self.half_extent
     }
@@ -31,7 +35,7 @@ impl RawCuboid {
     }
 
     pub fn get_vertices(&self, with_rotation: Rotation3<f32>, with_translation: Vec3) -> Vec<Vec3> {
-        let mut vertices: Vec<Vec3> = CUBE_VERTICES.clone().to_vec();
+        let mut vertices: Vec<Vec3> = DEFAULT_CUBOID_VERTICES.clone().to_vec();
         let scalars = self.half_extent.map(|e| e * 2.);
 
         // Scales.
@@ -55,15 +59,7 @@ impl RawCuboid {
     }
 
     pub fn get_normals(&self, with_rotation: Rotation3<f32>, with_translation: Vec3) -> Vec<Vec3> {
-        let mut normals: Vec<Vec3> = CUBE_NORMALS.clone().to_vec();
-        let scalars = self.half_extent.map(|e| e * 2.);
-
-        // Scales.
-        for normal in normals.iter_mut() {
-            normal.x *= scalars.x;
-            normal.y *= scalars.y;
-            normal.z *= scalars.z;
-        }
+        let mut normals: Vec<Vec3> = DEFAULT_CUBOID_NORMALS.clone().to_vec();
 
         // Rotation.
         for normal in normals.iter_mut() {
@@ -79,10 +75,6 @@ impl RawCuboid {
     }
 
     pub fn get_vertex_indices(&self) -> Vec<u16> {
-        CUBE_INDICES
-            .to_vec()
-            .iter()
-            .map(|i| *i as u16)
-            .collect::<Vec<_>>()
+        CUBOID_INDICES.to_vec()
     }
 }

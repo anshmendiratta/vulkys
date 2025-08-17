@@ -6,7 +6,7 @@ layout(location = 2) in vec3 normal;
 
 layout(location = 0) out vec4 f_color;
 layout(location = 1) out vec3 v_coord;
-layout(location = 2) out vec3 v_normal;
+layout(location = 2) flat out vec3 v_normal;
 
 layout(set = 0, binding = 0) uniform Data {
     mat4 model;

@@ -145,11 +145,6 @@ impl App {
             scene,
         }
     }
-
-    // pub fn run_with_scene(mut self, mut scene: Scene, event_loop: EventLoop<()>) {
-    //     event_loop.run(move |event, _| {
-    //     });
-    // }
 }
 
 impl ApplicationHandler for App {
@@ -289,6 +284,9 @@ impl ApplicationHandler for App {
                     self.simulation_flags.is_paused = true;
                     return;
                 }
+                Some("q") => {
+                    event_loop.exit();
+                }
                 // Camera controls.
                 Some("d") => {
                     unsafe { camera::CAMERA.increment_theta() };
@@ -297,10 +295,10 @@ impl ApplicationHandler for App {
                     unsafe { camera::CAMERA.decrement_theta() };
                 }
                 Some("w") => {
-                    unsafe { camera::CAMERA.increment_phi() };
+                    unsafe { camera::CAMERA.decrement_phi() };
                 }
                 Some("s") => {
-                    unsafe { camera::CAMERA.decrement_phi() };
+                    unsafe { camera::CAMERA.increment_phi() };
                 }
                 Some("=") => {
                     unsafe { camera::CAMERA.decrement_r() };

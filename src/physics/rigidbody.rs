@@ -9,27 +9,6 @@ use glm::{Vec3, Vec4};
 use nalgebra::Rotation3;
 use rapier3d::prelude::ColliderBuilder;
 
-#[derive(PartialEq, Clone, Copy)]
-pub enum RigidBodySelection {
-    None,
-    Ball_,
-}
-
-impl Default for RigidBodySelection {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
-impl RigidBodySelection {
-    pub fn to_string(&self) -> &str {
-        match self {
-            RigidBodySelection::None => "None",
-            RigidBodySelection::Ball_ => "Ball",
-        }
-    }
-}
-
 type RBid = u8;
 #[derive(Clone, Debug, PartialEq)]
 pub enum RigidBody {
@@ -40,21 +19,26 @@ pub enum RigidBody {
 impl RigidBody {
     pub fn convert_to_collider(&self) -> ColliderBuilder {
         match self {
-            RigidBody::Ball(RawBall { radius, .. }, _) => {
-                ColliderBuilder::ball(*radius).restitution(COEFF_RESTITUTION)
-            }
-            // ball .translation(vector![position.x, position.y]),
+            RigidBody::Ball(
+                RawBall {
+                    radius,
+                    init_rotation,
+                    ..
+                },
+                _,
+            ) => ColliderBuilder::ball(*radius)
+                .restitution(COEFF_RESTITUTION)
+                .rotation(init_rotation.scaled_axis()),
             RigidBody::Cuboid(
                 RawCuboid {
                     half_extent,
-                    init_rotation: rotation,
+                    init_rotation,
                     ..
                 },
                 _,
             ) => ColliderBuilder::cuboid(half_extent.x, half_extent.y, half_extent.z)
                 .restitution(COEFF_RESTITUTION)
-                .rotation(rotation.scaled_axis()),
-            // _ => unreachable!(),
+                .rotation(init_rotation.scaled_axis()),
         }
     }
 
@@ -64,9 +48,8 @@ impl RigidBody {
         with_translation: Vec3,
     ) -> Vec<DrawVertex> {
         let vertices = match self {
-            // RigidBody::Ball_(b, _) => b.get_vertices(),
+            RigidBody::Ball(b, _) => b.get_vertices(with_rotation, with_translation),
             RigidBody::Cuboid(c, _) => c.get_vertices(with_rotation, with_translation),
-            _ => vec![],
         };
 
         vertices
@@ -87,9 +70,8 @@ impl RigidBody {
         with_translation: Vec3,
     ) -> Vec<DrawNormal> {
         let normals = match self {
-            // RigidBody::Ball_(b, _) => b.get_vertices(),
+            RigidBody::Ball(b, _) => b.get_vertices(with_rotation, with_translation),
             RigidBody::Cuboid(c, _) => c.get_normals(with_rotation, with_translation),
-            _ => vec![],
         };
 
         normals
@@ -132,18 +114,22 @@ impl RigidBody {
 
     pub fn get_init_position(&self) -> Vec3 {
         match self {
-            // RigidBody::Ball(c, _) => c.get_init_position(),
+            RigidBody::Ball(c, _) => c.get_init_position(),
             RigidBody::Cuboid(c, _) => c.get_init_position(),
-            // FIX.
-            _ => Vec3::zeros(),
         }
     }
 
     pub fn get_init_velocity(&self) -> Vec3 {
         match self {
+            RigidBody::Ball(b, _) => b.get_init_velocity(),
             RigidBody::Cuboid(c, _) => c.get_init_velocity(),
-            // FIX.
-            _ => Vec3::zeros(),
+        }
+    }
+
+    pub fn get_init_rotation(&self) -> Rotation3<f32> {
+        match self {
+            RigidBody::Ball(b, _) => b.get_init_rotation(),
+            RigidBody::Cuboid(c, _) => c.get_init_rotation(),
         }
     }
 

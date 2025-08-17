@@ -1,7 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::vulkan::primitives::{DrawNormal, DrawVertex};
-use nalgebra::vector;
+use glm::Vec3;
+use nalgebra::{UnitVector3, vector};
 use rapier3d::prelude::{
     ColliderBuilder, ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
 };
@@ -42,11 +43,12 @@ impl Scene {
         for (i, rb) in scene_info.objects.iter().enumerate() {
             let rb_position = rb.get_init_position();
             let rb_velocity = rb.get_init_velocity();
-            // let color = rb.get_color();
+            let rb_rotation = rb.get_init_rotation();
             let cb = rb.convert_to_collider().build();
             let rbb = RigidBodyBuilder::dynamic()
                 .translation(vector![rb_position.x, rb_position.y, rb_position.z])
-                .linvel(vector![rb_velocity.x, rb_velocity.y, rb_velocity.z]);
+                .linvel(vector![rb_velocity.x, rb_velocity.y, rb_velocity.z])
+                .angvel(rb_rotation.scaled_axis());
             let rb_handle = rigid_body_set.insert(rbb);
             let cb_handle = collider_set.insert_with_parent(cb, rb_handle, &mut rigid_body_set);
 
@@ -54,15 +56,10 @@ impl Scene {
             index_map.insert(i as u128, (rb_handle, cb_handle));
         }
 
-        // FIX: Correct world colliders for 3D. Namely, remove the ceiling collider and add x/z colliders with a negative y collider.
-        // FIX: Also fix translations.
+        // FIX: Fix translations.
         // Add world colliders.
-        let floor_rb = RigidBodyBuilder::fixed()
-            .translation(vector![0., 1., 0.])
-            .build();
-        let floor_cb = ColliderBuilder::cuboid(100., 0.5, 100.)
-            .translation(vector![0., 1., 0.])
-            .build();
+        let floor_rb = RigidBodyBuilder::fixed().build();
+        let floor_cb = ColliderBuilder::halfspace(UnitVector3::new_normalize(Vec3::y())).build();
 
         let floor_rb_handle = rigid_body_set.insert(floor_rb);
         // Discard handle because it will not be referenced.
