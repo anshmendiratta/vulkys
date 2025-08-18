@@ -13,8 +13,8 @@ pub static DEFAULT_CYLINDER_VERTICES: LazyLock<Vec<Vec3>> = LazyLock::new(|| {
     let obj = &*DEFAULT_CYLINDER_OBJ;
     let mut vertices = Vec::new();
     for vertex in obj.vertices.clone() {
-        let pos = vertex.position;
-        vertices.push(Vec3::new(pos[0], pos[1], pos[2]));
+        let [x, y, z] = vertex.position;
+        vertices.push(Vec3::new(x, y, z));
     }
     vertices
 });
@@ -23,8 +23,8 @@ pub static DEFAULT_CYLINDER_NORMALS: LazyLock<Vec<Vec3>> = LazyLock::new(|| {
     let obj = &*DEFAULT_CYLINDER_OBJ;
     let mut normals = Vec::new();
     for vertex in obj.vertices.clone() {
-        let norm = vertex.normal;
-        normals.push(Vec3::new(norm[0], norm[1], norm[2]));
+        let [x, y, z] = vertex.normal;
+        normals.push(Vec3::new(x, y, z));
     }
     normals
 });

@@ -70,7 +70,7 @@ impl RigidBody {
         with_translation: Vec3,
     ) -> Vec<DrawNormal> {
         let normals = match self {
-            RigidBody::Ball(b, _) => b.get_vertices(with_rotation, with_translation),
+            RigidBody::Ball(b, _) => b.get_normals(with_rotation, with_translation),
             RigidBody::Cuboid(c, _) => c.get_normals(with_rotation, with_translation),
         };
 
@@ -85,7 +85,7 @@ impl RigidBody {
     pub fn get_vertex_indices(&self) -> Vec<u16> {
         let indices = match self {
             RigidBody::Cuboid(c, _) => c.get_vertex_indices(),
-            _ => vec![],
+            RigidBody::Ball(b, _) => b.get_vertex_indices(),
         };
 
         indices
@@ -95,13 +95,6 @@ impl RigidBody {
         match self {
             RigidBody::Ball(RawBall { .. }, id) => id.clone(),
             RigidBody::Cuboid(RawCuboid { .. }, id) => id.clone(),
-        }
-    }
-
-    pub fn get_vertex_count(&self) -> u8 {
-        match self {
-            RigidBody::Ball(_, _) => 32,
-            RigidBody::Cuboid(_, _) => 8,
         }
     }
 

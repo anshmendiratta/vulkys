@@ -59,7 +59,7 @@ impl Scene {
         // FIX: Fix translations.
         // Add world colliders.
         let floor_rb = RigidBodyBuilder::fixed().build();
-        let floor_cb = ColliderBuilder::halfspace(UnitVector3::new_normalize(Vec3::y())).build();
+        let floor_cb = ColliderBuilder::halfspace(UnitVector3::new_normalize(-Vec3::y())).build();
 
         let floor_rb_handle = rigid_body_set.insert(floor_rb);
         // Discard handle because it will not be referenced.

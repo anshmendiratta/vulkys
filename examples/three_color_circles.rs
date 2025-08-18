@@ -58,8 +58,9 @@ fn main() {
     let ball_3: RigidBody = RigidBody::Ball(
         RawBall {
             radius: 0.3,
-            init_position: Vec3::new(0., -0.5, 0.),
-            init_velocity: Vec3::new(2.75, 2.6, 0.),
+            init_position: Vec3::new(0., 1.5, 0.),
+            // init_velocity: Vec3::new(2.75, 2.6, 0.),
+            init_velocity: Vec3::new(0., 0., 0.),
             init_rotation: Rotation3::identity(),
             color: Color32::from_hex("#7D7ABC").unwrap(),
         },
@@ -68,7 +69,7 @@ fn main() {
     let cuboid_1: RigidBody = RigidBody::Cuboid(
         RawCuboid {
             half_extent: Vec3::new(0.2, 0.2, 0.2),
-            init_position: Vec3::new(0., 0., 0.),
+            init_position: Vec3::new(0., 1., 0.),
             init_velocity: Vec3::new(0., 0., 0.),
             color: Color32::from_hex("#32db49").unwrap(),
             init_rotation: Rotation3::from_euler_angles(0.5, 0.6, 0.6),
@@ -80,7 +81,7 @@ fn main() {
     let scene_info = SceneInfo {
         objects,
         dt: 1e-3,
-        gravity: 0.01,
+        gravity: -0.01,
     };
     let scene: Scene = Scene::with_info(scene_info);
     let event_loop = EventLoop::new().unwrap();

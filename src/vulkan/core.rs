@@ -330,7 +330,6 @@ impl ApplicationHandler for App {
                     &mut self.rapier_cx.impulse_joint_set,
                     &mut self.rapier_cx.multibody_joint_set,
                     &mut self.rapier_cx.ccd_solver,
-                    // Some(&mut self.rapier_ctx.query_pipeline),
                     &*self.rapier_cx.physics_hooks,
                     &*self.rapier_cx.event_handler,
                 );
