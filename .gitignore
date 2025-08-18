@@ -1,12 +1,18 @@
+# auto directories
 .git/
 .github/
 .vs/
-target/
 .ssh/
 .repos/
-\
+
+# user directories
+target/
+assets/
+
+# files
 .DS_STORE
 Cargo.lock
 run.log
-assets/
 .vk_core.rs.swp
+.gitignore
+*/.DS_STORE
