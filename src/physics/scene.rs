@@ -56,10 +56,10 @@ impl Scene {
             index_map.insert(i as u128, (rb_handle, cb_handle));
         }
 
-        // FIX: Fix translations.
-        // Add world colliders.
-        let floor_rb = RigidBodyBuilder::fixed().build();
-        let floor_cb = ColliderBuilder::halfspace(UnitVector3::new_normalize(-Vec3::y())).build();
+        let floor_rb = RigidBodyBuilder::fixed()
+            .translation(Vec3::new(0., -1., 0.))
+            .build();
+        let floor_cb = ColliderBuilder::halfspace(UnitVector3::new_normalize(Vec3::y())).build();
 
         let floor_rb_handle = rigid_body_set.insert(floor_rb);
         // Discard handle because it will not be referenced.
@@ -148,7 +148,11 @@ impl Scene {
             let mut buffer_data: Vec<u16> = Vec::new();
             for (i, _) in self.object_set.iter() {
                 let rigid_body = self.object_set.get(i).unwrap();
-                buffer_data = [buffer_data, rigid_body.get_vertex_indices()].concat();
+                let mut rigid_body_indices = rigid_body.get_vertex_indices();
+                for index in rigid_body_indices.iter_mut() {
+                    *index += buffer_data.len() as u16; // To make sure that the indices reference its corresponding vertices and the not vertices of other meshes from earlier in the buffers.
+                }
+                buffer_data = [buffer_data, rigid_body_indices].concat();
             }
             buffer_data
         };

@@ -31,9 +31,5 @@ pub static DEFAULT_CUBOID_NORMALS: LazyLock<Vec<Vec3>> = LazyLock::new(|| {
 
 pub static CUBOID_INDICES: LazyLock<Vec<u16>> = LazyLock::new(|| {
     let obj = &*DEFAULT_CUBOID_OBJ;
-    let mut indices = Vec::new();
-    for index in obj.indices.clone() {
-        indices.push(index);
-    }
-    indices
+    obj.indices.clone()
 });

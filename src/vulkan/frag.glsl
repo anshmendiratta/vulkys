@@ -7,9 +7,9 @@ layout(location = 2) flat in vec3 v_normal;
 layout(location = 0) out vec4 out_color;
 
 const vec3 LIGHT = vec3(
-    4,
-    4,
-    0
+    -4.0,
+    -4.0,
+    -4.0
 );
 
 void main() {

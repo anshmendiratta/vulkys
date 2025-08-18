@@ -31,9 +31,5 @@ pub static DEFAULT_CYLINDER_NORMALS: LazyLock<Vec<Vec3>> = LazyLock::new(|| {
 
 pub static CYLINDER_INDICES: LazyLock<Vec<u16>> = LazyLock::new(|| {
     let obj = &*DEFAULT_CYLINDER_OBJ;
-    let mut indices = Vec::new();
-    for index in obj.indices.clone() {
-        indices.push(index);
-    }
-    indices
+    obj.indices.clone()
 });
