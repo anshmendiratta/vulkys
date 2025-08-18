@@ -3,6 +3,8 @@ use std::{fs::File, io::BufReader, sync::LazyLock};
 use glm::Vec3;
 use obj::Obj;
 
+use super::obj_loader;
+
 static DEFAULT_CYLINDER_OBJ: LazyLock<Obj> = LazyLock::new(|| {
     let file = File::open("resources/default_cylinder.obj").unwrap();
     obj::load_obj(BufReader::new(file)).unwrap()
@@ -11,25 +13,15 @@ static DEFAULT_CYLINDER_OBJ: LazyLock<Obj> = LazyLock::new(|| {
 // Unit cube.
 pub static DEFAULT_CYLINDER_VERTICES: LazyLock<Vec<Vec3>> = LazyLock::new(|| {
     let obj = &*DEFAULT_CYLINDER_OBJ;
-    let mut vertices = Vec::new();
-    for vertex in obj.vertices.clone() {
-        let [x, y, z] = vertex.position;
-        vertices.push(Vec3::new(x, y, z));
-    }
-    vertices
+    obj_loader::get_obj_vertices(obj)
 });
 
 pub static DEFAULT_CYLINDER_NORMALS: LazyLock<Vec<Vec3>> = LazyLock::new(|| {
     let obj = &*DEFAULT_CYLINDER_OBJ;
-    let mut normals = Vec::new();
-    for vertex in obj.vertices.clone() {
-        let [x, y, z] = vertex.normal;
-        normals.push(Vec3::new(x, y, z));
-    }
-    normals
+    obj_loader::get_obj_normals(obj)
 });
 
 pub static CYLINDER_INDICES: LazyLock<Vec<u16>> = LazyLock::new(|| {
     let obj = &*DEFAULT_CYLINDER_OBJ;
-    obj.indices.clone()
+    obj_loader::get_obj_indices(obj)
 });

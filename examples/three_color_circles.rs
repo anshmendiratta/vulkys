@@ -7,6 +7,7 @@ use vulkys::{
     physics::{
         ball::RawBall,
         cuboid::RawCuboid,
+        cylinder::RawCylinder,
         rigidbody::RigidBody,
         scene::{Scene, SceneInfo},
     },
@@ -76,7 +77,18 @@ fn main() {
         },
         2,
     );
-    let objects: Vec<RigidBody> = vec![cuboid_1, ball_3];
+    let cylinder_1: RigidBody = RigidBody::Cylinder(
+        RawCylinder {
+            half_height: 0.5,
+            radius: 0.5,
+            init_position: Vec3::new(0., 0., 0.),
+            init_velocity: Vec3::new(0., 0., 0.),
+            init_rotation: Rotation3::identity(),
+            color: Color32::from_hex("#d98cff").unwrap(),
+        },
+        3,
+    );
+    let objects: Vec<RigidBody> = vec![cylinder_1];
     // Initialize scene
     let scene_info = SceneInfo {
         objects,
