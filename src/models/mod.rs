@@ -1,21 +1,43 @@
-use std::sync::LazyLock;
+use std::{fs::File, io::BufReader, sync::LazyLock};
 
-use glm::Vec3;
+use ecolor::Color32;
+use glm::{Vec3, Vec4};
+use obj::Obj;
 
 pub mod ball;
 pub mod cuboid;
 pub mod cylinder;
 
-pub static FLOOR_PLANE_VERTICES: LazyLock<Vec<Vec3>> = LazyLock::new(|| {
-    vec![
-        Vec3::new(100., 0., 100.),
-        Vec3::new(100., 0., -100.),
-        Vec3::new(-100., 0., -100.),
-        Vec3::new(-100., 0., 100.),
-    ]
+pub const DEFAULT_FLOOR_COLOR: LazyLock<Vec4> = LazyLock::new(|| {
+    let [r, g, b, a] = Color32::from_hex("#ffffff").unwrap().to_array();
+    Vec4::new(
+        r as f32 / 255.,
+        g as f32 / 255.,
+        b as f32 / 255.,
+        a as f32 / 255.,
+    )
 });
 
-pub static FLOOR_PLANE_INDICES: LazyLock<Vec<u16>> = LazyLock::new(|| vec![0, 1, 2, 2, 3, 0]);
+static DEFAULT_FLOOR_OBJ: LazyLock<Obj> = LazyLock::new(|| {
+    let file = File::open("resources/default_floor.obj").unwrap();
+    obj::load_obj(BufReader::new(file)).unwrap()
+}); // OK to unwrap because the file is known to be valid.
+
+// Unit cube.
+pub static DEFAULT_FLOOR_VERTICES: LazyLock<Vec<Vec3>> = LazyLock::new(|| {
+    let obj = &*DEFAULT_FLOOR_OBJ;
+    obj_loader::get_obj_vertices(obj)
+});
+
+pub static DEFAULT_FLOOR_NORMALS: LazyLock<Vec<Vec3>> = LazyLock::new(|| {
+    let obj = &*DEFAULT_FLOOR_OBJ;
+    obj_loader::get_obj_normals(obj)
+});
+
+pub static FLOOR_INDICES: LazyLock<Vec<u16>> = LazyLock::new(|| {
+    let obj = &*DEFAULT_FLOOR_OBJ;
+    obj_loader::get_obj_indices(obj)
+});
 
 pub mod obj_loader {
     use glm::Vec3;

@@ -2,7 +2,7 @@
 
 layout(location = 0) in vec4 f_color;
 layout(location = 1) in vec3 v_coord;
-layout(location = 2) flat in vec3 v_normal;
+layout(location = 2) in vec3 v_normal;
 
 layout(location = 0) out vec4 out_color;
 

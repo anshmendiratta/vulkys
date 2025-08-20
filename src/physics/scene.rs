@@ -1,5 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
+use crate::models::{
+    DEFAULT_FLOOR_COLOR, DEFAULT_FLOOR_NORMALS, DEFAULT_FLOOR_VERTICES, FLOOR_INDICES,
+};
 use crate::vulkan::primitives::{DrawNormal, DrawVertex};
 use glm::Vec3;
 use nalgebra::{UnitVector3, vector};
@@ -90,6 +93,18 @@ impl Scene {
                 buffer_data =
                     [buffer_data, rigid_body.get_vertices(rotation, *translation)].concat();
             }
+            // Add floor.
+            let floor_plane_vertices: Vec<DrawVertex> = (&*DEFAULT_FLOOR_VERTICES
+                .clone()
+                .iter()
+                .map(|v| DrawVertex {
+                    position: *v,
+                    color: *DEFAULT_FLOOR_COLOR,
+                })
+                .collect::<Vec<DrawVertex>>())
+                .to_vec();
+            buffer_data = [buffer_data, floor_plane_vertices].concat();
+
             buffer_data
         };
 
@@ -124,6 +139,15 @@ impl Scene {
                 buffer_data =
                     [buffer_data, rigid_body.get_normals(rotation, *translation)].concat();
             }
+            // Add floor.
+            let floor_plane_normals: Vec<DrawNormal> = (&*DEFAULT_FLOOR_NORMALS
+                .clone()
+                .iter()
+                .map(|n| DrawNormal { normal: *n })
+                .collect::<Vec<DrawNormal>>())
+                .to_vec();
+            buffer_data = [buffer_data, floor_plane_normals].concat();
+
             buffer_data
         };
 
@@ -154,6 +178,15 @@ impl Scene {
                 }
                 buffer_data = [buffer_data, rigid_body_indices].concat();
             }
+            // Add floor.
+            let floor_plane_indices = (&*FLOOR_INDICES
+                .clone()
+                .iter()
+                .map(|i| *i + buffer_data.len() as u16)
+                .collect::<Vec<_>>())
+                .to_vec();
+            buffer_data = [buffer_data, floor_plane_indices].concat();
+
             buffer_data
         };
 
