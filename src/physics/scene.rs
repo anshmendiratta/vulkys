@@ -170,19 +170,27 @@ impl Scene {
     pub fn return_index_buffer(&self, allocator: Arc<StandardMemoryAllocator>) -> IndexBuffer {
         let index_buffer_data = {
             let mut buffer_data: Vec<u16> = Vec::new();
+            let mut vertices_count = 0;
             for (i, _) in self.object_set.iter() {
                 let rigid_body = self.object_set.get(i).unwrap();
                 let mut rigid_body_indices = rigid_body.get_vertex_indices();
                 for index in rigid_body_indices.iter_mut() {
-                    *index += buffer_data.len() as u16; // To make sure that the indices reference its corresponding vertices and the not vertices of other meshes from earlier in the buffers.
+                    *index += vertices_count as u16; // To make sure that the indices reference its corresponding vertices and the not vertices of other meshes from earlier in the buffers.
                 }
+                // Add after offsetting indices so the first object's vertices are not offset.
+                vertices_count += rigid_body
+                    .get_vertices(
+                        rigid_body.get_init_rotation(),
+                        rigid_body.get_init_position(),
+                    )
+                    .len();
                 buffer_data = [buffer_data, rigid_body_indices].concat();
             }
             // Add floor.
             let floor_plane_indices = (&*FLOOR_INDICES
                 .clone()
                 .iter()
-                .map(|i| *i + buffer_data.len() as u16)
+                .map(|i| *i + vertices_count as u16)
                 .collect::<Vec<_>>())
                 .to_vec();
             buffer_data = [buffer_data, floor_plane_indices].concat();
