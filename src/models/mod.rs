@@ -9,7 +9,7 @@ pub mod cuboid;
 pub mod cylinder;
 
 pub const DEFAULT_FLOOR_COLOR: LazyLock<Vec4> = LazyLock::new(|| {
-    let [r, g, b, a] = Color32::from_hex("#ffffff").unwrap().to_array();
+    let [r, g, b, a] = Color32::from_hex("#333333").unwrap().to_array();
     Vec4::new(
         r as f32 / 255.,
         g as f32 / 255.,

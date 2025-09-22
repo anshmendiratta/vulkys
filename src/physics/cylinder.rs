@@ -47,7 +47,8 @@ impl RawCylinder {
         // Scales.
         for vertex in vertices.iter_mut() {
             vertex.x *= self.radius;
-            vertex.y *= 2. * self.half_height;
+            // FIX: Find out why this is needed.
+            vertex.y *= self.half_height;
             vertex.z *= self.radius;
         }
 
@@ -71,7 +72,7 @@ impl RawCylinder {
         // TODO: Check if this is OK. I believe it works like uniform scaling in this instance.
         for normal in normals.iter_mut() {
             normal.x *= self.radius;
-            normal.y *= 2. * self.half_height;
+            normal.y *= self.half_height;
             normal.z *= self.radius;
         }
 

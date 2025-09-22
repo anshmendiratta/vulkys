@@ -79,9 +79,9 @@ fn main() {
     );
     let cylinder_1: RigidBody = RigidBody::Cylinder(
         RawCylinder {
-            half_height: 0.5,
+            half_height: 1.0,
             radius: 0.5,
-            init_position: Vec3::new(0., 0., 0.),
+            init_position: Vec3::new(0., 5.1, 0.),
             init_velocity: Vec3::new(0., 0., 0.),
             init_rotation: Rotation3::identity(),
             color: Color32::from_hex("#d98cff").unwrap(),
@@ -93,7 +93,7 @@ fn main() {
     let scene_info = SceneInfo {
         objects,
         dt: 1e-5,
-        gravity: -0.01,
+        gravity: -2.0,
     };
     let scene: Scene = Scene::with_info(scene_info);
     let event_loop = EventLoop::new().unwrap();

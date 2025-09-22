@@ -4,12 +4,15 @@ use glm::{Vec3, Vec4};
 use vulkano::buffer::BufferContents;
 use vulkano::device::{Device, DeviceExtensions};
 use vulkano::format::Format;
-use vulkano::image::ImageCreateInfo;
-use vulkano::image::view::ImageView;
-use vulkano::image::{Image, ImageUsage};
+use vulkano::image::sampler::ComponentMapping;
+use vulkano::image::view::{ImageView, ImageViewCreateInfo, ImageViewType};
+use vulkano::image::{
+    Image, ImageAspects, ImageLayout, ImageSubresourceRange, ImageUsage, SampleCount,
+};
+use vulkano::image::{ImageCreateInfo, ImageType};
 use vulkano::instance::InstanceExtensions;
-use vulkano::memory::allocator::AllocationCreateInfo;
 use vulkano::memory::allocator::StandardMemoryAllocator;
+use vulkano::memory::allocator::{AllocationCreateInfo, MemoryTypeFilter};
 use vulkano::pipeline::graphics::GraphicsPipelineCreateInfo;
 use vulkano::pipeline::graphics::color_blend::ColorBlendAttachmentState;
 use vulkano::pipeline::graphics::color_blend::ColorBlendState;
@@ -26,6 +29,7 @@ use vulkano::pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCre
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
 use vulkano::shader::EntryPoint;
 use vulkano::swapchain::{Surface, Swapchain};
+use vulkano::sync::Sharing;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 
@@ -81,7 +85,7 @@ pub fn get_render_pass(device: Arc<Device>, swapchain: Arc<Swapchain>) -> Arc<Re
     .unwrap()
 }
 
-pub fn create_framebuffers(
+pub fn create_geometry_framebuffers(
     memory_allocator: &Arc<StandardMemoryAllocator>,
     images: &Vec<Arc<Image>>,
     render_pass: &Arc<RenderPass>,
@@ -106,6 +110,63 @@ pub fn create_framebuffers(
         .iter()
         .map(|image| -> Arc<Framebuffer> {
             let view = ImageView::new_default(image.clone()).unwrap();
+            Framebuffer::new(
+                render_pass.clone(),
+                FramebufferCreateInfo {
+                    attachments: vec![view, depth_buffer.clone()],
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+        })
+        .collect::<Vec<_>>()
+}
+
+pub fn create_shadow_framebuffers(
+    memory_allocator: &Arc<StandardMemoryAllocator>,
+    images: &Vec<Arc<Image>>,
+    render_pass: &Arc<RenderPass>,
+) -> Vec<Arc<Framebuffer>> {
+    let depth_buffer = ImageView::new_default(
+        Image::new(
+            memory_allocator.clone(),
+            ImageCreateInfo {
+                image_type: ImageType::Dim2d,
+                format: Format::D32_SFLOAT,
+                extent: images[0].extent(),
+                usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT | ImageUsage::SAMPLED,
+                samples: SampleCount::Sample1,
+                sharing: Sharing::Exclusive,
+                initial_layout: ImageLayout::Undefined,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
+                ..Default::default()
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+
+    images
+        .iter()
+        .map(|image| -> Arc<Framebuffer> {
+            let view = ImageView::new(
+                image.clone(),
+                ImageViewCreateInfo {
+                    view_type: ImageViewType::Dim2d,
+                    format: Format::D32_SFLOAT,
+                    component_mapping: ComponentMapping::identity(),
+                    subresource_range: ImageSubresourceRange {
+                        aspects: ImageAspects::DEPTH,
+                        mip_levels: 0..1,
+                        array_layers: 0..1,
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
             Framebuffer::new(
                 render_pass.clone(),
                 FramebufferCreateInfo {

@@ -5,7 +5,7 @@ use crate::models::{
 };
 use crate::vulkan::primitives::{DrawNormal, DrawVertex};
 use glm::Vec3;
-use nalgebra::{UnitVector3, vector};
+use nalgebra::vector;
 use rapier3d::prelude::{
     ColliderBuilder, ColliderHandle, ColliderSet, RigidBodyBuilder, RigidBodyHandle, RigidBodySet,
 };
@@ -62,7 +62,7 @@ impl Scene {
         let floor_rb = RigidBodyBuilder::fixed()
             .translation(Vec3::new(0., -1., 0.))
             .build();
-        let floor_cb = ColliderBuilder::halfspace(UnitVector3::new_normalize(Vec3::y())).build();
+        let floor_cb = ColliderBuilder::cuboid(50., 0.5, 50.);
 
         let floor_rb_handle = rigid_body_set.insert(floor_rb);
         // Discard handle because it will not be referenced.

@@ -36,8 +36,8 @@ use crate::physics::scene::Scene;
 use crate::vulkan::primitives::create_pipeline;
 
 use super::camera::{self, CAMERA};
-use super::contexts::{PerformanceStats, RapierContext, RenderContext, SimulationFlags};
-use super::primitives::{create_framebuffers, get_required_extensions};
+use super::contexts::{PerformanceStats, Pipelines, RapierContext, RenderContext, SimulationFlags};
+use super::primitives::{create_geometry_framebuffers, get_required_extensions};
 
 pub const WINDOW_DIMENSION: Size = Size::Physical(winit::dpi::PhysicalSize {
     width: WINDOW_LENGTH as u32,
@@ -214,23 +214,31 @@ impl ApplicationHandler for App {
         )
         .unwrap();
 
-        let vs = vs::load(self.device.clone())
+        let geometry_vs = geometry_vs::load(self.device.clone())
             .unwrap()
             .entry_point("main")
             .unwrap();
-        let fs = fs::load(self.device.clone())
+        let geometry_fs = geometry_fs::load(self.device.clone())
             .unwrap()
             .entry_point("main")
             .unwrap();
 
-        let framebuffers = create_framebuffers(&self.memory_allocator, &images, &render_pass);
+        let framebuffers =
+            create_geometry_framebuffers(&self.memory_allocator, &images, &render_pass);
 
         let window_size = window.inner_size();
-        let pipeline = create_pipeline(
+        let geometry_pipeline = create_pipeline(
             self.device.clone(),
             window_size,
-            vs.clone(),
-            fs.clone(),
+            geometry_vs.clone(),
+            geometry_fs.clone(),
+            render_pass.clone(),
+        );
+        let shadow_map_pipeline = create_pipeline(
+            self.device.clone(),
+            window_size,
+            geometry_vs.clone(),
+            geometry_fs.clone(),
             render_pass.clone(),
         );
 
@@ -239,10 +247,13 @@ impl ApplicationHandler for App {
 
         self.render_cx = Some(RenderContext {
             window,
-            vs,
-            fs,
+            vs: geometry_vs,
+            fs: geometry_fs,
             render_pass,
-            pipeline,
+            pipelines: Pipelines {
+                object_geometry: geometry_pipeline,
+                shadow_map: shadow_map_pipeline,
+            },
             swapchain,
             framebuffers,
             fences,
@@ -344,9 +355,12 @@ impl ApplicationHandler for App {
                         .expect("failed to recreate swapchain: {e}");
 
                     rcx.swapchain = new_swapchain;
-                    rcx.framebuffers =
-                        create_framebuffers(&self.memory_allocator, &new_images, &rcx.render_pass);
-                    rcx.pipeline = create_pipeline(
+                    rcx.framebuffers = create_geometry_framebuffers(
+                        &self.memory_allocator,
+                        &new_images,
+                        &rcx.render_pass,
+                    );
+                    rcx.pipelines.object_geometry = create_pipeline(
                         self.device.clone(),
                         rcx.window.inner_size(),
                         rcx.vs.clone(),
@@ -386,7 +400,7 @@ impl ApplicationHandler for App {
                         glm::perspective_rh(aspect_ratio, glm::pi::<f32>() / 3., 0.1, 100.);
                     let model = Mat4::from_diagonal(&Vec4::new(1., 1., 1., 1.));
 
-                    let uniforms = vs::Data {
+                    let uniforms = geometry_vs::Data {
                         model: model.data.0,
                         view: view.data.0,
                         proj: projection.data.0,
@@ -412,7 +426,8 @@ impl ApplicationHandler for App {
                     self.device.clone(),
                     Default::default(),
                 ));
-                let descriptor_set_layout = rcx.pipeline.layout().set_layouts()[0].clone();
+                let descriptor_set_layout =
+                    rcx.pipelines.object_geometry.layout().set_layouts()[0].clone();
                 let descriptor_set = DescriptorSet::new(
                     descriptor_set_allocator,
                     descriptor_set_layout,
@@ -446,7 +461,7 @@ impl ApplicationHandler for App {
                         },
                     )
                     .unwrap()
-                    .bind_pipeline_graphics(rcx.pipeline.clone())
+                    .bind_pipeline_graphics(rcx.pipelines.object_geometry.clone())
                     .unwrap()
                     .bind_vertex_buffers(0, (vertex_buffer.clone(), normal_buffer.clone()))
                     .unwrap()
@@ -454,7 +469,7 @@ impl ApplicationHandler for App {
                     .unwrap()
                     .bind_descriptor_sets(
                         vulkano::pipeline::PipelineBindPoint::Graphics,
-                        rcx.pipeline.layout().clone(),
+                        rcx.pipelines.object_geometry.layout().clone(),
                         0,
                         descriptor_set.clone(),
                     )
@@ -527,16 +542,30 @@ impl ApplicationHandler for App {
     }
 }
 
-pub mod vs {
+pub mod geometry_vs {
     vulkano_shaders::shader! {
         ty: "vertex",
-        path: "src/vulkan/vert.glsl"
+        path: "src/vulkan/geometry.vert"
     }
 }
 
-pub mod fs {
+pub mod geometry_fs {
     vulkano_shaders::shader! {
         ty: "fragment",
-        path: "src/vulkan/frag.glsl"
+        path: "src/vulkan/geometry.frag"
+    }
+}
+
+pub mod shadow_vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        path: "src/vulkan/shadow.vert"
+    }
+}
+
+pub mod shadow_fs {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        path: "src/vulkan/shadow.frag"
     }
 }

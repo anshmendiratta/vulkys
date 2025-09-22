@@ -21,13 +21,19 @@ pub struct RenderContext {
     pub vs: EntryPoint,
     pub fs: EntryPoint,
     pub render_pass: Arc<RenderPass>,
-    pub pipeline: Arc<GraphicsPipeline>,
+    pub pipelines: Pipelines,
     pub swapchain: Arc<Swapchain>,
     pub framebuffers: Vec<Arc<Framebuffer>>,
     // Synchronization.
     pub fences: Vec<Option<Arc<FenceFuture>>>,
     pub frames_in_flight: usize,
     pub previous_fence_i: u32,
+}
+
+#[derive(Clone)]
+pub struct Pipelines {
+    pub object_geometry: Arc<GraphicsPipeline>,
+    pub shadow_map: Arc<GraphicsPipeline>,
 }
 
 pub struct RapierContext {
